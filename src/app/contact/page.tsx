@@ -54,7 +54,7 @@ export default function ContactPage() {
         subject: "",
         message: "",
       });
-    } catch (err) {
+    } catch {
       setError("Error sending message. Please try again later.");
     } finally {
       setIsSubmitting(false);

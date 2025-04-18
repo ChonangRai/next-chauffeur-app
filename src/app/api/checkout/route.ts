@@ -16,9 +16,8 @@ export async function POST(req: Request) {
           price_data: {
             currency: "gbp",
             product_data: {
-              name: `${bookingDetails.selectedCar} - ${
-                bookingDetails.isHireByHour ? "By Hour" : "One Way"
-              }`,
+              name: `${bookingDetails.selectedCar} - ${bookingDetails.isHireByHour ? "By Hour" : "One Way"
+                }`,
             },
             unit_amount: amount * 100,
           },
@@ -42,6 +41,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Stripe error:", error);
-    return NextResponse.json({ error: (error as any).message || "Unknown error" }, { status: 500 });
+
+    if (error instanceof Error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ error: "Unknown error" }, { status: 500 });
   }
 }

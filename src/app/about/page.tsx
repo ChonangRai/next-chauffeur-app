@@ -1,3 +1,4 @@
+import Image from "next/image"
 import Link from "next/link"
 
 export default function AboutPage() {
@@ -29,8 +30,10 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="rounded-lg overflow-hidden shadow-lg">
-              <img
-                src="/images/about.jpg?height=400&width=600"
+              <Image
+                src="/images/about.jpg0
+                height={128}
+                width={128}0"
                 alt="Our Company"
                 className="w-full h-full object-cover"
               />
@@ -124,8 +127,10 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center">
               <div className="rounded-full overflow-hidden w-32 h-32 mx-auto mb-4">
-                <img
-                  src="/images/user-avatar.png?height=128&width=128"
+                <Image
+                  src="/images/user-avatar.png"
+                  height={128}
+                  width={128}
                   alt="Team Member"
                   className="w-full h-full object-cover"
                 />
@@ -139,8 +144,10 @@ export default function AboutPage() {
             </div>
             <div className="text-center">
               <div className="rounded-full overflow-hidden w-32 h-32 mx-auto mb-4">
-                <img
-                  src="/images/user-avatar.png?height=128&width=128"
+                <Image
+                  src="/images/user-avatar.png"
+                  height={128}
+                  width={128}
                   alt="Team Member"
                   className="w-full h-full object-cover"
                 />
@@ -153,8 +160,10 @@ export default function AboutPage() {
             </div>
             <div className="text-center">
               <div className="rounded-full overflow-hidden w-32 h-32 mx-auto mb-4">
-                <img
-                  src="/images/user-avatar.png?height=128&width=128"
+                <Image
+                  src="/images/user-avatar.png"
+                  height={128}
+                  width={128}
                   alt="Team Member"
                   className="w-full h-full object-cover"
                 />
@@ -167,8 +176,10 @@ export default function AboutPage() {
             </div>
             <div className="text-center">
               <div className="rounded-full overflow-hidden w-32 h-32 mx-auto mb-4">
-                <img
-                  src="/images/user-avatar.png?height=128&width=128"
+                <Image
+                  src="/images/user-avatar.png"
+                  height={128}
+                  width={128}
                   alt="Team Member"
                   className="w-full h-full object-cover"
                 />
