@@ -1,13 +1,14 @@
 "use client"
 import Link from "next/link"
 import { PriceEstimator } from "@/components/price-estimator"
+import Image from "next/image"
 // import { Input } from "@/components/ui/input"
 // import { Label } from "@radix-ui/react-label"
-import { useState } from "react"
+// import { useState } from "react"
 // import { Button } from "@/components/ui/button"
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState("one-way");
+  // const [activeTab, setActiveTab] = useState("one-way");
   return (
     <main className="flex flex-col min-h-screen">
       <div className="relative h-[70vh] w-full">
@@ -123,9 +124,11 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
               <div className="h-48 bg-gray-300">
-                <img
-                  src="/images/airport-transfer.jpg?height=192&width=384"
+                <Image
+                  src="/images/airport-transfer.jpg"
                   alt="Airport Transfer"
+                  height={192}
+                  width={384}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -136,8 +139,10 @@ export default function Home() {
             </div>
             <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
               <div className="h-48 bg-gray-300">
-                <img
-                  src="/images/corporate-travel.jpg?height=192&width=384"
+                <Image
+                  src="/images/corporate-travel.jpg"
+                  height={192}
+                  width={384}
                   alt="Corporate Travel"
                   className="w-full h-full object-cover"
                 />
@@ -149,8 +154,10 @@ export default function Home() {
             </div>
             <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
               <div className="h-48 bg-gray-300">
-                <img
-                  src="/images/special-events.jpg?height=192&width=384"
+                <Image
+                  src="/images/special-events.jpg"
+                  height={192}
+                  width={384}
                   alt="Special Events"
                   className="w-full h-full object-cover"
                 />

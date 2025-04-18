@@ -1,10 +1,9 @@
 // components/fleet-carousel.tsx
 "use client"
 
-import { useState } from 'react'
 import Image from "next/image"
 import { Swiper, SwiperSlide } from 'swiper/react'
-import { Navigation, Pagination } from 'swiper/modules'
+import { Pagination } from 'swiper/modules'
 
 // Import Swiper styles
 import 'swiper/css'

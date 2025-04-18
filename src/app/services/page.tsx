@@ -1,6 +1,5 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Swiper, SwiperSlide } from "swiper/react"
 import { FleetCarousel } from "./fleetCarousel"
 
 // Sample car data - replace with your actual car images
@@ -174,8 +173,10 @@ export default function ServicesPage() {
 
             <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
               <div className="h-64 bg-gray-300">
-                <img
-                  src="/images/corporate-travel.jpg?height=256&width=512"
+                <Image
+                  src="/images/corporate-travel.jpg"
+                  width={512}
+                  height={256}
                   alt="Corporate Travel"
                   className="w-full h-full object-cover"
                 />
@@ -262,8 +263,10 @@ export default function ServicesPage() {
 
             <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
               <div className="h-64 bg-gray-300">
-                <img
-                  src="/images/special-events.jpg?height=256&width=512"
+                <Image
+                  src="/images/special-events.jpg"
+                  width={512}
+                  height={256}
                   alt="Special Events"
                   className="w-full h-full object-cover"
                 />

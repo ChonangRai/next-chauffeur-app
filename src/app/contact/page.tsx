@@ -1,65 +1,65 @@
-"use client"
-import { useState } from 'react'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Mail, Phone, MapPin, Clock } from "lucide-react"
+"use client";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Mail, Phone, MapPin, Clock } from "lucide-react";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: '',
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    subject: "",
+    message: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData((prevData) => ({
       ...prevData,
       [name]: value,
-    }))
-  }
+    }));
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setError('')
-    setSuccess('')
+  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
 
     try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
+      const response = await fetch("/api/contact", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to send the email')
+        throw new Error("Failed to send the email");
       }
 
-      setSuccess('Your message has been sent successfully!')
+      setSuccess("Your message has been sent successfully!");
       setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        subject: '',
-        message: '',
-      })
-    } catch (error) {
-      setError('Error sending message. Please try again later.')
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        subject: "",
+        message: "",
+      });
+    } catch (err) {
+      setError("Error sending message. Please try again later.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <main className="flex flex-col min-h-screen">
@@ -77,7 +77,7 @@ export default function ContactPage() {
             <div>
               <h2 className="text-3xl font-bold mb-6">Get in Touch</h2>
               <p className="text-muted-foreground mb-8">
-                We're here to answer any questions you may have about our chauffeur services. Reach out to us and we'll
+                We&apos;re here to answer any questions you may have about our chauffeur services. Reach out to us and we&apos;ll
                 respond as soon as we can.
               </p>
 
@@ -139,7 +139,7 @@ export default function ContactPage() {
               <h2 className="text-2xl font-bold mb-6">Send Us a Message</h2>
 
               {/* Form */}
-              <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label htmlFor="first-name" className="text-sm font-medium">
@@ -227,10 +227,10 @@ export default function ContactPage() {
                 </div>
 
                 {/* Submit Button */}
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? 'Sending...' : 'Send Message'}
+                <Button className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? "Sending..." : "Send Message"}
                 </Button>
-              </form>
+              </div>
 
               {/* Display Success or Error */}
               {success && <p className="text-green-600 mt-4">{success}</p>}
@@ -252,5 +252,5 @@ export default function ContactPage() {
         </div>
       </section>
     </main>
-  )
+  );
 }
