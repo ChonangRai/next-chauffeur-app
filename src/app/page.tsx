@@ -1,103 +1,289 @@
-import Image from "next/image";
+"use client"
+import Link from "next/link"
+import { PriceEstimator } from "@/components/price-estimator"
+// import { Input } from "@/components/ui/input"
+// import { Label } from "@radix-ui/react-label"
+import { useState } from "react"
+// import { Button } from "@/components/ui/button"
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState("one-way");
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="flex flex-col min-h-screen">
+      <div className="relative h-[70vh] w-full">
+        <video autoPlay muted loop className="absolute inset-0 w-full h-full object-cover">
+          <source src="/videos/luxury-car.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <div className="absolute inset-0 bg-black/10" />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="relative z-10 container mx-auto px-4 h-full flex items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+            {/* Left Side - Text and Button */}
+            <div className="flex flex-col justify-center text-white">
+              <h1 className="text-4xl md:text-6xl font-bold mb-4">Premium Chauffeur Services</h1>
+              <p className="text-xl md:text-2xl mb-8 max-w-xl">
+                Experience luxury transportation with our professional chauffeur services
+              </p>
+              <Link
+                href="#estimate"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-md text-lg font-medium transition-colors w-fit"
+              >
+                Get a Quote
+              </Link>
+            </div>
+
+            {/* Right Side - Form */}
+            <div className="flex items-center justify-center">
+              {/* <form className="bg-white/90 p-6 rounded-lg shadow-lg w-full max-w-md">
+                <div className="flex mb-4">
+                  <Button
+                    type="button"
+                    className={`px-8 py-2 font-semibold ${activeTab === "one-way" ? "bg-primary text-white" : "bg-gray-200 text-primary"}`}
+                    onClick={() => setActiveTab("one-way")}
+                  >
+                    One Way
+                  </Button>
+                  <Button
+                    type="button"
+                    className={`px-8 py-2 font-semibold ${activeTab === "by-hour" ? "bg-primary text-white" : "bg-gray-200 text-primary"}`}
+                    onClick={() => setActiveTab("by-hour")}
+                  >
+                    By the Hour
+                  </Button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-gray-800">Journey Start</Label>
+                    <Input
+                      type="text"
+                      placeholder="Pickup Location"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  {activeTab === "one-way" ? (
+                    <div>
+                      <Label className="text-gray-800">Destination</Label>
+                      <Input
+                        type="text"
+                        placeholder="Drop-off Location"
+                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <Label className="text-gray-800">Duration</Label>
+                      <div className="flex space-x-2">
+                        <Input
+                          type="number"
+                          placeholder="Number"
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <select
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="hours">Hours</option>
+                          <option value="days">Days</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-gray-800">Journey Date</Label>
+                    <Input
+                      type="datetime-local"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md font-medium transition-colors"
+                  >
+                    Request Quote
+                  </button>
+                </div>
+              </form> */}
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+      </div>
+
+      <section id="estimate" className="py-16 bg-muted">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Estimate Your Journey</h2>
+          <div className="max-w-3xl mx-auto">
+            <PriceEstimator />
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Our Premium Services</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
+              <div className="h-48 bg-gray-300">
+                <img
+                  src="/images/airport-transfer.jpg?height=192&width=384"
+                  alt="Airport Transfer"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold mb-2">Airport Transfers</h3>
+                <p className="text-muted-foreground">Reliable and punctual airport pickup and drop-off services.</p>
+              </div>
+            </div>
+            <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
+              <div className="h-48 bg-gray-300">
+                <img
+                  src="/images/corporate-travel.jpg?height=192&width=384"
+                  alt="Corporate Travel"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold mb-2">Corporate Travel</h3>
+                <p className="text-muted-foreground">Professional chauffeur services for business executives.</p>
+              </div>
+            </div>
+            <div className="bg-muted rounded-lg overflow-hidden shadow-lg">
+              <div className="h-48 bg-gray-300">
+                <img
+                  src="/images/special-events.jpg?height=192&width=384"
+                  alt="Special Events"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold mb-2">Special Events</h3>
+                <p className="text-muted-foreground">Luxury transportation for weddings and special occasions.</p>
+              </div>
+            </div>
+          </div>
+          <div className="text-center mt-12">
+            <Link
+              href="/services"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-md font-medium transition-colors"
+            >
+              View All Services
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-muted">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Why Choose Us</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-primary/50 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-clock"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Punctuality</h3>
+              <p className="text-muted-foreground">Always on time, every time.</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-500 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-shield-check"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Safety</h3>
+              <p className="text-muted-foreground">Professional drivers with impeccable safety records.</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-black text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-car"
+                >
+                  <path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2" />
+                  <circle cx="6.5" cy="16.5" r="2.5" />
+                  <circle cx="16.5" cy="16.5" r="2.5" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Luxury Fleet</h3>
+              <p className="text-muted-foreground">Premium vehicles maintained to the highest standards.</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-amber-300 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-headphones"
+                >
+                  <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">24/7 Support</h3>
+              <p className="text-muted-foreground">Round-the-clock customer service for your convenience.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8">Ready to Experience Premium Transportation?</h2>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/contact"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-md text-lg font-medium transition-colors"
+            >
+              Contact Us
+            </Link>
+            <Link
+              href="#estimate"
+              className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-8 py-3 rounded-md text-lg font-medium transition-colors"
+            >
+              Get a Quote
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
 }
