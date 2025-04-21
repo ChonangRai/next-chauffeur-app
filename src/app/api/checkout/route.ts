@@ -34,8 +34,8 @@ export async function POST(req: Request) {
         dateTime: bookingDetails.dateTime,
         selectedCar: bookingDetails.selectedCar,
       },
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking`,
+      success_url: `/booking/success`,
+      cancel_url: `/booking`,
     });
 
     return NextResponse.json({ url: session.url });

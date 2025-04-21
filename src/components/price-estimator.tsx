@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,13 +41,13 @@ export function PriceEstimator() {
     setFormChanged(false); // Reset formChanged after calculating
   };
 
-  const handleFieldChange = () => {
+  const handleFieldChange = useCallback(() => {
     if (showEstimate) {
-      setShowEstimate(false); // Hide estimate if fields change
+      setShowEstimate(false);
       setEstimatedPrice("£0.00");
-      setFormChanged(true); // Indicate form has changed
+      setFormChanged(true);
     }
-  };
+  }, [showEstimate]);
 
   const handleDateDone = () => {
     if (!date) {
@@ -68,7 +68,7 @@ export function PriceEstimator() {
   // Reset estimate when any field changes
   useEffect(() => {
     handleFieldChange();
-  }, [pickup, destination, vehicle, passengers, date, hour, minute, period]);
+  }, [pickup, destination, vehicle, passengers, date, hour, minute, period, handleFieldChange]);
 
   return (
     <Card className="w-full">
