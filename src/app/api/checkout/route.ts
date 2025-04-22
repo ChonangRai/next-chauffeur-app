@@ -7,14 +7,18 @@ export async function POST(req: Request) {
   try {
     const { bookingDetails, amount } = await req.json();
 
-    console.log("Request body:", { bookingDetails, amount });
-
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new Error("STRIPE_SECRET_KEY is not defined");
     }
     if (!process.env.NEXT_PUBLIC_BASE_URL) {
       throw new Error("NEXT_PUBLIC_BASE_URL is not defined");
     }
+
+    // Log environment variables (safe to keep)
+    console.log("Environment variables:", {
+      STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? "Set" : "Not set",
+      NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
+    });
 
     if (!bookingDetails || !amount) {
       return NextResponse.json(
@@ -69,16 +73,18 @@ export async function POST(req: Request) {
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking`,
     };
 
-    console.log("Stripe params:", stripeParams);
-
     const session = await stripe.checkout.sessions.create(stripeParams);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
+    // Keep error logging for debugging
     console.error("Stripe error:", {
       message: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return NextResponse.json({ error: "Failed to process payment" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to process payment" },
+      { status: 500 }
+    );
   }
 }
