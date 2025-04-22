@@ -1,13 +1,14 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! )
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
   try {
     const { bookingDetails, amount } = await req.json();
 
-    // Validate environment variables
+    console.log("Request body:", { bookingDetails, amount });
+
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new Error("STRIPE_SECRET_KEY is not defined");
     }
@@ -15,7 +16,6 @@ export async function POST(req: Request) {
       throw new Error("NEXT_PUBLIC_BASE_URL is not defined");
     }
 
-    // Validate request data
     if (!bookingDetails || !amount) {
       return NextResponse.json(
         { error: "Missing bookingDetails or amount" },
@@ -38,8 +38,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const stripeParams: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ["card"],
       mode: "payment",
       line_items: [
@@ -51,31 +50,35 @@ export async function POST(req: Request) {
                 bookingDetails.isHireByHour ? "By Hour" : "One Way"
               }`,
             },
-            unit_amount: Math.round(amount * 100), // Ensure integer
+            unit_amount: Math.round(amount * 100),
           },
           quantity: 1,
         },
       ],
       metadata: {
-        fullName: bookingDetails.fullName,
-        email: bookingDetails.email,
-        phone: bookingDetails.phone,
-        pickup: bookingDetails.pickupLocation,
-        dropoff: bookingDetails.dropoffLocation || "N/A",
-        additionalRequests: bookingDetails.additionalRequests || "None",
-        dateTime: bookingDetails.dateTime,
-        selectedCar: bookingDetails.selectedCar,
+        fullName: String(bookingDetails.fullName),
+        email: String(bookingDetails.email),
+        phone: String(bookingDetails.phone || "N/A"),
+        pickup: String(bookingDetails.pickupLocation),
+        dropoff: String(bookingDetails.dropoffLocation || "N/A"),
+        additionalRequests: String(bookingDetails.additionalRequests || "None"),
+        dateTime: String(bookingDetails.dateTime),
+        selectedCar: String(bookingDetails.selectedCar),
       },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/success`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking`,
-    });
+    };
+
+    console.log("Stripe params:", stripeParams);
+
+    const session = await stripe.checkout.sessions.create(stripeParams);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Stripe error:", error);
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json({ error: "Unknown error" }, { status: 500 });
+    console.error("Stripe error:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    return NextResponse.json({ error: "Failed to process payment" }, { status: 500 });
   }
 }
