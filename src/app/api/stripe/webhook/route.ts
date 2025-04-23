@@ -1,86 +1,73 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+// Stripe webhook secret (set this in Vercel environment variables after creating the webhook in Stripe)
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
 export async function POST(req: Request) {
+  try {
     const body = await req.text();
-    const sig = req.headers.get("stripe-signature")!;
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+    const signature = req.headers.get("stripe-signature");
 
-    let event: Stripe.Event;
-
-    try {
-        event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
-    } catch (err) {
-        console.error("Webhook signature verification failed.", err);
-        return new NextResponse("Webhook error", { status: 400 });
+    if (!signature) {
+      return NextResponse.json(
+        { error: "Missing Stripe signature" },
+        { status: 400 }
+      );
     }
 
+    // Verify the webhook signature
+    const event = stripe.webhooks.constructEvent(
+      body,
+      signature,
+      webhookSecret
+    );
+
+    // Handle the checkout.session.completed event
     if (event.type === "checkout.session.completed") {
-        const session = event.data.object as Stripe.Checkout.Session;
+      const session = event.data.object as Stripe.Checkout.Session;
 
-        const booking = {
-            full_name: session.metadata?.fullName,
-            email: session.metadata?.email,
-            phone: session.metadata?.phone,
-            pickup_location: session.metadata?.pickup,
-            dropoff_location: session.metadata?.dropoff,
-            additional_requests: session.metadata?.additionalRequests,
-            date_time: session.metadata?.dateTime,
-            selected_car: session.metadata?.selectedCar,
-            is_paid: true,
-        };
+      // Get the booking ID from the session metadata
+      const bookingId = session.metadata?.booking_id;
 
-        console.log("🔔 Stripe session:", session);
-        console.log("📦 Booking object:", booking);
-        console.log("🔔 Stripe session:", session);
-        console.log("📦 Booking object:", booking);
+      if (!bookingId) {
+        console.error("Booking ID not found in session metadata");
+        return NextResponse.json(
+          { error: "Booking ID not found" },
+          { status: 400 }
+        );
+      }
 
-        // Insert into bookings table
-        const { error: bookingError } = await supabase.from("bookings").insert([booking]);
+      // Update the booking status to "confirmed"
+      const { error } = await supabaseAdmin
+        .from("bookings")
+        .update({ status: "confirmed" })
+        .eq("id", bookingId)
+        .eq("stripe_session_id", session.id);
 
+      if (error) {
+        console.error("Supabase update error:", error);
+        return NextResponse.json(
+          { error: "Failed to update booking status" },
+          { status: 500 }
+        );
+      }
 
-        if (bookingError) {
-            console.error("Failed to insert booking:", bookingError.message);
-            return new NextResponse("Supabase insert failed", { status: 500 });
-        }
-
-        console.log("✅ Booking recorded:", booking);
-        console.log("🔔 Stripe session:", session);
-
-
-        // Fetch vehicle_id based on selected_car
-        const { data: vehicle, error: vehicleError } = await supabase
-            .from("vehicles")
-            .select("id")
-            .eq("name", booking.selected_car)
-            .single();
-
-        if (vehicleError || !vehicle) {
-            console.error("Vehicle not found:", vehicleError?.message);
-            return new NextResponse("Vehicle not found", { status: 500 });
-        }
-
-        // Insert into vehicle_availability
-        const availability = {
-            vehicle_id: vehicle.id,
-            start_time: booking.date_time, // assuming start_time is same as date_time
-            end_time: booking.date_time,   // adjust if necessary
-        };
-
-        const { error: availabilityError } = await supabase
-            .from("vehicle_availability")
-            .insert([availability]);
-
-        if (availabilityError) {
-            console.error("Failed to insert vehicle availability:", availabilityError.message);
-            return new NextResponse("Availability insert failed", { status: 500 });
-        }
-
-        console.log("✅ Vehicle availability recorded:", availability);
+      console.log(`Booking ${bookingId} confirmed`);
     }
 
-    return new NextResponse("OK", { status: 200 });
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    console.error("Webhook error:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    return NextResponse.json(
+      { error: "Webhook error" },
+      { status: 400 }
+    );
+  }
 }

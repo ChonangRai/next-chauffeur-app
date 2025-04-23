@@ -23,6 +23,7 @@ type BookingDetails = {
   phone: string;
   additionalRequests: string;
   isHireByHour: boolean;
+  contactConsent: boolean;
 };
 
 export default function BookingPage() {
@@ -44,7 +45,15 @@ export default function BookingPage() {
     phone: "",
     additionalRequests: "",
     isHireByHour: false,
+    contactConsent: false,
   });
+
+  // Get the current date and time for the min attribute (in the format required by datetime-local)
+  const now = new Date();
+  const minDateTime = new Date(now.getTime() + 5 * 60 * 1000); // Add 5 minutes buffer
+  const minDateTimeString = minDateTime
+    .toISOString()
+    .slice(0, 16); // Format as YYYY-MM-DDTHH:mm
 
   useEffect(() => {
     const savedDetails = localStorage.getItem("bookingDetails");
@@ -53,6 +62,7 @@ export default function BookingPage() {
       setBookingDetails(parsedDetails);
       setIsHireByHour(parsedDetails.isHireByHour);
       setShowCars(true);
+      setFormErrors({});
     }
   }, []);
 
@@ -73,15 +83,18 @@ export default function BookingPage() {
   const validateForm = () => {
     const errors: Record<string, string> = {};
     const now = new Date();
+    const bufferTime = new Date(now.getTime() + 5 * 60 * 1000); // Add 5 minutes buffer
 
     if (!bookingDetails.pickupLocation)
       errors.pickupLocation = "Pickup location is required";
     if (!isHireByHour && !bookingDetails.dropoffLocation)
       errors.dropoffLocation = "Drop-off location is required";
+    if (isHireByHour && bookingDetails.duration < 1)
+      errors.duration = "Duration must be at least 1";
     if (!bookingDetails.dateTime)
       errors.dateTime = "Date and time is required";
-    else if (new Date(bookingDetails.dateTime) < now)
-      errors.dateTime = "Date/time cannot be in the past";
+    else if (new Date(bookingDetails.dateTime) < bufferTime)
+      errors.dateTime = "Date/time must be at least 5 minutes in the future";
     if (!bookingDetails.fullName) errors.fullName = "Full name is required";
     if (!bookingDetails.email) errors.email = "Email is required";
     if (!bookingDetails.phone) errors.phone = "Phone is required";
@@ -93,11 +106,7 @@ export default function BookingPage() {
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      const detailsWithHireType = {
-        ...bookingDetails,
-        isHireByHour,
-      };
-      localStorage.setItem("bookingDetails", JSON.stringify(detailsWithHireType));
+      localStorage.setItem("bookingDetails", JSON.stringify(bookingDetails));
       setShowCars(true);
     }
   };
@@ -108,6 +117,20 @@ export default function BookingPage() {
     setSelectedCar(null);
     setFormErrors({});
     setPaymentError(null);
+    setBookingDetails({
+      pickupLocation: "",
+      dropoffLocation: "",
+      duration: 1,
+      durationUnit: "hours",
+      dateTime: "",
+      fullName: "",
+      email: "",
+      phone: "",
+      additionalRequests: "",
+      isHireByHour: false,
+      contactConsent: false,
+    });
+    setIsHireByHour(false);
   };
 
   const handlePayment = async () => {
@@ -128,6 +151,18 @@ export default function BookingPage() {
         ? price * bookingDetails.duration * hoursMultiplier
         : price;
 
+      // Log the data being sent to /api/checkout
+      console.log("Sending to /api/checkout:", {
+        bookingDetails: {
+          ...bookingDetails,
+          selectedCar:
+            selectedCar === "e-class"
+              ? "Mercedes-Benz E-Class"
+              : "Mercedes-Benz S-Class",
+        },
+        amount,
+      });
+
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,8 +171,8 @@ export default function BookingPage() {
             ...bookingDetails,
             selectedCar:
               selectedCar === "e-class"
-                ? "Mercedes-Benz E-Class"
-                : "Mercedes-Benz S-Class",
+              ? "Mercedes-Benz E-Class"
+              : "Mercedes-Benz S-Class",
           },
           amount,
         }),
@@ -173,7 +208,14 @@ export default function BookingPage() {
                 <div className="flex gap-4 mb-6">
                   <Button
                     variant={isHireByHour ? "outline" : "default"}
-                    onClick={() => setIsHireByHour(false)}
+                    onClick={() => {
+                      setIsHireByHour(false);
+                      setBookingDetails((prev) => ({
+                        ...prev,
+                        isHireByHour: false,
+                        dropoffLocation: prev.dropoffLocation || "",
+                      }));
+                    }}
                     className="w-1/2"
                     type="button"
                   >
@@ -181,7 +223,14 @@ export default function BookingPage() {
                   </Button>
                   <Button
                     variant={isHireByHour ? "default" : "outline"}
-                    onClick={() => setIsHireByHour(true)}
+                    onClick={() => {
+                      setIsHireByHour(true);
+                      setBookingDetails((prev) => ({
+                        ...prev,
+                        isHireByHour: true,
+                        dropoffLocation: "",
+                      }));
+                    }}
                     className="w-1/2"
                     type="button"
                   >
@@ -239,6 +288,9 @@ export default function BookingPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                      {formErrors.duration && (
+                        <p className="text-red-500 text-sm">{formErrors.duration}</p>
+                      )}
                     </>
                   ) : (
                     <>
@@ -269,6 +321,7 @@ export default function BookingPage() {
                     value={bookingDetails.dateTime}
                     onChange={handleInputChange}
                     required
+                    min={minDateTimeString} // Prevent selecting past dates
                   />
                   {formErrors.dateTime && (
                     <p className="text-red-500 text-sm">{formErrors.dateTime}</p>
@@ -331,6 +384,25 @@ export default function BookingPage() {
                     value={bookingDetails.additionalRequests}
                     onChange={handleInputChange}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={bookingDetails.contactConsent}
+                      onChange={(e) =>
+                        setBookingDetails((prev) => ({
+                          ...prev,
+                          contactConsent: e.target.checked,
+                        }))
+                      }
+                      className="mr-2"
+                    />
+                    <span className="text-sm">
+                      I agree to be contacted if there are issues with my booking.
+                    </span>
+                  </label>
                 </div>
 
                 <Button type="submit" className="w-full">
