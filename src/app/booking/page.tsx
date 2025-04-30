@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import CarServiceCard from "@/components/car/car";
+import CarServiceCard from "@/components/vehicle/vehicle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
