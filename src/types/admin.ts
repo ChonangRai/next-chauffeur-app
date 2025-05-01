@@ -1,4 +1,6 @@
-export type Car = {
+export type DriverStatus = "unassigned" | "assigned" | "completed";
+
+export type Vehicle = {
   id: string;
   title: string;
   name: string;
@@ -10,13 +12,14 @@ export type Car = {
   drinks: boolean;
   waiting_time: string;
   base_price: number;
-  price_per_hour:number,
-  image_url?: string; 
+  price_per_hour: number;
+  image_url?: string;
   created_at?: string;
 };
 
 export type Booking = {
   id: string;
+  booking_ref: string;
   created_at: string;
   full_name: string;
   email: string;
@@ -25,14 +28,16 @@ export type Booking = {
   dropoff_location: string | null;
   additional_requests: string | null;
   date_time: string;
-  selected_car: string;
+  selected_vehicle: string;
   amount: number;
   status: string;
   is_hire_by_hour: boolean;
+  contact_consent: boolean;
   duration: number | null;
   duration_unit: string | null;
   driver_id: string | null;
-  driver_status: string;
+  driver_status: DriverStatus;
+  stripe_session_id?: string;
 };
 
 export type Driver = {

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { Car, Booking, Driver, DriverPayment } from "@/types/admin";
+import { Vehicle, Booking, Driver, DriverPayment, DriverStatus } from "@/types/admin";
 
 type FetchResult<T> = {
   data: T[] | null;
@@ -7,41 +7,43 @@ type FetchResult<T> = {
   isLoading: boolean;
 };
 
-export const fetchCars = async (): Promise<FetchResult<Car>> => {
+export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
   let isLoading = true;
   try {
     const { data, error } = await supabaseAdmin.from("vehicles").select("*").order("base_price", { ascending: true });
     if (error) throw new Error(error.message);
     isLoading = false;
-    // Normalize the data to ensure no undefined values
-    const normalizedData = data?.map((car) => ({
-      id: car.id,
-      title: car.title || "",
-      name: car.name || "",
-      description: car.description || "",
-      passengers: car.passengers || 1,
-      bags: car.bags || 0,
-      wifi: car.wifi ?? false,
-      meet_greet: car.meet_greet ?? false,
-      drinks: car.drinks ?? false,
-      waiting_time: car.waiting_time || "",
-      base_price: car.base_price || 0,
-      created_at: car.created_at,
-      price_per_hour:car.price_per_hour || 0,
-      image_url:car.image_url || ""
-    })) || [];
+    const normalizedData = data?.map((vehicle) => {
+      const normalizedVehicle = {
+        id: vehicle.id,
+        title: vehicle.title || "",
+        name: vehicle.name || "",
+        description: vehicle.description || "",
+        passengers: vehicle.passengers || 1,
+        bags: vehicle.bags || 0,
+        wifi: vehicle.wifi ?? false,
+        meet_greet: vehicle.meet_greet ?? false,
+        drinks: vehicle.drinks ?? false,
+        waiting_time: vehicle.waiting_time || "",
+        base_price: vehicle.base_price || 0,
+        price_per_hour: vehicle.price_per_hour || 0,
+        image_url: vehicle.image_url || "",
+        created_at: vehicle.created_at,
+    
+      };
+      console.log("Fetched vehicle:", normalizedVehicle);
+      return normalizedVehicle;
+    }) || [];
     return { data: normalizedData, error: null, isLoading };
   } catch (err: any) {
-    console.error("Error fetching cars:", err);
+    console.error("Error fetching vehicles:", err);
     isLoading = false;
-    const errorMessage = err.message.includes("relation \"public.cars\" does not exist")
-      ? "The 'cars' table does not exist in the database. Please create it."
-      : "Failed to load cars. Please try again.";
+    const errorMessage = err.message.includes("relation \"public.vehicles\" does not exist")
+      ? "The 'vehicles' table does not exist in the database. Please create it."
+      : "Failed to load vehicles. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };
-
-// ... (rest of the file remains unchanged)
 
 export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
   let isLoading = true;
@@ -49,7 +51,33 @@ export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
     const { data, error } = await supabaseAdmin.from("bookings").select("*").order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     isLoading = false;
-    return { data: data || [], error: null, isLoading };
+    const normalizedData = data?.map((booking) => {
+      const validDriverStatus: DriverStatus = ["unassigned", "assigned", "completed"].includes(booking.driver_status)
+        ? booking.driver_status as DriverStatus
+        : "unassigned";
+      return {
+        id: booking.id,
+        booking_ref: booking.booking_ref || new Date(booking.created_at).toISOString().replace(/[-:T.Z]/g, "").slice(0, 14),
+        created_at: booking.created_at,
+        full_name: booking.full_name || "",
+        email: booking.email || "",
+        phone: booking.phone || null,
+        pickup_location: booking.pickup_location || "",
+        dropoff_location: booking.dropoff_location || null,
+        additional_requests: booking.additional_requests || null,
+        date_time: booking.date_time || "",
+        selected_vehicle: booking.selected_vehicle || "",
+        amount: booking.amount || 0,
+        status: booking.status || "pending",
+        is_hire_by_hour: booking.is_hire_by_hour ?? false,
+        duration: booking.duration || null,
+        duration_unit: booking.duration_unit || null,
+        driver_id: booking.driver_id || null,
+        driver_status: validDriverStatus,
+        contact_consent:booking.contact_consent,
+      };
+    }) || [];
+    return { data: normalizedData, error: null, isLoading };
   } catch (err: any) {
     console.error("Error fetching bookings:", err);
     isLoading = false;

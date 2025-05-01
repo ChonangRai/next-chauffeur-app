@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { FaUsers, FaSuitcase, FaWifi, FaHandshake, FaClock, FaGlassCheers } from "react-icons/fa";
 
-type CarServiceCardProps = {
+type VehicleServiceCardProps = {
   title: string;
   name: string;
   description: string;
@@ -16,7 +16,7 @@ type CarServiceCardProps = {
   onSelect?: () => void;
 };
 
-const CarServiceCard = ({
+const VehicleServiceCard = ({
   title,
   name,
   description,
@@ -29,7 +29,7 @@ const CarServiceCard = ({
   price,
   selected = false,
   onSelect
-}: CarServiceCardProps) => {
+}: VehicleServiceCardProps) => {
   return (
     <div 
       className={`flex flex-col md:flex-row bg-white p-4 border rounded-lg w-full mx-auto transition-all ${
@@ -113,4 +113,4 @@ const CarServiceCard = ({
   );
 };
 
-export default CarServiceCard;
+export default VehicleServiceCard;

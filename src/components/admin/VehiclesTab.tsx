@@ -5,22 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Car } from "@/types/admin";
+import { Vehicle } from "@/types/admin";
 import { Label } from "../ui/label";
 import Image from "next/image";
 
-type CarsTabProps = {
-  cars: Car[];
-  isLoadingCars: boolean;
-  carError: string | null;
-  fetchCars: () => Promise<void>;
+type VehiclesTabProps = {
+  vehicles: Vehicle[];
+  isLoadingVehicles: boolean;
+  vehicleError: string | null;
+  fetchVehicles: () => Promise<void>;
 };
 
-export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: CarsTabProps) {
-  const [showAddCarModal, setShowAddCarModal] = useState(false);
-  const [showEditCarModal, setShowEditCarModal] = useState(false);
-  const [editingCar, setEditingCar] = useState<Car | null>(null);
-  const [newCar, setNewCar] = useState({
+export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError, fetchVehicles }: VehiclesTabProps) {
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
+  const [showEditVehicleModal, setShowEditVehicleModal] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [newVehicle, setNewVehicle] = useState({
     title: "",
     name: "",
     description: "",
@@ -34,29 +34,12 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
     price_per_hour: 0,
     image_url: "",
   });
-  const [newCarImage, setNewCarImage] = useState<File | null>(null);
-  const [editCarImage, setEditCarImage] = useState<File | null>(null);
+  const [newVehicleImage, setNewVehicleImage] = useState<File | null>(null);
+  const [editVehicleImage, setEditVehicleImage] = useState<File | null>(null);
 
-  const validateCarData = (car: {
-    title: string;
-    name: string;
-    passengers: number;
-    bags: number;
-    waiting_time: string;
-    base_price: number;
-  }) => {
-    return (
-      car.title &&
-      car.name &&
-      car.passengers > 0 &&
-      car.bags >= 0 &&
-      car.waiting_time &&
-      car.base_price > 0
-    );
-  };
 
-  const resetNewCarForm = () => {
-    setNewCar({
+  const resetNewVehicleForm = () => {
+    setNewVehicle({
       title: "",
       name: "",
       description: "",
@@ -70,7 +53,7 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
       price_per_hour: 0,
       image_url: "",
     });
-    setNewCarImage(null);
+    setNewVehicleImage(null);
   };
 
   // Common modal footer component
@@ -85,19 +68,19 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
     </div>
   );
 
-  const handleAddCar = async () => {
-    const passengers = parseInt(newCar.passengers);
-    const bags = parseInt(newCar.bags);
+  const handleAddVehicle = async () => {
+    const passengers = parseInt(newVehicle.passengers);
+    const bags = parseInt(newVehicle.bags);
 
     if (
-      !newCar.title ||
-      !newCar.name ||
+      !newVehicle.title ||
+      !newVehicle.name ||
       isNaN(passengers) ||
       passengers <= 0 ||
       isNaN(bags) ||
       bags < 0 ||
-      !newCar.waiting_time ||
-      newCar.base_price <= 0
+      !newVehicle.waiting_time ||
+      newVehicle.base_price <= 0
     ) {
       alert("Please fill in all required fields correctly.");
       return;
@@ -105,12 +88,12 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
 
     try {
       let imageUrl = "";
-      if (newCarImage) {
-        const fileExt = newCarImage.name.split(".").pop();
+      if (newVehicleImage) {
+        const fileExt = newVehicleImage.name.split(".").pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabaseAdmin.storage
           .from("vehicles")
-          .upload(fileName, newCarImage);
+          .upload(fileName, newVehicleImage);
 
         if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
 
@@ -122,19 +105,19 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
       }
 
       const vehicleData = {
-        ...newCar,
+        ...newVehicle,
         passengers,
         bags,
         image_url: imageUrl || null,
-        price_per_hour: newCar.price_per_hour || 0,
+        price_per_hour: newVehicle.price_per_hour || 0,
         created_at: new Date().toISOString()
       };
 
       const { error } = await supabaseAdmin.from("vehicles").insert(vehicleData);
       if (error) throw new Error(error.message);
 
-      setShowAddCarModal(false);
-      setNewCar({
+      setShowAddVehicleModal(false);
+      setNewVehicle({
         title: "",
         name: "",
         description: "",
@@ -148,8 +131,8 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
         base_price: 0,
         image_url: "",
       });
-      setNewCarImage(null);
-      await fetchCars();
+      setNewVehicleImage(null);
+      await fetchVehicles();
       alert("Vehicle added successfully!");
     } catch (err: any) {
       console.error("Error adding vehicle:", err.message);
@@ -158,36 +141,36 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
   };
 
 
-  const handleEditCar = async () => {
-    if (!editingCar) {
+  const handleEditVehicle = async () => {
+    if (!editingVehicle) {
       alert("No vehicle selected for editing.");
       return;
     }
 
     if (
-      !editingCar.title ||
-      !editingCar.name ||
-      editingCar.passengers < 1 ||
-      editingCar.bags < 0 ||
-      !editingCar.waiting_time ||
-      editingCar.base_price <= 0
+      !editingVehicle.title ||
+      !editingVehicle.name ||
+      editingVehicle.passengers < 1 ||
+      editingVehicle.bags < 0 ||
+      !editingVehicle.waiting_time ||
+      editingVehicle.base_price <= 0
     ) {
       alert("Please fill in all required fields correctly.");
       return;
     }
 
     try {
-      let imageUrl = editingCar.image_url || "";
+      let imageUrl = editingVehicle.image_url || "";
 
       // Handle image upload if a new image was selected
-      if (editCarImage) {
-        const fileExt = editCarImage.name.split(".").pop();
+      if (editVehicleImage) {
+        const fileExt = editVehicleImage.name.split(".").pop();
         const fileName = `${Date.now()}.${fileExt}`;
 
         // Upload new image to storage
         const { error: uploadError } = await supabaseAdmin.storage
           .from("vehicles")
-          .upload(fileName, editCarImage);
+          .upload(fileName, editVehicleImage);
 
         if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
 
@@ -200,7 +183,7 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
       }
 
       // Prepare update data (excluding internal fields)
-      const { id, created_at, ...updateData } = editingCar;
+      const { id, created_at, ...updateData } = editingVehicle;
       const vehicleData = {
         ...updateData,
         image_url: imageUrl || null
@@ -215,10 +198,10 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
       if (error) throw new Error(error.message);
 
       // Reset state and refresh the list
-      setShowEditCarModal(false);
-      setEditingCar(null);
-      setEditCarImage(null);
-      await fetchCars();
+      setShowEditVehicleModal(false);
+      setEditingVehicle(null);
+      setEditVehicleImage(null);
+      await fetchVehicles();
 
       alert("Vehicle updated successfully!");
     } catch (err: any) {
@@ -227,7 +210,7 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
     }
   };
 
-  const handleDeleteCar = async (carId: string) => {
+  const handleDeleteVehicle = async (vehicleId: string) => {
     // Confirm deletion with user
     if (!window.confirm("Are you sure you want to delete this vehicle? This action cannot be undone.")) {
       return;
@@ -235,8 +218,8 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
 
     try {
       // First attempt to delete any associated image from storage
-      if (cars.find(car => car.id === carId)?.image_url) {
-        const imagePath = cars.find(car => car.id === carId)?.image_url?.split('/').pop();
+      if (vehicles.find(vehicle => vehicle.id === vehicleId)?.image_url) {
+        const imagePath = vehicles.find(vehicle => vehicle.id === vehicleId)?.image_url?.split('/').pop();
         if (imagePath) {
           const { error: storageError } = await supabaseAdmin.storage
             .from("vehicles")
@@ -253,14 +236,14 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
       const { error: deleteError } = await supabaseAdmin
         .from("vehicles")
         .delete()
-        .eq("id", carId);
+        .eq("id", vehicleId);
 
       if (deleteError) {
         throw new Error(`Database deletion failed: ${deleteError.message}`);
       }
 
       // Refresh the vehicle list
-      await fetchCars();
+      await fetchVehicles();
 
       // Optional: Show toast notification instead of alert
       alert("Vehicle deleted successfully!");
@@ -270,28 +253,28 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
     }
   };
 
-  const handleEditClick = (car: Car) => {
-    setEditingCar({
-      ...car,
-      title: car.title || "",
-      name: car.name || "",
-      description: car.description || "",
-      passengers: car.passengers || 1,
-      bags: car.bags || 0,
-      wifi: car.wifi ?? false,
-      meet_greet: car.meet_greet ?? false,
-      drinks: car.drinks ?? false,
-      waiting_time: car.waiting_time || "",
-      base_price: car.base_price || 0,
-      price_per_hour: car.price_per_hour || 0,
-      image_url: car.image_url || "",
+  const handleEditClick = (vehicle: Vehicle) => {
+    setEditingVehicle({
+      ...vehicle,
+      title: vehicle.title || "",
+      name: vehicle.name || "",
+      description: vehicle.description || "",
+      passengers: vehicle.passengers || 1,
+      bags: vehicle.bags || 0,
+      wifi: vehicle.wifi ?? false,
+      meet_greet: vehicle.meet_greet ?? false,
+      drinks: vehicle.drinks ?? false,
+      waiting_time: vehicle.waiting_time || "",
+      base_price: vehicle.base_price || 0,
+      price_per_hour: vehicle.price_per_hour || 0,
+      image_url: vehicle.image_url || "",
     });
-    setShowEditCarModal(true);
+    setShowEditVehicleModal(true);
   };
 
   // Common input fields for both add and edit modals
   const renderVehicleFormFields = (
-    formData: typeof newCar | typeof editingCar,
+    formData: typeof newVehicle | typeof editingVehicle,
     setFormData: React.Dispatch<any>,
     imageFile: File | null,
     setImageFile: React.Dispatch<React.SetStateAction<File | null>>,
@@ -447,14 +430,14 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Manage Vehicles</h2>
-        <Button onClick={() => setShowAddCarModal(true)}>Add Vehicle</Button>
+        <Button onClick={() => setShowAddVehicleModal(true)}>Add Vehicle</Button>
       </div>
 
-      {isLoadingCars ? (
+      {isLoadingVehicles ? (
         <p className="text-center">Loading vehicles...</p>
-      ) : carError ? (
-        <p className="text-red-500 text-center">{carError}</p>
-      ) : cars.length === 0 ? (
+      ) : vehicleError ? (
+        <p className="text-red-500 text-center">{vehicleError}</p>
+      ) : vehicles.length === 0 ? (
         <p className="text-center">No vehicles found.</p>
       ) : (
         <div className="bg-white p-4 rounded-lg shadow overflow-x-auto">
@@ -471,38 +454,38 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
               </tr>
             </thead>
             <tbody>
-              {cars.map((car) => (
-                <tr key={car.id} className="border-b">
+              {vehicles.map((vehicle) => (
+                <tr key={vehicle.id} className="border-b">
                   <td className="p-2">
-                    {car.image_url ? (
+                    {vehicle.image_url ? (
                       <Image
                         width={64}
                         height={64}
-                        src={car.image_url}
-                        alt={car.name}
+                        src={vehicle.image_url}
+                        alt={vehicle.name}
                         className="object-cover"
                       />
                     ) : (
                       "No Image Here"
                     )}
                   </td>
-                  <td className="p-2">{car.title}</td>
-                  <td className="p-2">{car.name}</td>
-                  <td className="p-2">{car.passengers}</td>
-                  <td className="p-2">{car.bags}</td>
-                  <td className="p-2">£{car.base_price.toFixed(2)}</td>
+                  <td className="p-2">{vehicle.title}</td>
+                  <td className="p-2">{vehicle.name}</td>
+                  <td className="p-2">{vehicle.passengers}</td>
+                  <td className="p-2">{vehicle.bags}</td>
+                  <td className="p-2">£{vehicle.base_price.toFixed(2)}</td>
                   <td className="p-2 flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEditClick(car)}
+                      onClick={() => handleEditClick(vehicle)}
                     >
                       Edit
                     </Button>
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDeleteCar(car.id)}
+                      onClick={() => handleDeleteVehicle(vehicle.id)}
                     >
                       Delete
                     </Button>
@@ -515,16 +498,16 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
       )}
 
       {/* Add Vehicle Modal */}
-      {showAddCarModal && (
+      {showAddVehicleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
             <h3 className="text-xl font-bold mb-4">Add New Vehicle</h3>
-            {renderVehicleFormFields(newCar, setNewCar, newCarImage, setNewCarImage)}
+            {renderVehicleFormFields(newVehicle, setNewVehicle, newVehicleImage, setNewVehicleImage)}
             <ModalFooter
-              onSave={handleAddCar}
+              onSave={handleAddVehicle}
               onCancel={() => {
-                setShowAddCarModal(false);
-                resetNewCarForm();
+                setShowAddVehicleModal(false);
+                resetNewVehicleForm();
               }}
               saveLabel="Add Vehicle"
             />
@@ -533,17 +516,17 @@ export default function CarsTab({ cars, isLoadingCars, carError, fetchCars }: Ca
       )}
 
       {/* Edit Vehicle Modal */}
-      {showEditCarModal && editingCar && (
+      {showEditVehicleModal && editingVehicle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
             <h3 className="text-xl font-bold mb-4">Edit Vehicle</h3>
-            {renderVehicleFormFields(editingCar, setEditingCar, editCarImage, setEditCarImage, true)}
+            {renderVehicleFormFields(editingVehicle, setEditingVehicle, editVehicleImage, setEditVehicleImage, true)}
             <ModalFooter
-              onSave={handleEditCar}
+              onSave={handleEditVehicle}
               onCancel={() => {
-                setShowEditCarModal(false);
-                setEditingCar(null);
-                setEditCarImage(null);
+                setShowEditVehicleModal(false);
+                setEditingVehicle(null);
+                setEditVehicleImage(null);
               }}
             />
           </div>

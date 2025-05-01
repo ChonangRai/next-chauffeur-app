@@ -2,23 +2,23 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import CarsTab from "@/components/admin/CarsTab";
+import VehiclesTab from "@/components/admin/VehiclesTab";
 import BookingsTab from "@/components/admin/BookingsTab";
 import DriverPaymentsTab from "@/components/admin/DriverPaymentsTab";
 import InvoicesTab from "@/components/admin/InvoicesTab";
 import TabNav from "@/components/admin/TabNav";
-import { fetchCars, fetchBookings, fetchDrivers, fetchDriverPayments } from "@/lib/adminFetch";
-import { Car, Booking, Driver, DriverPayment } from "@/types/admin";
+import { fetchVehicles, fetchBookings, fetchDrivers, fetchDriverPayments } from "@/lib/adminFetch";
+import { Vehicle, Booking, Driver, DriverPayment } from "@/types/admin";
 
 export default function AdminDashboard() {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<"cars" | "bookings" | "payments" | "invoices">("cars");
+  const [activeTab, setActiveTab] = useState<"vehicles" | "bookings" | "payments" | "invoices">("vehicles");
 
-  // State for cars
-  const [cars, setCars] = useState<Car[]>([]);
-  const [isLoadingCars, setIsLoadingCars] = useState(true);
-  const [carError, setCarError] = useState<string | null>(null);
+  // State for vehicles
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [vehicleError, setVehicleError] = useState<string | null>(null);
 
   // State for bookings
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -40,10 +40,10 @@ export default function AdminDashboard() {
     if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       Promise.all([
-        fetchCars().then(({ data, error, isLoading }) => {
-          setCars(data || []);
-          setCarError(error);
-          setIsLoadingCars(isLoading);
+        fetchVehicles().then(({ data, error, isLoading }) => {
+          setVehicles(data || []);
+          setVehicleError(error);
+          setIsLoadingVehicles(isLoading);
         }),
         fetchBookings().then(({ data, error, isLoading }) => {
           setBookings(data || []);
@@ -96,16 +96,16 @@ export default function AdminDashboard() {
         <TabNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Render the active tab */}
-        {activeTab === "cars" && (
-          <CarsTab
-            cars={cars}
-            isLoadingCars={isLoadingCars}
-            carError={carError}
-            fetchCars={async () => {
-              const { data, error, isLoading } = await fetchCars();
-              setCars(data || []);
-              setCarError(error);
-              setIsLoadingCars(isLoading);
+        {activeTab === "vehicles" && (
+          <VehiclesTab
+            vehicles={vehicles}
+            isLoadingVehicles={isLoadingVehicles}
+            vehicleError={vehicleError}
+            fetchVehicles={async () => {
+              const { data, error, isLoading } = await fetchVehicles();
+              setVehicles(data || []);
+              setVehicleError(error);
+              setIsLoadingVehicles(isLoading);
             }}
           />
         )}
