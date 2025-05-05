@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase"; // Use the regular supabase client for user-facing actions
-import VehicleServiceCard from "@/components/vehicle/vehicle"; 
+import { supabase } from "@/lib/supabase";
+import VehicleServiceCard from "@/components/vehicle/vehicle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +13,48 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import Notification from "@/components/ui/notification";
-import { Vehicle } from "@/types/admin"; 
+import { Vehicle } from "@/types/admin";
+
+// Predefined locations
+const PREDEFINED_LOCATIONS = [
+  "Gatwick Airport",
+  "Luton Airport",
+  "London City",
+  "Heathrow Airport",
+];
+
+// Mock distance calculation based on predefined routes (in miles)
+const calculateMockDistance = (pickup: string, dropoff: string): number => {
+  const normalizedPickup = pickup.toLowerCase();
+  const normalizedDropoff = dropoff.toLowerCase();
+
+  // Mock distances for common routes
+  const distanceMap: Record<string, Record<string, number>> = {
+    "gatwick airport": {
+      "luton airport": 50,
+      "london city": 30,
+      "heathrow airport": 40,
+    },
+    "luton airport": {
+      "gatwick airport": 50,
+      "london city": 35,
+      "heathrow airport": 45,
+    },
+    "london city": {
+      "gatwick airport": 30,
+      "luton airport": 35,
+      "heathrow airport": 20,
+    },
+    "heathrow airport": {
+      "gatwick airport": 40,
+      "luton airport": 45,
+      "london city": 20,
+    },
+  };
+
+  if (normalizedPickup === normalizedDropoff) return 0;
+  return distanceMap[normalizedPickup]?.[normalizedDropoff] || 50; // Default to 50 miles if not a predefined route
+};
 
 type BookingDetails = {
   pickupLocation: string;
@@ -26,11 +67,13 @@ type BookingDetails = {
   phone: string;
   additionalRequests: string;
   isHireByHour: boolean;
+  isDailyHire: boolean;
   contactConsent: boolean;
 };
 
 export default function BookingPage() {
-  const [isHireByHour, setIsHireByHour] = useState(true); 
+  const [isHireByHour, setIsHireByHour] = useState(false);
+  const [isDailyHire, setIsDailyHire] = useState(false);
   const [showVehicles, setShowVehicles] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -39,10 +82,11 @@ export default function BookingPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [vehiclesError, setVehiclesError] = useState<string | null>(null);
+  const [calculatedAmount, setCalculatedAmount] = useState<number | null>(null);
 
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
-    pickupLocation: "",
-    dropoffLocation: "",
+    pickupLocation: "Gatwick Airport",
+    dropoffLocation: "London City",
     duration: 1,
     durationUnit: "hours",
     dateTime: "",
@@ -50,16 +94,15 @@ export default function BookingPage() {
     email: "",
     phone: "",
     additionalRequests: "",
-    isHireByHour: true, // Default to Hire By Hour
+    isHireByHour: false,
+    isDailyHire: false,
     contactConsent: false,
   });
 
-  // Get the current date and time for the min attribute (in the format required by datetime-local)
   const now = new Date();
-  const minDateTime = new Date(now.getTime() + 5 * 60 * 1000); // Add 5 minutes buffer
-  const minDateTimeString = minDateTime.toISOString().slice(0, 16); // Format as YYYY-MM-DDTHH:mm
+  const minDateTime = new Date(now.getTime() + 5 * 60 * 1000);
+  const minDateTimeString = minDateTime.toISOString().slice(0, 16);
 
-  // Fetch vehicles from Supabase
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
@@ -79,16 +122,45 @@ export default function BookingPage() {
 
     fetchVehicles();
 
-    // Load saved details from localStorage
     const savedDetails = localStorage.getItem("bookingDetails");
     if (savedDetails) {
       const parsedDetails = JSON.parse(savedDetails);
       setBookingDetails(parsedDetails);
       setIsHireByHour(parsedDetails.isHireByHour);
-      setShowVehicles(true); // Updated from setShowCars
+      setIsDailyHire(parsedDetails.isDailyHire);
+      setShowVehicles(true);
       setFormErrors({});
     }
   }, []);
+
+  useEffect(() => {
+    if (!selectedVehicle) {
+      setCalculatedAmount(null);
+      return;
+    }
+
+    const selectedVehicleData = vehicles.find((v) => v.id === selectedVehicle);
+    if (!selectedVehicleData) {
+      setCalculatedAmount(null);
+      return;
+    }
+
+    let amount: number;
+    if (isHireByHour) {
+      const hoursMultiplier = bookingDetails.durationUnit === "days" ? 24 : 1;
+      amount = selectedVehicleData.price_per_hour * bookingDetails.duration * hoursMultiplier;
+    } else if (isDailyHire) {
+      amount = selectedVehicleData.daily_rate || selectedVehicleData.base_price * 24; // Default to 24x base_price if no daily_rate
+    } else {
+      const distance = calculateMockDistance(
+        bookingDetails.pickupLocation,
+        bookingDetails.dropoffLocation
+      );
+      const ratePerMile = 2;
+      amount = selectedVehicleData.base_price + distance * ratePerMile;
+    }
+    setCalculatedAmount(amount);
+  }, [selectedVehicle, bookingDetails, isHireByHour, isDailyHire, vehicles]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -100,17 +172,22 @@ export default function BookingPage() {
     }
   };
 
-  const handleSelectChange = (value: string) => {
-    setBookingDetails((prev) => ({ ...prev, durationUnit: value }));
+  const handleSelectChange = (field: string) => (value: string) => {
+    setBookingDetails((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors((prev) => ({ ...prev, [field]: "" }));
+    }
   };
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
     const now = new Date();
-    const bufferTime = new Date(now.getTime() + 5 * 60 * 1000); // Add 5 minutes buffer
+    const bufferTime = new Date(now.getTime() + 5 * 60 * 1000);
 
     if (!bookingDetails.pickupLocation)
       errors.pickupLocation = "Pickup location is required";
+    if (!isHireByHour && !isDailyHire && !bookingDetails.dropoffLocation)
+      errors.dropoffLocation = "Drop-off location is required";
     if (isHireByHour && bookingDetails.duration < 1)
       errors.duration = "Duration must be at least 1";
     if (!bookingDetails.dateTime)
@@ -131,19 +208,20 @@ export default function BookingPage() {
     e.preventDefault();
     if (validateForm()) {
       localStorage.setItem("bookingDetails", JSON.stringify(bookingDetails));
-      setShowVehicles(true); 
+      setShowVehicles(true);
     }
   };
 
   const handleReset = () => {
     localStorage.removeItem("bookingDetails");
-    setShowVehicles(false); 
-    setSelectedVehicle(null); 
+    setShowVehicles(false);
+    setSelectedVehicle(null);
     setFormErrors({});
     setNotification(null);
+    setCalculatedAmount(null);
     setBookingDetails({
-      pickupLocation: "",
-      dropoffLocation: "",
+      pickupLocation: "Gatwick Airport",
+      dropoffLocation: "London City",
       duration: 1,
       durationUnit: "hours",
       dateTime: "",
@@ -151,31 +229,29 @@ export default function BookingPage() {
       email: "",
       phone: "",
       additionalRequests: "",
-      isHireByHour: true,
+      isHireByHour: false,
+      isDailyHire: false,
       contactConsent: false,
     });
-    setIsHireByHour(true);
+    setIsHireByHour(false);
+    setIsDailyHire(false);
   };
 
   const handlePayment = async () => {
-    if (!selectedVehicle || isProcessing) return; 
+    if (!selectedVehicle || isProcessing || calculatedAmount === null) return;
     setIsProcessing(true);
     setNotification(null);
 
     try {
-      const selectedVehicleData = vehicles.find((v) => v.id === selectedVehicle); 
+      const selectedVehicleData = vehicles.find((v) => v.id === selectedVehicle);
       if (!selectedVehicleData) throw new Error("Selected vehicle not found");
-
-      // Calculate amount for Hire By Hour
-      const hoursMultiplier = bookingDetails.durationUnit === "days" ? 24 : 1;
-      const amount = selectedVehicleData.price_per_hour * bookingDetails.duration * hoursMultiplier;
 
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingDetails: {
-            selectedVehicle: selectedVehicleData.name, 
+            selectedVehicle: selectedVehicleData.name,
             fullName: bookingDetails.fullName,
             email: bookingDetails.email,
             phone: bookingDetails.phone,
@@ -184,20 +260,31 @@ export default function BookingPage() {
             additionalRequests: bookingDetails.additionalRequests,
             dateTime: bookingDetails.dateTime,
             isHireByHour: bookingDetails.isHireByHour,
-            duration: bookingDetails.duration,
-            durationUnit: bookingDetails.durationUnit,
+            isDailyHire: bookingDetails.isDailyHire,
+            duration: bookingDetails.isHireByHour ? bookingDetails.duration : null,
+            durationUnit: bookingDetails.isHireByHour ? bookingDetails.durationUnit : null,
             contactConsent: bookingDetails.contactConsent,
           },
-          amount,
+          amount: calculatedAmount,
         }),
       });
 
-      if (!response.ok) {
-        const { error } = await response.json();
-        throw new Error(error || "Failed to process payment");
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers.get("content-type"));
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Non-JSON response received:", text);
+        throw new Error(`Expected JSON response, but received: ${text.slice(0, 100)}...`);
       }
 
-      const { url } = await response.json();
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to process payment");
+      }
+
+      const { url } = data;
       setNotification({ type: "success", message: "Redirecting to payment..." });
       window.location.href = url;
     } catch (error: any) {
@@ -230,62 +317,152 @@ export default function BookingPage() {
             <p className="text-center text-gray-600">Loading vehicles...</p>
           ) : vehiclesError ? (
             <p className="text-red-500 text-center">{vehiclesError}</p>
-          ) : !showVehicles ? ( 
+          ) : !showVehicles ? (
             <div className="bg-muted p-8 rounded-lg shadow-lg max-w-3xl mx-auto">
               <h2 className="text-2xl font-bold mb-6">Enter Your Journey Details</h2>
               <form onSubmit={handleContinue} className="space-y-6">
+                <div className="flex gap-4 mb-6">
+                  <Button
+                    variant={!isHireByHour && !isDailyHire ? "default" : "outline"}
+                    onClick={() => {
+                      setIsHireByHour(false);
+                      setIsDailyHire(false);
+                      setBookingDetails((prev) => ({
+                        ...prev,
+                        isHireByHour: false,
+                        isDailyHire: false,
+                        dropoffLocation: prev.dropoffLocation || "",
+                      }));
+                    }}
+                    className="w-1/3"
+                    type="button"
+                  >
+                    One Way
+                  </Button>
+                  <Button
+                    variant={isHireByHour ? "default" : "outline"}
+                    onClick={() => {
+                      setIsHireByHour(true);
+                      setIsDailyHire(false);
+                      setBookingDetails((prev) => ({
+                        ...prev,
+                        isHireByHour: true,
+                        isDailyHire: false,
+                        dropoffLocation: "",
+                      }));
+                    }}
+                    className="w-1/3"
+                    type="button"
+                  >
+                    Hire By Hour
+                  </Button>
+                  <Button
+                    variant={isDailyHire ? "default" : "outline"}
+                    onClick={() => {
+                      setIsHireByHour(false);
+                      setIsDailyHire(true);
+                      setBookingDetails((prev) => ({
+                        ...prev,
+                        isHireByHour: false,
+                        isDailyHire: true,
+                        dropoffLocation: "",
+                      }));
+                    }}
+                    className="w-1/3"
+                    type="button"
+                  >
+                    Daily Hire
+                  </Button>
+                </div>
+
                 <div className="space-y-2">
                   <label htmlFor="pickupLocation" className="text-sm font-medium">
                     Pickup Location <span className="text-red-500">*</span>
                   </label>
-                  <Input
-                    id="pickupLocation"
-                    placeholder="Enter pickup location"
-                    required
+                  <Select
                     value={bookingDetails.pickupLocation}
-                    onChange={handleInputChange}
-                  />
+                    onValueChange={handleSelectChange("pickupLocation")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select pickup location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PREDEFINED_LOCATIONS.map((location) => (
+                        <SelectItem key={location} value={location}>
+                          {location}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {formErrors.pickupLocation && (
                     <p className="text-red-500 text-sm">{formErrors.pickupLocation}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Duration <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="duration"
-                      type="number"
-                      min={1}
-                      className="w-1/3"
-                      value={bookingDetails.duration}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          duration: isNaN(value) ? 1 : value,
-                        }));
-                      }}
-                    />
+                {!isHireByHour && !isDailyHire && (
+                  <div className="space-y-2">
+                    <label htmlFor="dropoffLocation" className="text-sm font-medium">
+                      Drop-off Location <span className="text-red-500">*</span>
+                    </label>
                     <Select
-                      value={bookingDetails.durationUnit}
-                      onValueChange={handleSelectChange}
+                      value={bookingDetails.dropoffLocation}
+                      onValueChange={handleSelectChange("dropoffLocation")}
                     >
-                      <SelectTrigger className="w-2/3">
-                        <SelectValue placeholder="Select unit" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select drop-off location" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="hours">Hours</SelectItem>
-                        <SelectItem value="days">Days</SelectItem>
+                        {PREDEFINED_LOCATIONS.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    {formErrors.dropoffLocation && (
+                      <p className="text-red-500 text-sm">{formErrors.dropoffLocation}</p>
+                    )}
                   </div>
-                  {formErrors.duration && (
-                    <p className="text-red-500 text-sm">{formErrors.duration}</p>
-                  )}
-                </div>
+                )}
+
+                {isHireByHour && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Duration <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="duration"
+                        type="number"
+                        min={1}
+                        className="w-1/3"
+                        value={bookingDetails.duration}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value);
+                          setBookingDetails((prev) => ({
+                            ...prev,
+                            duration: isNaN(value) ? 1 : value,
+                          }));
+                        }}
+                      />
+                      <Select
+                        value={bookingDetails.durationUnit}
+                        onValueChange={handleSelectChange("durationUnit")}
+                      >
+                        <SelectTrigger className="w-2/3">
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hours">Hours</SelectItem>
+                          <SelectItem value="days">Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {formErrors.duration && (
+                      <p className="text-red-500 text-sm">{formErrors.duration}</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label htmlFor="dateTime" className="text-sm font-medium">
@@ -297,7 +474,7 @@ export default function BookingPage() {
                     value={bookingDetails.dateTime}
                     onChange={handleInputChange}
                     required
-                    min={minDateTimeString} // Prevent selecting past dates
+                    min={minDateTimeString}
                   />
                   {formErrors.dateTime && (
                     <p className="text-red-500 text-sm">{formErrors.dateTime}</p>
@@ -395,52 +572,64 @@ export default function BookingPage() {
                     Edit Details
                   </Button>
                 </div>
-                <p><strong>Service Type:</strong> Hire By Hour</p>
-                <p><strong>Duration:</strong> {bookingDetails.duration} {bookingDetails.durationUnit}</p>
+                <p><strong>Service Type:</strong> {isHireByHour ? "Hire By Hour" : isDailyHire ? "Daily Hire" : "One Way"}</p>
+                {isHireByHour ? (
+                  <p><strong>Duration:</strong> {bookingDetails.duration} {bookingDetails.durationUnit}</p>
+                ) : isDailyHire ? (
+                  <p><strong>Duration:</strong> 1 Day</p>
+                ) : (
+                  <>
+                    <p><strong>Drop-off Location:</strong> {bookingDetails.dropoffLocation}</p>
+                    <p><strong>Estimated Distance:</strong> {calculateMockDistance(bookingDetails.pickupLocation, bookingDetails.dropoffLocation)} miles</p>
+                  </>
+                )}
                 <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation}</p>
                 <p><strong>Date & Time:</strong> {new Date(bookingDetails.dateTime).toLocaleString()}</p>
+                {calculatedAmount !== null && (
+                  <p><strong>Estimated Cost:</strong> £{calculatedAmount.toFixed(2)}</p>
+                )}
               </div>
 
               <h2 className="text-2xl font-bold mt-8">Available Vehicles</h2>
               <div className="space-y-6">
                 {vehicles.map((vehicle) => (
-                  <VehicleServiceCard
-                    key={vehicle.id}
-                    title={vehicle.title}
-                    name={vehicle.name}
-                    description={vehicle.description}
-                    passengers={vehicle.passengers}
-                    bags={vehicle.bags}
-                    wifi={vehicle.wifi}
-                    meetGreet={vehicle.meet_greet}
-                    drinks={vehicle.drinks}
-                    waitingTime={vehicle.waiting_time}
-                    price={vehicle.price_per_hour}
-                    selected={selectedVehicle === vehicle.id} 
-                    onSelect={() => setSelectedVehicle(vehicle.id)}
-                  />
+                  <div key={vehicle.id}>
+                    <VehicleServiceCard
+                      title={isHireByHour ? "Hire By Hour" : isDailyHire ? "Daily Hire" : "One Way"}
+                      name={vehicle.name}
+                      description={vehicle.description}
+                      passengers={vehicle.passengers}
+                      bags={vehicle.bags}
+                      wifi={vehicle.wifi}
+                      meetGreet={vehicle.meet_greet}
+                      drinks={vehicle.drinks}
+                      waitingTime={vehicle.waiting_time}
+                      price={isHireByHour ? vehicle.price_per_hour : isDailyHire ? (vehicle.daily_rate || vehicle.base_price * 24) : vehicle.base_price}
+                      selected={selectedVehicle === vehicle.id}
+                      onSelect={() => setSelectedVehicle(vehicle.id)}
+                    />
+                    {selectedVehicle === vehicle.id && (
+                      <Button
+                        className="w-full mt-4"
+                        onClick={handlePayment}
+                        disabled={isProcessing || calculatedAmount === null}
+                      >
+                        {isProcessing ? (
+                          <div className="flex items-center gap-2">
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            Processing...
+                          </div>
+                        ) : (
+                          "Proceed to Payment"
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 ))}
               </div>
-
-              {selectedVehicle && (
-                <Button
-                  className="px-10 mt-6 float-right"
-                  onClick={handlePayment}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <div className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                      </svg>
-                      Processing...
-                    </div>
-                  ) : (
-                    "Proceed to Payment"
-                  )}
-                </Button>
-              )}
             </div>
           )}
         </div>

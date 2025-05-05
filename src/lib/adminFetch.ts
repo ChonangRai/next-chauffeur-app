@@ -29,7 +29,8 @@ export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
         price_per_hour: vehicle.price_per_hour || 0,
         image_url: vehicle.image_url || "",
         created_at: vehicle.created_at,
-    
+        vehicle_status:vehicle.vehicle_status,
+        daily_rate:vehicle.daily_rate
       };
       console.log("Fetched vehicle:", normalizedVehicle);
       return normalizedVehicle;
@@ -75,6 +76,7 @@ export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
         driver_id: booking.driver_id || null,
         driver_status: validDriverStatus,
         contact_consent:booking.contact_consent,
+        is_daily_hire:booking.is_daily_hire ?? false
       };
     }) || [];
     return { data: normalizedData, error: null, isLoading };

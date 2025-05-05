@@ -1,6 +1,9 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay } from "date-fns";
+import { 
+  format, addMonths, subMonths, startOfMonth, endOfMonth, 
+  eachDayOfInterval, getDay, isSameDay, isBefore, startOfToday 
+} from "date-fns";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -13,13 +16,13 @@ interface CalendarProps {
 
 function Calendar({ selected, onSelect, className }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = React.useState(startOfMonth(new Date()));
+  const today = startOfToday();
 
   const daysInMonth = eachDayOfInterval({
     start: startOfMonth(currentMonth),
     end: endOfMonth(currentMonth),
   });
 
-  // Calculate padding days to align first day of month
   const firstDayIndex = getDay(daysInMonth[0]);
   const paddingDays = Array.from({ length: firstDayIndex }, (_, i) => i);
 
@@ -28,13 +31,13 @@ function Calendar({ selected, onSelect, className }: CalendarProps) {
 
   const handleDateClick = (date: Date) => {
     if (onSelect) {
-      onSelect(date);
+      onSelect(date); // triggers parent to close the popup
     }
   };
 
   return (
     <div className={cn("p-4 bg-background rounded-md shadow-sm w-[280px]", className)}>
-      {/* Header with Navigation */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={handlePrevMonth}
@@ -57,34 +60,37 @@ function Calendar({ selected, onSelect, className }: CalendarProps) {
         </button>
       </div>
 
-      {/* Days Grid */}
+      {/* Grid */}
       <div className="grid grid-cols-7 gap-1 text-center">
-        {/* Weekday Headers */}
         {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
           <div key={day} className="text-xs font-medium text-muted-foreground">
             {day}
           </div>
         ))}
 
-        {/* Padding Days */}
         {paddingDays.map((_, i) => (
           <div key={`padding-${i}`} className="h-10" />
         ))}
 
-        {/* Actual Days */}
-        {daysInMonth.map((day) => (
-          <button
-            key={day.toISOString()}
-            onClick={() => handleDateClick(day)}
-            className={cn(
-              "h-10 w-full flex items-center justify-center text-sm",
-              isSameDay(day, selected || new Date(0)) ? "bg-primary text-primary-foreground rounded-md" : "hover:bg-accent",
-              "focus:outline-none"
-            )}
-          >
-            {format(day, "d")}
-          </button>
-        ))}
+        {daysInMonth.map((day) => {
+          const isPast = isBefore(day, today);
+          return (
+            <button
+              key={day.toISOString()}
+              onClick={() => !isPast && handleDateClick(day)}
+              disabled={isPast}
+              className={cn(
+                "h-10 w-full flex items-center justify-center text-sm rounded-md",
+                isSameDay(day, selected || new Date(0))
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent",
+                isPast && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {format(day, "d")}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -15,6 +15,8 @@ export type Vehicle = {
   price_per_hour: number;
   image_url?: string;
   created_at?: string;
+  vehicle_status:string;
+  daily_rate:number;
 };
 
 export type Booking = {
@@ -38,6 +40,7 @@ export type Booking = {
   driver_id: string | null;
   driver_status: DriverStatus;
   stripe_session_id?: string;
+  is_daily_hire: string | null;
 };
 
 export type Driver = {
