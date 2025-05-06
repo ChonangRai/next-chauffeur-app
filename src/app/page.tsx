@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { PriceEstimator } from "@/components/price-estimator"
+import { PriceEstimator } from "@/components/price-estimator/PriceEtimator"
 import Image from "next/image"
 // import { Input } from "@/components/ui/input"
 // import { Label } from "@radix-ui/react-label"

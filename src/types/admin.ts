@@ -61,3 +61,22 @@ export type DriverPayment = {
   payment_date: string | null;
   payment_method: string;
 };
+
+export type Location = {
+  id: number;
+  name: string;
+  status: "active" | "inactive";
+}
+
+export type ServicePricing ={
+  id: number;
+  service_type: string;
+  sub_type: string;
+  base_price: number;
+}
+
+export type ExtraCharge = {
+  id: number;
+  charge_type: string;
+  amount: number;
+}

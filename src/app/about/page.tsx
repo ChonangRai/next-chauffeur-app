@@ -31,9 +31,9 @@ export default function AboutPage() {
             </div>
             <div className="rounded-lg overflow-hidden shadow-lg">
               <Image
-                src="/images/about.jpg0
+                src="/images/about.jpg"
                 height={128}
-                width={128}0"
+                width={128}
                 alt="Our Company"
                 className="w-full h-full object-cover"
               />

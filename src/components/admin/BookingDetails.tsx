@@ -189,7 +189,7 @@ export default function BookingDetails({
           <p className="text-sm text-gray-600 mb-4">
             <span className="font-semibold">Driver Status:</span> {booking.driver_status || "N/A"}
           </p>
-          {!isEditing && booking.driver_status === "Assigned" && (
+          {!isEditing && booking.driver_status === "assigned" && (
             <Button
               variant="outline"
               size="sm"
