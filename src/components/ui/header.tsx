@@ -59,7 +59,7 @@ export function Header() {
                             Contact
                         </Link>
                         <Button asChild>
-                            <Link href="/#estimate">Get a Quote</Link>
+                            <Link href="/user/signin">Sign in</Link>
                         </Button>
                     </nav>
 
@@ -93,8 +93,8 @@ export function Header() {
                     <Link href="/contact" onClick={toggleMenu} className="text-sm font-medium hover:text-primary">
                         Contact
                     </Link>
-                    <Link href="/#estimate" onClick={toggleMenu} className="text-sm font-medium hover:text-primary">
-                        Get a Quote
+                    <Link href="/user/signin" onClick={toggleMenu} className="text-sm font-medium hover:text-primary">
+                        Sign in
                     </Link>
                 </nav>
             </div>

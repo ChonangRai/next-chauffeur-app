@@ -75,7 +75,9 @@ export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
         driver_id: booking.driver_id || null,
         driver_status: validDriverStatus,
         contact_consent:booking.contact_consent,
-        is_daily_hire:booking.is_daily_hire ?? false
+        is_daily_hire:booking.is_daily_hire ?? false,
+        service_type:booking.service_type,
+        passengers:booking.passengers,
       };
     }) || [];
     return { data: normalizedData, error: null, isLoading };

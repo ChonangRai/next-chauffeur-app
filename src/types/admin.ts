@@ -41,6 +41,8 @@ export type Booking = {
   driver_status: DriverStatus;
   stripe_session_id?: string;
   is_daily_hire: string | null;
+  service_type:string;
+  passengers:number;
 };
 
 export type Driver = {
@@ -49,6 +51,7 @@ export type Driver = {
   email: string;
   phone: string;
   payment_details: string;
+  status:string;
 };
 
 export type DriverPayment = {
