@@ -1,6 +1,10 @@
 "use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Booking } from "@/types/admin";
+import { toast } from "react-hot-toast";
+import jsPDF from "jspdf";
 
 type InvoicesTabProps = {
   bookings: Booking[];
@@ -9,30 +13,74 @@ type InvoicesTabProps = {
 };
 
 export default function InvoicesTab({ bookings, isLoadingBookings, bookingError }: InvoicesTabProps) {
-  // Handle generating an invoice
-  const handleGenerateInvoice = async (booking: Booking) => {
-    try {
-      const response = await fetch("/api/generate-invoice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ booking }),
-      });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
 
-      if (!response.ok) {
-        throw new Error("Failed to generate invoice");
+  const handleGenerateInvoice = (booking: Booking) => {
+    try {
+      // Create a new PDF document
+      const doc = new jsPDF();
+
+      // Set font and add content
+      doc.setFont("helvetica"); // Built-in font
+      doc.setFontSize(20);
+      doc.text("Invoice", 105, 20, { align: "center" });
+      doc.setFontSize(12);
+      doc.text(`Booking ID: ${booking.id}`, 105, 30, { align: "center" });
+      doc.setFontSize(10);
+
+      // Company Info
+      doc.text("Luxury Car Booking Service", 20, 50);
+      doc.text("123 Business St, City, Country", 20, 60);
+      doc.text("Email: support@luxurycars.com", 20, 70);
+
+      // Customer Info
+      doc.setFontSize(12);
+      doc.text("Bill To:", 20, 90);
+      doc.setFontSize(10);
+      doc.text(`Name: ${booking.full_name}`, 20, 100);
+      doc.text(`Email: ${booking.email}`, 20, 110);
+      doc.text(`Phone: ${booking.phone || "N/A"}`, 20, 120);
+
+      // Booking Details
+      doc.setFontSize(12);
+      doc.text("Booking Details:", 20, 140);
+      doc.setFontSize(10);
+      doc.text(`Service Type: ${booking.is_hire_by_hour ? "Hire By Hour" : "One Way"}`, 20, 150);
+      doc.text(`Pickup: ${booking.pickup_location}`, 20, 160);
+      doc.text(`Dropoff: ${booking.dropoff_location || "N/A"}`, 20, 170);
+      doc.text(`Date/Time: ${new Date(booking.date_time).toLocaleString()}`, 20, 180);
+      doc.text(`Car: ${booking.selected_vehicle}`, 20, 190);
+      doc.text(`Amount: £${booking.amount.toFixed(2)}`, 20, 200);
+      doc.text(`Status: ${booking.status}`, 20, 210);
+      if (booking.is_hire_by_hour) {
+        doc.text(`Duration: ${booking.duration} ${booking.duration_unit}`, 20, 220);
       }
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `invoice-${booking.id}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
+      // Footer
+      doc.setFontSize(10);
+      doc.text("Thank you for your business!", 105, 250, { align: "center" });
+
+      // Generate Blob URL for preview
+      const pdfBlob = doc.output("blob");
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      setPreviewUrl(pdfUrl);
+      setCurrentBookingId(booking.id);
+
+      toast.success("Invoice preview generated successfully!");
     } catch (error) {
-      console.error("Error generating invoice:", error);
-      alert("Failed to generate invoice. Please try again.");
+      console.error("Error generating invoice preview:", error);
+      toast.error("Failed to generate invoice preview. Please try again.");
     }
+  };
+
+  const handleDownload = () => {
+    if (!previewUrl || !currentBookingId) return;
+
+    const link = document.createElement("a");
+    link.href = previewUrl;
+    link.download = `invoice-${currentBookingId}.pdf`;
+    link.click();
   };
 
   return (
@@ -74,13 +122,46 @@ export default function InvoicesTab({ bookings, isLoadingBookings, bookingError 
                       size="sm"
                       onClick={() => handleGenerateInvoice(booking)}
                     >
-                      Generate Invoice
+                      Preview Invoice
                     </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {previewUrl && (
+        <div className="mt-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-semibold">Invoice Preview</h3>
+            <button
+              onClick={handleDownload}
+              className="text-blue-500 hover:text-blue-700"
+              title="Download Invoice"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 12l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+            </button>
+          </div>
+          <iframe
+            src={previewUrl}
+            className="w-full h-[500px] border rounded-lg"
+            title="Invoice Preview"
+          />
         </div>
       )}
     </div>

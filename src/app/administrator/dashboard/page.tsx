@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+
 import { useState, useEffect } from "react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -48,8 +48,6 @@ export default function AdminDashboard() {
 
   // State for drivers
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [isLoadingDrivers, setIsLoadingDrivers] = useState(true);
-  const [driverError, setDriverError] = useState<string | null>(null);
 
   // State for driver payments
   const [driverPayments, setDriverPayments] = useState<DriverPayment[]>([]);
@@ -70,10 +68,8 @@ export default function AdminDashboard() {
           setBookingError(error);
           setIsLoadingBookings(isLoading);
         }),
-        fetchDrivers().then(({ data, error, isLoading }) => {
+        fetchDrivers().then(({ data }) => {
           setDrivers(data || []);
-          setDriverError(error);
-          setIsLoadingDrivers(isLoading);
         }),
         fetchDriverPayments().then(({ data, error, isLoading }) => {
           setDriverPayments(data || []);
