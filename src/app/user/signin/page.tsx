@@ -1,17 +1,14 @@
 "use client";
 import React, { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
 import { Icons } from "@/components/ui/icons";
+import { supabase } from "@/lib/supabase";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const logoURL = "/favicon.ico";
 
 export default function SignIn() {
@@ -19,10 +16,14 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const errorMessage = searchParams.get('error');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     setError(null);
 
     try {
@@ -35,6 +36,8 @@ export default function SignIn() {
       router.push("/user/dashboard");
     } catch (error: any) {
       setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -46,7 +49,7 @@ export default function SignIn() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/user/dashboard`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -79,8 +82,8 @@ export default function SignIn() {
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
         <h2 className="text-2xl font-bold mb-4 text-center">Sign In</h2>
         
-        {/* Google Sign-In Button */}
-        <div className="mb-6">
+{/* Google Sign-In Button */}
+<div className="mb-6">
           <Button
             variant="outline"
             type="button"
@@ -125,8 +128,19 @@ export default function SignIn() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <Button type="submit" className="w-full">Sign In</Button>
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Signing In..." : "Sign In"}
+          </Button>
+          
           {error && <p className="text-red-500 text-center">{error}</p>}
+          {errorMessage && (
+            <p className="text-red-500 text-center">
+              {errorMessage === 'user_creation_failed' 
+                ? "Failed to create user profile. Please try again." 
+                : errorMessage}
+            </p>
+          )}
+          
           <p className="text-center">
             Don't have an account?{" "}
             <Link href="/user/signup" className="text-blue-500 hover:underline">

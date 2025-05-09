@@ -1,18 +1,15 @@
 "use client";
 import React, { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
 import { Icons } from "@/components/ui/icons";
+import { supabase } from "@/lib/supabase";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const logoURL = "/favicon.ico";
 
 export default function SignUp() {
@@ -26,34 +23,9 @@ export default function SignUp() {
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-
-  const handleGoogleSignUp = async () => {
-    setIsGoogleLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/user/dashboard`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-        
-      });
-
-      if (error) throw error;
-    } catch (error: any) {
-      console.error("Google signup error:", error);
-      setError(error.message || "Google signup failed. Please try again.");
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,35 +33,27 @@ export default function SignUp() {
     setSuccess(null);
     setIsLoading(true);
 
-    // Validate inputs
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      // 1. First check if email exists
-      const { data: existingUser, error: lookupError } = await supabase
+      // Check if email exists
+      const { data: existingUser } = await supabase
         .from("users")
-        .select("email")
+        .select()
         .eq("email", email)
         .maybeSingle();
 
-      if (lookupError) throw lookupError;
       if (existingUser) {
         setError("This email is already registered. Please sign in instead.");
         setIsLoading(false);
         return;
       }
 
-      // 2. Sign up through Auth
+      // Sign up through Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -98,7 +62,7 @@ export default function SignUp() {
             first_name: firstName,
             last_name: lastName,
             phone_number: phoneNumber,
-            role: "customer",
+            role: 'customer'
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -106,7 +70,7 @@ export default function SignUp() {
 
       if (authError) throw authError;
 
-      // 3. Insert into users table
+      // Insert into users table
       if (authData.user) {
         const { error: insertError } = await supabase.from("users").insert({
           id: authData.user.id,
@@ -114,31 +78,39 @@ export default function SignUp() {
           first_name: firstName,
           last_name: lastName,
           phone_number: phoneNumber,
-          role: "customer",
+          role: 'customer'
         });
 
-        if (insertError) {
-          if (insertError.code === "23505") {
-            // Duplicate email error
-            setError("This email is already registered. Please sign in instead.");
-            setIsLoading(false);
-            return;
-          }
-          throw insertError;
-        }
+        if (insertError) throw insertError;
 
         setSuccess("Registration successful! Please check your email to verify your account.");
         setTimeout(() => router.push("/user/signin"), 3000);
       }
     } catch (error: any) {
       console.error("Signup error:", error);
-      if (error.message?.includes("already registered")) {
-        setError("This email is already registered. Please sign in instead.");
-      } else {
-        setError(error.message || "Registration failed. Please try again.");
-      }
+      setError(error.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      setError(error.message || "Google signup failed. Please try again.");
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -163,7 +135,7 @@ export default function SignUp() {
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
         <h2 className="text-2xl font-bold mb-4 text-center">Sign Up</h2>
 
-        {/* Google Sign-In Button */}
+        {/* Google Sign-Up Button */}
         <div className="mb-6">
           <Button
             variant="outline"
@@ -188,7 +160,7 @@ export default function SignUp() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-white px-2 text-muted-foreground">
-              Or continue with
+              Or sign up with email
             </span>
           </div>
         </div>
@@ -303,22 +275,12 @@ export default function SignUp() {
             {isLoading ? "Signing Up..." : "Sign Up"}
           </Button>
 
-          {error && (
-            <div className="p-3 bg-red-50 text-red-600 rounded text-sm">
-              {error}
-              {error.includes("already registered")}
-            </div>
-          )}
+          {error && <p className="text-red-500 text-center">{error}</p>}
+          {success && <p className="text-green-500 text-center">{success}</p>}
 
-          {success && (
-            <div className="p-3 bg-green-50 text-green-600 rounded text-sm">
-              {success}
-            </div>
-          )}
-
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center">
             Already have an account?{" "}
-            <Link href="/user/signin" className="text-blue-600 hover:underline">
+            <Link href="/user/signin" className="text-blue-500 hover:underline">
               Sign In
             </Link>
           </p>
