@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -6,19 +6,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper type for route handler parameters
+type RouteParams = {
+  id: string;
+};
+
 // GET - Fetch a specific location by ID
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: RouteParams }
 ) {
   try {
-    if (!params.id) {
-      return NextResponse.json(
-        { error: "Location ID is required" },
-        { status: 400 }
-      );
-    }
-
     const { data, error } = await supabase
       .from("locations")
       .select("*")
@@ -45,19 +43,12 @@ export async function GET(
 
 // PUT - Update a location by ID
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: RouteParams }
 ) {
   try {
     const body = await request.json();
     const { name, status } = body;
-
-    if (!params.id) {
-      return NextResponse.json(
-        { error: "Location ID is required" },
-        { status: 400 }
-      );
-    }
 
     const updateData: { name?: string; status?: string } = {};
     if (name !== undefined) updateData.name = name;
@@ -84,17 +75,10 @@ export async function PUT(
 
 // DELETE - Remove a location by ID
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: RouteParams }
 ) {
   try {
-    if (!params.id) {
-      return NextResponse.json(
-        { error: "Location ID is required" },
-        { status: 400 }
-      );
-    }
-
     const { error } = await supabase
       .from("locations")
       .delete()
