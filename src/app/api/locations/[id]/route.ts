@@ -10,8 +10,15 @@ const supabase = createClient(
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
-): Promise<NextResponse> {
+) {
   try {
+    if (!params.id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("locations")
       .select("*")
@@ -40,10 +47,17 @@ export async function GET(
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
-): Promise<NextResponse> {
+) {
   try {
     const body = await request.json();
     const { name, status } = body;
+
+    if (!params.id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
 
     const updateData: { name?: string; status?: string } = {};
     if (name !== undefined) updateData.name = name;
@@ -72,8 +86,15 @@ export async function PUT(
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
-): Promise<NextResponse> {
+) {
   try {
+    if (!params.id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
+
     const { error } = await supabase
       .from("locations")
       .delete()
