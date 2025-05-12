@@ -9,13 +9,22 @@ const supabase = createClient(
 // GET - Fetch a specific location by ID
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { [key: string]: string | string[] } }
 ) {
   try {
+    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("locations")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -39,13 +48,14 @@ export async function GET(
 // PUT - Update a location by ID
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { [key: string]: string | string[] } }
 ) {
   try {
+    const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const body = await request.json();
     const { name, status } = body;
 
-    if (!params.id) {
+    if (!id) {
       return NextResponse.json(
         { error: "Location ID is required" },
         { status: 400 }
@@ -59,7 +69,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from("locations")
       .update(updateData)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -78,10 +88,12 @@ export async function PUT(
 // DELETE - Remove a location by ID
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { [key: string]: string | string[] } }
 ) {
   try {
-    if (!params.id) {
+    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    
+    if (!id) {
       return NextResponse.json(
         { error: "Location ID is required" },
         { status: 400 }
@@ -91,7 +103,7 @@ export async function DELETE(
     const { error } = await supabase
       .from("locations")
       .delete()
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) throw error;
 
