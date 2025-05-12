@@ -27,9 +27,10 @@ export async function GET(
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch location";
     return NextResponse.json(
-      { error: error.message || "Failed to fetch location" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
@@ -65,9 +66,10 @@ export async function PUT(
     if (error) throw error;
 
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to update location";
     return NextResponse.json(
-      { error: error.message || "Failed to update location" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
@@ -97,9 +99,10 @@ export async function DELETE(
       { success: true, message: "Location deleted successfully" },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to delete location";
     return NextResponse.json(
-      { error: error.message || "Failed to delete location" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
