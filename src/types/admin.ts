@@ -83,17 +83,3 @@ export type ExtraCharge = {
   charge_type: string;
   amount: number;
 }
-type VehicleFormData = {
-  title: string;
-  name: string;
-  description: string;
-  passengers: string | number;
-  bags: string | number;
-  wifi: boolean;
-  meet_greet: boolean;
-  drinks: boolean;
-  waiting_time: string;
-  base_price: number;
-  price_per_hour: number;
-  image_url: string;
-};

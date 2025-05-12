@@ -24,9 +24,9 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
   SidebarProvider,
-} from "../../../components/ui/sidebar";
+} from "@/components/ui/sidebar";
 import { ChevronLeft, ChevronRight, Car, Calendar, DollarSign, FileText, Settings } from "lucide-react";
-import { cn } from "../../../lib/utils";
+import { cn } from "@/lib/utils";
 
 export default function AdminDashboard() {
   const [password, setPassword] = useState("");
