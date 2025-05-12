@@ -1,0 +1,106 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// GET - Fetch a specific location by ID
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { data, error } = await supabase
+      .from("locations")
+      .select("*")
+      .eq("id", params.id)
+      .single();
+
+    if (error) throw error;
+    if (!data) {
+      return NextResponse.json(
+        { error: "Location not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch location" },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT - Update a location by ID
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { name, status } = body;
+
+    if (!params.id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const updateData: { name?: string; status?: string } = {};
+    if (name !== undefined) updateData.name = name;
+    if (status !== undefined) updateData.status = status;
+
+    const { data, error } = await supabase
+      .from("locations")
+      .update(updateData)
+      .eq("id", params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update location" },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Remove a location by ID
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    if (!params.id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("locations")
+      .delete()
+      .eq("id", params.id);
+
+    if (error) throw error;
+
+    return NextResponse.json(
+      { success: true, message: "Location deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to delete location" },
+      { status: 500 }
+    );
+  }
+}
