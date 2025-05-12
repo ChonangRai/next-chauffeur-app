@@ -41,6 +41,7 @@ export default function ConfirmSignupClient({ token }: { token?: string }) {
                     await supabase.auth.refreshSession();
                 }
             } catch (error) {
+                console.log(error)
                 setStatus("error");
                 setMessage("An error occurred while verifying your email.");
             }
