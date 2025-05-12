@@ -6,24 +6,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-interface Context {
-  params: {
-    id: string;
-  };
-}
-
 // GET - Fetch a specific location by ID
-export async function GET(request: Request, context: Context) {
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
   try {
-    const { params } = context;
-    
-    if (!params.id) {
-      return NextResponse.json(
-        { error: "Location ID is required" },
-        { status: 400 }
-      );
-    }
-
     const { data, error } = await supabase
       .from("locations")
       .select("*")
@@ -49,18 +37,13 @@ export async function GET(request: Request, context: Context) {
 }
 
 // PUT - Update a location by ID
-export async function PUT(request: Request, context: Context) {
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
   try {
-    const { params } = context;
     const body = await request.json();
     const { name, status } = body;
-
-    if (!params.id) {
-      return NextResponse.json(
-        { error: "Location ID is required" },
-        { status: 400 }
-      );
-    }
 
     const updateData: { name?: string; status?: string } = {};
     if (name !== undefined) updateData.name = name;
@@ -86,17 +69,11 @@ export async function PUT(request: Request, context: Context) {
 }
 
 // DELETE - Remove a location by ID
-export async function DELETE(request: Request, context: Context) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
   try {
-    const { params } = context;
-    
-    if (!params.id) {
-      return NextResponse.json(
-        { error: "Location ID is required" },
-        { status: 400 }
-      );
-    }
-
     const { error } = await supabase
       .from("locations")
       .delete()
