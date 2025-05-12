@@ -1,19 +1,22 @@
-// app/user/confirm-signup/ConfirmSignupClient.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "../../../components/ui/button";
-import { Alert, AlertDescription } from "../../../components/ui/alert";
-import AuthLayout from "../../../components/auth/AuthLayout";
-import Logo from "../../../components/auth/Logo";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import AuthLayout from "@/components/auth/AuthLayout";
+import Logo from "@/components/auth/Logo";
 import { Check, AlertCircle, Loader2, Link } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export default function ConfirmSignupClient({ token }: { token?: string }) {
+interface ConfirmSignupClientProps {
+    token?: string;
+}
+
+export default function ConfirmSignupClient({ token }: ConfirmSignupClientProps) {
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
     const [message, setMessage] = useState("");
     const router = useRouter();
@@ -41,7 +44,6 @@ export default function ConfirmSignupClient({ token }: { token?: string }) {
                     await supabase.auth.refreshSession();
                 }
             } catch (error) {
-                console.log(error)
                 setStatus("error");
                 setMessage("An error occurred while verifying your email.");
             }

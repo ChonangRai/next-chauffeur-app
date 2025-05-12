@@ -1,15 +1,24 @@
 // app/user/confirm-signup/page.tsx
 import { Suspense } from 'react';
 import ConfirmSignupClient from './ConfirmSignupClient';
+import type { Metadata } from 'next';
 
-export default function ConfirmSignup({
+export const metadata: Metadata = {
+  title: 'Email Verification',
+};
+
+export default function ConfirmSignupPage({
   searchParams,
 }: {
-  searchParams: { token?: string };
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
+  const token = Array.isArray(searchParams.token) 
+    ? searchParams.token[0] 
+    : searchParams.token;
+
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      <ConfirmSignupClient token={searchParams.token} />
+      <ConfirmSignupClient token={token} />
     </Suspense>
   );
 }
