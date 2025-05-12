@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Define the type for the dynamic route params
-type RouteParams = { params: { id: string } };
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper function to extract the id from the URL
+const getIdFromUrl = (url: string): string | null => {
+  const urlParts = url.split("/");
+  const id = urlParts[urlParts.length - 1]; // The last segment should be the id
+  return id || null;
+};
+
 // GET - Fetch a specific location by ID
-export async function GET(request: Request, context: RouteParams) {
+export async function GET(request: Request) {
   try {
-    const { params } = context;
-    const { id } = params;
+    const id = getIdFromUrl(request.url);
     if (!id) {
       return NextResponse.json(
         { error: "Location ID is required" },
@@ -46,10 +49,9 @@ export async function GET(request: Request, context: RouteParams) {
 }
 
 // PUT - Update a location by ID
-export async function PUT(request: Request, context: RouteParams) {
+export async function PUT(request: Request) {
   try {
-    const { params } = context;
-    const { id } = params;
+    const id = getIdFromUrl(request.url);
     const body = await request.json();
     const { name, status } = body;
 
@@ -84,10 +86,9 @@ export async function PUT(request: Request, context: RouteParams) {
 }
 
 // DELETE - Remove a location by ID
-export async function DELETE(request: Request, context: RouteParams) {
+export async function DELETE(request: Request) {
   try {
-    const { params } = context;
-    const { id } = params;
+    const id = getIdFromUrl(request.url);
     if (!id) {
       return NextResponse.json(
         { error: "Location ID is required" },
