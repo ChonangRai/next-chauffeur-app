@@ -6,15 +6,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+interface Context {
+  params: {
+    id: string;
+  };
+}
+
 // GET - Fetch a specific location by ID
-export async function GET(
-  request: Request,
-  { params }: { params: { [key: string]: string | string[] } }
-) {
+export async function GET(request: Request, context: Context) {
   try {
-    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const { params } = context;
     
-    if (!id) {
+    if (!params.id) {
       return NextResponse.json(
         { error: "Location ID is required" },
         { status: 400 }
@@ -24,7 +27,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("locations")
       .select("*")
-      .eq("id", id)
+      .eq("id", params.id)
       .single();
 
     if (error) throw error;
@@ -46,16 +49,13 @@ export async function GET(
 }
 
 // PUT - Update a location by ID
-export async function PUT(
-  request: Request,
-  { params }: { params: { [key: string]: string | string[] } }
-) {
+export async function PUT(request: Request, context: Context) {
   try {
-    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const { params } = context;
     const body = await request.json();
     const { name, status } = body;
 
-    if (!id) {
+    if (!params.id) {
       return NextResponse.json(
         { error: "Location ID is required" },
         { status: 400 }
@@ -69,7 +69,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from("locations")
       .update(updateData)
-      .eq("id", id)
+      .eq("id", params.id)
       .select()
       .single();
 
@@ -86,14 +86,11 @@ export async function PUT(
 }
 
 // DELETE - Remove a location by ID
-export async function DELETE(
-  request: Request,
-  { params }: { params: { [key: string]: string | string[] } }
-) {
+export async function DELETE(request: Request, context: Context) {
   try {
-    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const { params } = context;
     
-    if (!id) {
+    if (!params.id) {
       return NextResponse.json(
         { error: "Location ID is required" },
         { status: 400 }
@@ -103,7 +100,7 @@ export async function DELETE(
     const { error } = await supabase
       .from("locations")
       .delete()
-      .eq("id", id);
+      .eq("id", params.id);
 
     if (error) throw error;
 
