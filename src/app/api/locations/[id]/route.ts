@@ -1,26 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+
+// Define the type for the dynamic route params
+type RouteParams = { params: { id: string } };
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Helper type for route handler parameters
-type RouteParams = {
-  id: string;
-};
-
 // GET - Fetch a specific location by ID
-export async function GET(
-  request: NextRequest,
-  { params }: { params: RouteParams }
-) {
+export async function GET(request: Request, context: RouteParams) {
   try {
+    const { params } = context;
+    const { id } = params;
+    if (!id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("locations")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -42,13 +46,19 @@ export async function GET(
 }
 
 // PUT - Update a location by ID
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: RouteParams }
-) {
+export async function PUT(request: Request, context: RouteParams) {
   try {
+    const { params } = context;
+    const { id } = params;
     const body = await request.json();
     const { name, status } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
 
     const updateData: { name?: string; status?: string } = {};
     if (name !== undefined) updateData.name = name;
@@ -57,7 +67,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from("locations")
       .update(updateData)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -74,15 +84,21 @@ export async function PUT(
 }
 
 // DELETE - Remove a location by ID
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: RouteParams }
-) {
+export async function DELETE(request: Request, context: RouteParams) {
   try {
+    const { params } = context;
+    const { id } = params;
+    if (!id) {
+      return NextResponse.json(
+        { error: "Location ID is required" },
+        { status: 400 }
+      );
+    }
+
     const { error } = await supabase
       .from("locations")
       .delete()
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) throw error;
 
