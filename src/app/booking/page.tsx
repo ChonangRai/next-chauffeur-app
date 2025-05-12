@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import VehicleServiceCard from "@/components/vehicle/vehicle";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { supabase } from "../../lib/supabase";
+import VehicleServiceCard from "../../components/vehicle/vehicle";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import Notification from "@/components/ui/notification";
-import { Vehicle } from "@/types/admin";
+} from "../../components/ui/select";
+import { Textarea } from "../../components/ui/textarea";
+import Notification from "../../components/ui/notification";
+import { Vehicle } from "../../types/admin";
 
 // Predefined locations
 const PREDEFINED_LOCATIONS = [
@@ -112,10 +112,12 @@ export default function BookingPage() {
           .order("price_per_hour", { ascending: true });
         if (error) throw new Error(error.message);
         setVehicles(data || []);
-      } catch (err: any) {
-        console.error("Error fetching vehicles:", err);
+      } catch (err: unknown) {
+        const error = err as Error;
+        console.error("Error fetching vehicles:", error);
         setVehiclesError("Failed to load vehicles. Please try again.");
-      } finally {
+      }
+      finally {
         setVehiclesLoading(false);
       }
     };
@@ -287,14 +289,16 @@ export default function BookingPage() {
       const { url } = data;
       setNotification({ type: "success", message: "Redirecting to payment..." });
       window.location.href = url;
-    } catch (error: any) {
-      console.error("Payment error:", error);
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Payment error:", err);
       setNotification({
         type: "error",
-        message: error.message || "Something went wrong while processing payment. Please try again.",
+        message: err.message || "Something went wrong while processing payment. Please try again.",
       });
       setIsProcessing(false);
     }
+
   };
 
   return (

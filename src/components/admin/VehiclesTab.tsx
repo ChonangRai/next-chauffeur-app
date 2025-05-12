@@ -9,6 +9,21 @@ import { Vehicle } from "@/types/admin";
 import { Label } from "../ui/label";
 import Image from "next/image";
 
+type VehicleFormData = {
+  title: string;
+  name: string;
+  description: string;
+  passengers: number;
+  bags: number;
+  wifi: boolean;
+  meet_greet: boolean;
+  drinks: boolean;
+  waiting_time: string;
+  base_price: number;
+  price_per_hour: number;
+  image_url: string;
+};
+
 type VehiclesTabProps = {
   vehicles: Vehicle[];
   isLoadingVehicles: boolean;
@@ -20,12 +35,12 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
   const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
   const [showEditVehicleModal, setShowEditVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
-  const [newVehicle, setNewVehicle] = useState({
+  const [newVehicle, setNewVehicle] = useState<VehicleFormData>({
     title: "",
     name: "",
     description: "",
-    passengers: "",
-    bags: "",
+    passengers: 1,
+    bags: 0,
     wifi: false,
     meet_greet: false,
     drinks: false,
@@ -37,14 +52,13 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
   const [newVehicleImage, setNewVehicleImage] = useState<File | null>(null);
   const [editVehicleImage, setEditVehicleImage] = useState<File | null>(null);
 
-
   const resetNewVehicleForm = () => {
     setNewVehicle({
       title: "",
       name: "",
       description: "",
-      passengers: "",
-      bags: "",
+      passengers: 1,
+      bags: 0,
       wifi: false,
       meet_greet: false,
       drinks: false,
@@ -69,8 +83,8 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
   );
 
   const handleAddVehicle = async () => {
-    const passengers = parseInt(newVehicle.passengers);
-    const bags = parseInt(newVehicle.bags);
+    const passengers = 1;
+    const bags = 0;
 
     if (
       !newVehicle.title ||
@@ -110,36 +124,26 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
         bags,
         image_url: imageUrl || null,
         price_per_hour: newVehicle.price_per_hour || 0,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
 
       const { error } = await supabaseAdmin.from("vehicles").insert(vehicleData);
       if (error) throw new Error(error.message);
 
       setShowAddVehicleModal(false);
-      setNewVehicle({
-        title: "",
-        name: "",
-        description: "",
-        passengers: "",
-        bags: "",
-        wifi: false,
-        meet_greet: false,
-        drinks: false,
-        waiting_time: "",
-        price_per_hour: 0,
-        base_price: 0,
-        image_url: "",
-      });
-      setNewVehicleImage(null);
+      resetNewVehicleForm();
       await fetchVehicles();
       alert("Vehicle added successfully!");
-    } catch (err: any) {
-      console.error("Error adding vehicle:", err.message);
-      alert(`Failed to add vehicle: ${err.message}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error adding vehicle:", err.message);
+        alert(`Failed to add vehicle: ${err.message}`);
+      } else {
+        console.error("Unknown error adding vehicle");
+        alert("Failed to add vehicle: Unknown error");
+      }
     }
   };
-
 
   const handleEditVehicle = async () => {
     if (!editingVehicle) {
@@ -162,19 +166,16 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
     try {
       let imageUrl = editingVehicle.image_url || "";
 
-      // Handle image upload if a new image was selected
       if (editVehicleImage) {
         const fileExt = editVehicleImage.name.split(".").pop();
         const fileName = `${Date.now()}.${fileExt}`;
 
-        // Upload new image to storage
         const { error: uploadError } = await supabaseAdmin.storage
           .from("vehicles")
           .upload(fileName, editVehicleImage);
 
         if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
 
-        // Get public URL for the uploaded image
         const { data: publicUrlData } = supabaseAdmin.storage
           .from("vehicles")
           .getPublicUrl(fileName);
@@ -182,14 +183,12 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
         imageUrl = publicUrlData.publicUrl;
       }
 
-      // Prepare update data (excluding internal fields)
-      const { id, created_at, ...updateData } = editingVehicle;
+      const { id, ...updateData } = editingVehicle;
       const vehicleData = {
         ...updateData,
-        image_url: imageUrl || null
+        image_url: imageUrl || null,
       };
 
-      // Update the vehicle record in the database
       const { error } = await supabaseAdmin
         .from("vehicles")
         .update(vehicleData)
@@ -197,42 +196,42 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
 
       if (error) throw new Error(error.message);
 
-      // Reset state and refresh the list
       setShowEditVehicleModal(false);
       setEditingVehicle(null);
       setEditVehicleImage(null);
       await fetchVehicles();
-
       alert("Vehicle updated successfully!");
-    } catch (err: any) {
-      console.error("Error editing vehicle:", err);
-      alert(`Failed to update vehicle: ${err.message}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error editing vehicle details:", err.message);
+        alert(`Failed to edit vehicle: ${err.message}`);
+      } else {
+        console.error("Unknown error editing vehicle");
+        alert("Failed to edit vehicle: Unknown error");
+      }
     }
   };
 
   const handleDeleteVehicle = async (vehicleId: string) => {
-    // Confirm deletion with user
     if (!window.confirm("Are you sure you want to delete this vehicle? This action cannot be undone.")) {
       return;
     }
 
     try {
-      // First attempt to delete any associated image from storage
-      if (vehicles.find(vehicle => vehicle.id === vehicleId)?.image_url) {
-        const imagePath = vehicles.find(vehicle => vehicle.id === vehicleId)?.image_url?.split('/').pop();
+      const vehicle = vehicles.find((v) => v.id === vehicleId);
+      if (vehicle?.image_url) {
+        const imagePath = vehicle.image_url.split("/").pop();
         if (imagePath) {
           const { error: storageError } = await supabaseAdmin.storage
             .from("vehicles")
             .remove([imagePath]);
 
-          // We'll proceed with deletion even if image deletion fails
           if (storageError) {
             console.warn("Failed to delete associated image:", storageError.message);
           }
         }
       }
 
-      // Delete the vehicle record from database
       const { error: deleteError } = await supabaseAdmin
         .from("vehicles")
         .delete()
@@ -242,14 +241,16 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
         throw new Error(`Database deletion failed: ${deleteError.message}`);
       }
 
-      // Refresh the vehicle list
       await fetchVehicles();
-
-      // Optional: Show toast notification instead of alert
       alert("Vehicle deleted successfully!");
-    } catch (err: any) {
-      console.error("Vehicle deletion error:", err);
-      alert(`Deletion failed: ${err.message || 'Unknown error'}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error deleting vehicle:", err.message);
+        alert(`Failed to delete vehicle: ${err.message}`);
+      } else {
+        console.error("Unknown error deleting vehicle");
+        alert("Failed to delete vehicle: Unknown error");
+      }
     }
   };
 
@@ -259,8 +260,8 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
       title: vehicle.title || "",
       name: vehicle.name || "",
       description: vehicle.description || "",
-      passengers: vehicle.passengers || 1,
-      bags: vehicle.bags || 0,
+      passengers: 1,
+      bags: 0,
       wifi: vehicle.wifi ?? false,
       meet_greet: vehicle.meet_greet ?? false,
       drinks: vehicle.drinks ?? false,
@@ -274,8 +275,8 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
 
   // Common input fields for both add and edit modals
   const renderVehicleFormFields = (
-    formData: typeof newVehicle | typeof editingVehicle,
-    setFormData: React.Dispatch<any>,
+    formData: VehicleFormData,
+    setFormData: React.Dispatch<React.SetStateAction<VehicleFormData>>,
     imageFile: File | null,
     setImageFile: React.Dispatch<React.SetStateAction<File | null>>,
     isEditMode = false
@@ -286,34 +287,31 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
         <Input
           id="title"
           placeholder="e.g., BUSINESS CLASS"
-          value={formData?.title || ""}
+          value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
         />
       </div>
 
-      {/* Name Field */}
       <div>
         <Label htmlFor="name">Name</Label>
         <Input
           id="name"
           placeholder="e.g., Mercedes-Benz E-Class"
-          value={formData?.name || ""}
+          value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
         />
       </div>
 
-      {/* Description Field */}
       <div>
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
           placeholder="Vehicle description"
-          value={formData?.description || ""}
+          value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
         />
       </div>
 
-      {/* Capacity Fields */}
       <div className="flex gap-4">
         <div className="flex-1">
           <Label htmlFor="passengers">Passengers</Label>
@@ -322,8 +320,11 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
             type="number"
             min="1"
             placeholder="Number of passengers"
-            value={formData?.passengers || ""}
-            onChange={(e) => setFormData({ ...formData, passengers: e.target.value })}
+            value={formData.passengers}
+            onChange={(e) => setFormData({
+              ...formData,
+              passengers: parseInt(e.target.value) || 0
+            })}
           />
         </div>
         <div className="flex-1">
@@ -333,40 +334,42 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
             type="number"
             min="0"
             placeholder="Number of bags"
-            value={formData?.bags || ""}
-            onChange={(e) => setFormData({ ...formData, bags: e.target.value })}
+            value={formData.bags}
+            onChange={(e) => setFormData({
+              ...formData,
+              bags: parseInt(e.target.value) || 0
+            })}
           />
         </div>
       </div>
 
-      {/* Amenities Checkboxes */}
       <div className="flex gap-4">
-        {['wifi', 'meet_greet', 'drinks'].map((amenity) => (
+        {["wifi", "meet_greet", "drinks"].map((amenity) => (
           <div key={amenity} className="flex items-center gap-2">
             <Checkbox
               id={amenity}
-              checked={!!formData?.[amenity as keyof typeof formData]}
+              checked={formData[amenity as keyof VehicleFormData] as boolean}
               onCheckedChange={(checked) =>
-                setFormData({ ...formData, [amenity]: !!checked })
+                setFormData({ ...formData, [amenity]: checked as boolean })
               }
             />
             <Label htmlFor={amenity}>
-              {amenity.split('_').map(word =>
-                word.charAt(0).toUpperCase() + word.slice(1)
-              ).join(' ')}
+              {amenity
+                .split("_")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")}
             </Label>
           </div>
         ))}
       </div>
 
-      {/* Pricing Fields */}
       <div className="flex gap-4">
         <div className="flex-1">
           <Label htmlFor="waiting_time">Waiting Time</Label>
           <Input
             id="waiting_time"
             placeholder="Waiting Time"
-            value={formData?.waiting_time || ""}
+            value={formData.waiting_time}
             onChange={(e) => setFormData({ ...formData, waiting_time: e.target.value })}
           />
         </div>
@@ -378,7 +381,7 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
             min="0"
             step="0.01"
             placeholder="e.g., 49.99"
-            value={formData?.base_price || 0}
+            value={formData.base_price}
             onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
           />
         </div>
@@ -390,20 +393,21 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
             min="0"
             step="0.01"
             placeholder="e.g., 15.00"
-            value={formData?.price_per_hour || 0}
+            value={formData.price_per_hour}
             onChange={(e) => setFormData({ ...formData, price_per_hour: parseFloat(e.target.value) || 0 })}
           />
         </div>
       </div>
 
-      {/* Image Upload */}
       <div>
         <Label htmlFor="vehicle_image">Vehicle Image</Label>
-        {isEditMode && formData?.image_url && (
+        {isEditMode && formData.image_url && (
           <div className="mb-2">
-            <img
+            <Image
               src={formData.image_url}
               alt="Current vehicle"
+              width={128}
+              height={128}
               className="w-32 h-32 object-cover rounded"
             />
           </div>
@@ -424,7 +428,6 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
       </div>
     </div>
   );
-
 
   return (
     <div>
@@ -497,7 +500,6 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
         </div>
       )}
 
-      {/* Add Vehicle Modal */}
       {showAddVehicleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
@@ -515,12 +517,22 @@ export default function VehiclesTab({ vehicles, isLoadingVehicles, vehicleError,
         </div>
       )}
 
-      {/* Edit Vehicle Modal */}
       {showEditVehicleModal && editingVehicle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
             <h3 className="text-xl font-bold mb-4">Edit Vehicle</h3>
-            {renderVehicleFormFields(editingVehicle, setEditingVehicle, editVehicleImage, setEditVehicleImage, true)}
+            {renderVehicleFormFields(
+              {
+                ...editingVehicle,
+              } as VehicleFormData,
+              (newData) => setEditingVehicle((prev) => ({
+                ...prev!,
+                ...newData,
+              })),
+              editVehicleImage,
+              setEditVehicleImage,
+              true
+            )}
             <ModalFooter
               onSave={handleEditVehicle}
               onCancel={() => {

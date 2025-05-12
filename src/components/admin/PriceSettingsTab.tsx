@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,11 +62,7 @@ export default function PriceSettingsTab({
     amount: 0,
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const [locationsRes, pricingRes, chargesRes] = await Promise.all([
       fetchLocations(),
       fetchServicePricing(),
@@ -81,8 +77,11 @@ export default function PriceSettingsTab({
     setExtraCharges(chargesRes.data || []);
     setChargeError(chargesRes.error);
     setIsLoadingCharges(chargesRes.isLoading);
-  };
+  }, [fetchLocations, fetchServicePricing, fetchExtraCharges]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
   const addLocation = async () => {
     if (!newLocation.name) return;
     const response = await fetch("/api/admin/locations", {
@@ -180,60 +179,68 @@ export default function PriceSettingsTab({
           <CardTitle>Manage Locations</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="New Location Name"
-              value={newLocation.name}
-              onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
-            />
-            <Select
-              value={newLocation.status}
-              onValueChange={(value) => setNewLocation({ ...newLocation, status: value as "active" | "inactive" })}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={addLocation}>Add Location</Button>
-          </div>
-          {locationError && <p className="text-red-500">{locationError}</p>}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Location Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {locations.map((location) => (
-                <TableRow key={location.id}>
-                  <TableCell>{location.name}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={location.status}
-                      onValueChange={(value) => updateLocationStatus(location.id, value as "active" | "inactive")}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    {/* Optionally add delete button */}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {isLoadingLocations ? (
+            <p className="text-center">Loading locations...</p>
+          ) : locationError ? (
+            <p className="text-red-500">{locationError}</p>
+          ) : (
+            <>
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="New Location Name"
+                  value={newLocation.name}
+                  onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
+                />
+                <Select
+                  value={newLocation.status}
+                  onValueChange={(value) => setNewLocation({ ...newLocation, status: value as "active" | "inactive" })}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={addLocation}>Add Location</Button>
+              </div>
+              {locationError && <p className="text-red-500">{locationError}</p>}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Location Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {locations.map((location) => (
+                    <TableRow key={location.id}>
+                      <TableCell>{location.name}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={location.status}
+                          onValueChange={(value) => updateLocationStatus(location.id, value as "active" | "inactive")}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        {/* Optionally add delete button */}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -242,54 +249,62 @@ export default function PriceSettingsTab({
           <CardTitle>Manage Service Pricing</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="Service Type (e.g., meetAndGreet)"
-              value={newPricing.service_type}
-              onChange={(e) => setNewPricing({ ...newPricing, service_type: e.target.value })}
-            />
-            <Input
-              placeholder="Sub Type (e.g., arrival)"
-              value={newPricing.sub_type}
-              onChange={(e) => setNewPricing({ ...newPricing, sub_type: e.target.value })}
-            />
-            <Input
-              type="number"
-              placeholder="Base Price"
-              value={newPricing.base_price || ""}
-              onChange={(e) => setNewPricing({ ...newPricing, base_price: parseFloat(e.target.value) || 0 })}
-            />
-            <Button onClick={addServicePricing}>Add Pricing</Button>
-          </div>
-          {pricingError && <p className="text-red-500">{pricingError}</p>}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Service Type</TableHead>
-                <TableHead>Sub Type</TableHead>
-                <TableHead>Base Price (£)</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {servicePricing.map((pricing) => (
-                <TableRow key={pricing.id}>
-                  <TableCell>{pricing.service_type}</TableCell>
-                  <TableCell>{pricing.sub_type}</TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={pricing.base_price}
-                      onChange={(e) => updateServicePricing(pricing.id, parseFloat(e.target.value) || 0)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {/* Optionally add delete button */}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {isLoadingPricing ? (
+            <p className="text-center">Loading service pricing...</p>
+          ) : pricingError ? (
+            <p className="text-red-500">{pricingError}</p>
+          ) : (
+            <>
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Service Type (e.g., meetAndGreet)"
+                  value={newPricing.service_type}
+                  onChange={(e) => setNewPricing({ ...newPricing, service_type: e.target.value })}
+                />
+                <Input
+                  placeholder="Sub Type (e.g., arrival)"
+                  value={newPricing.sub_type}
+                  onChange={(e) => setNewPricing({ ...newPricing, sub_type: e.target.value })}
+                />
+                <Input
+                  type="number"
+                  placeholder="Base Price"
+                  value={newPricing.base_price || ""}
+                  onChange={(e) => setNewPricing({ ...newPricing, base_price: parseFloat(e.target.value) || 0 })}
+                />
+                <Button onClick={addServicePricing}>Add Pricing</Button>
+              </div>
+              {pricingError && <p className="text-red-500">{pricingError}</p>}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Service Type</TableHead>
+                    <TableHead>Sub Type</TableHead>
+                    <TableHead>Base Price (£)</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {servicePricing.map((pricing) => (
+                    <TableRow key={pricing.id}>
+                      <TableCell>{pricing.service_type}</TableCell>
+                      <TableCell>{pricing.sub_type}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={pricing.base_price}
+                          onChange={(e) => updateServicePricing(pricing.id, parseFloat(e.target.value) || 0)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {/* Optionally add delete button */}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -298,47 +313,55 @@ export default function PriceSettingsTab({
           <CardTitle>Manage Extra Charges</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="Charge Type (e.g., unsocial_hours)"
-              value={newExtraCharge.charge_type}
-              onChange={(e) => setNewExtraCharge({ ...newExtraCharge, charge_type: e.target.value })}
-            />
-            <Input
-              type="number"
-              placeholder="Amount (£)"
-              value={newExtraCharge.amount || ""}
-              onChange={(e) => setNewExtraCharge({ ...newExtraCharge, amount: parseFloat(e.target.value) || 0 })}
-            />
-            <Button onClick={addExtraCharge}>Add Charge</Button>
-          </div>
-          {chargeError && <p className="text-red-500">{chargeError}</p>}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Charge Type</TableHead>
-                <TableHead>Amount (£)</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {extraCharges.map((charge) => (
-                <TableRow key={charge.id}>
-                  <TableCell>{charge.charge_type}</TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={charge.amount}
-                      onChange={(e) => updateExtraCharge(charge.id, parseFloat(e.target.value) || 0)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {/* Optionally add delete button */}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {isLoadingCharges ? (
+            <p className="text-center">Loading extra charges...</p>
+          ) : chargeError ? (
+            <p className="text-red-500">{chargeError}</p>
+          ) : (
+            <>
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Charge Type (e.g., unsocial_hours)"
+                  value={newExtraCharge.charge_type}
+                  onChange={(e) => setNewExtraCharge({ ...newExtraCharge, charge_type: e.target.value })}
+                />
+                <Input
+                  type="number"
+                  placeholder="Amount (£)"
+                  value={newExtraCharge.amount || ""}
+                  onChange={(e) => setNewExtraCharge({ ...newExtraCharge, amount: parseFloat(e.target.value) || 0 })}
+                />
+                <Button onClick={addExtraCharge}>Add Charge</Button>
+              </div>
+              {chargeError && <p className="text-red-500">{chargeError}</p>}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Charge Type</TableHead>
+                    <TableHead>Amount (£)</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {extraCharges.map((charge) => (
+                    <TableRow key={charge.id}>
+                      <TableCell>{charge.charge_type}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={charge.amount}
+                          onChange={(e) => updateExtraCharge(charge.id, parseFloat(e.target.value) || 0)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {/* Optionally add delete button */}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

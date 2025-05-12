@@ -15,8 +15,8 @@ export type Vehicle = {
   price_per_hour: number;
   image_url?: string;
   created_at?: string;
-  vehicle_status:string;
-  daily_rate:number;
+  vehicle_status: string;
+  daily_rate: number;
 };
 
 export type Booking = {
@@ -41,8 +41,8 @@ export type Booking = {
   driver_status: DriverStatus;
   stripe_session_id?: string;
   is_daily_hire: string | null;
-  service_type:string;
-  passengers:number;
+  service_type: string;
+  passengers: number;
 };
 
 export type Driver = {
@@ -51,7 +51,7 @@ export type Driver = {
   email: string;
   phone: string;
   payment_details: string;
-  status:string;
+  status: string;
 };
 
 export type DriverPayment = {
@@ -71,7 +71,7 @@ export type Location = {
   status: "active" | "inactive";
 }
 
-export type ServicePricing ={
+export type ServicePricing = {
   id: number;
   service_type: string;
   sub_type: string;
@@ -83,3 +83,17 @@ export type ExtraCharge = {
   charge_type: string;
   amount: number;
 }
+type VehicleFormData = {
+  title: string;
+  name: string;
+  description: string;
+  passengers: string | number;
+  bags: string | number;
+  wifi: boolean;
+  meet_greet: boolean;
+  drinks: boolean;
+  waiting_time: string;
+  base_price: number;
+  price_per_hour: number;
+  image_url: string;
+};

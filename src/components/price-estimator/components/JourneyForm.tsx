@@ -41,6 +41,7 @@ interface JourneyFormProps {
   extraInfo: string[];
   handleSubmit: (e: React.FormEvent) => void;
   locations: string[];
+  
 }
 
 export default function JourneyForm({
@@ -220,19 +221,38 @@ export default function JourneyForm({
       </div>
 
       {(serviceType === "airportTransfer" || serviceType === "dailyHire") && (
-        <div className="space-y-2">
-          <Label htmlFor="vehicle">Vehicle Type</Label>
-          <div className="w-1/2 max-w-[150px]">
-            <Select value={vehicle} onValueChange={setVehicle}>
-              <SelectTrigger id="vehicle">
-                <SelectValue placeholder="Select vehicle type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sedan">Luxury Sedan (£180 base)</SelectItem>
-                <SelectItem value="suv">Executive SUV (£250 base)</SelectItem>
-                <SelectItem value="van">Luxury Van (£300 base)</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 ">
+          {/* Destination Group */}
+          <div className="space-y-2 w-full min-w-[200px]">
+            <Label htmlFor="dropOff">Destination</Label>
+            <div className="w-1/2 max-w-[150px]">
+              <Select value={dropoffLocation} onValueChange={setDropoffLocation}>
+                <SelectTrigger id="dropOff">
+                  <SelectValue placeholder="Select destination" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="airport">Airport</SelectItem>
+                  <SelectItem value="hotel">Hotel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Vehicle Group */}
+          <div className="space-y-2 w-full min-w-[200px]">
+            <Label htmlFor="vehicle">Vehicle Type</Label>
+            <div className="w-1/2 max-w-[150px]">
+              <Select value={vehicle} onValueChange={setVehicle}>
+                <SelectTrigger id="vehicle">
+                  <SelectValue placeholder="Select vehicle type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sedan">Luxury Sedan (£180 base)</SelectItem>
+                  <SelectItem value="suv">Executive SUV (£250 base)</SelectItem>
+                  <SelectItem value="van">Luxury Van (£300 base)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       )}

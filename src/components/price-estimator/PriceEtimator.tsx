@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { format, addDays, isWithinInterval, startOfDay } from "date-fns";
 import { getFestivePeriods } from "./festive-periods";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,60 +54,87 @@ export function PriceEstimator() {
   const [festiveMessage, setFestiveMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
   const currentYear = new Date().getFullYear();
-  const FESTIVE_PERIODS = getFestivePeriods(currentYear);
+  
+  // Memoize festive periods to prevent recreation on every render
+  const FESTIVE_PERIODS = useMemo(() => getFestivePeriods(currentYear), [currentYear]);
 
+  // Calculate festive period and unsocial hours separately to prevent unnecessary updates
   useEffect(() => {
-    if (!date || !hour || !minute || !period) return;
+    if (!date) return;
 
-    const hour24 = period === "pm"
-      ? (hour === "12" ? 12 : parseInt(hour) + 12)
-      : (hour === "12" ? 0 : parseInt(hour));
-    
-    const bookingDateTime = new Date(
-      `${format(date, "yyyy-MM-dd")}T${hour24.toString().padStart(2, "0")}:${minute}:00`
-    );
-
-    const newExtraInfo: string[] = [];
-    const bookingDate = startOfDay(bookingDateTime);
-
+    const bookingDate = startOfDay(date);
     const festivePeriod = FESTIVE_PERIODS.find(period => {
       const start = startOfDay(period.start);
       const end = startOfDay(period.end);
       return isWithinInterval(bookingDate, { start, end });
     });
 
-    if (festivePeriod) {
-      const message = `${festivePeriod.name}: Price doubled during festive period`;
-      newExtraInfo.push(message);
-      setIsFestive(true);
-      setFestiveMessage(message);
-    } else {
-      setIsFestive(false);
-      setFestiveMessage("");
+    const newIsFestive = !!festivePeriod;
+    const newFestiveMessage = festivePeriod 
+      ? `${festivePeriod.name}: Price doubled during festive period`
+      : "";
+
+    if (isFestive !== newIsFestive) {
+      setIsFestive(newIsFestive);
     }
 
-    if (hour24 >= 22 || hour24 < 6) {
-      newExtraInfo.push("Unsolicited Hours (22:00-06:00): Additional £60 + VAT applies");
+    if (festiveMessage !== newFestiveMessage) {
+      setFestiveMessage(newFestiveMessage);
     }
+  }, [date, FESTIVE_PERIODS, isFestive, festiveMessage]);
 
-    setExtraInfo(newExtraInfo);
-  }, [date, hour, minute, period]);
+  // Handle unsocial hours calculation separately
+  useEffect(() => {
+    if (!hour || !period) return;
 
-  const calculatePrice = (): number => {
-    if (!date || !hour || !minute || !period) return 0;
-
-    let basePrice = 0;
-    const vatRate = 0.2;
     const hour24 = period === "pm"
       ? (hour === "12" ? 12 : parseInt(hour) + 12)
       : (hour === "12" ? 0 : parseInt(hour));
-    const bookingDateTime = new Date(
-      `${format(date, "yyyy-MM-dd")}T${hour24.toString().padStart(2, "0")}:${minute}:00`
-    );
+
+    const hasUnsocialHours = hour24 >= 22 || hour24 < 6;
+    const unsocialMessage = hasUnsocialHours
+      ? "Unsolicited Hours (22:00-06:00): Additional £60 + VAT applies"
+      : "";
+
+    setExtraInfo(prev => {
+      // Remove any existing unsocial message
+      const otherMessages = prev.filter(msg => !msg.includes("Unsolicited Hours"));
+      // Add current message if needed
+      if (hasUnsocialHours) {
+        return [...otherMessages, unsocialMessage];
+      }
+      return otherMessages;
+    });
+  }, [hour, period]);
+
+  // Add festive message to extra info when it changes
+  useEffect(() => {
+    if (!festiveMessage) return;
+
+    setExtraInfo(prev => {
+      // Remove any existing festive message
+      const otherMessages = prev.filter(msg => !msg.includes("festive period"));
+      // Add current message if it exists
+      if (festiveMessage) {
+        return [...otherMessages, festiveMessage];
+      }
+      return otherMessages;
+    });
+  }, [festiveMessage]);
+
+  const calculatePrice = useCallback((): number => {
+    if (!date || !hour || !minute || !period) return 0;
+
+    const hour24 = period === "pm"
+      ? (hour === "12" ? 12 : parseInt(hour) + 12)
+      : (hour === "12" ? 0 : parseInt(hour));
 
     const breakdown: string[] = [];
-    let festiveMultiplier = isFestive ? 2 : 1;
-    let unsocialCharge = (hour24 >= 22 || hour24 < 6) ? 60 : 0;
+    const festiveMultiplier = isFestive ? 2 : 1;
+    const unsocialCharge = (hour24 >= 22 || hour24 < 6) ? 60 : 0;
+
+    let basePrice = 0;
+    const vatRate = 0.2;
 
     switch (serviceType) {
       case "meetAndGreet":
@@ -174,28 +200,30 @@ export function PriceEstimator() {
 
     setPriceBreakdown(breakdown);
     return total;
-  };
+  }, [
+    date, hour, minute, period, isFestive, serviceType, 
+    meetAndGreetType, passengers, additionalHours, 
+    wantBuggy, bags, pickupLocation, dropoffLocation, vehicle
+  ]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const price = calculatePrice();
     setEstimatedPrice(`£${price.toFixed(2)}`);
     setShowModal(true);
-  };
+  }, [calculatePrice]);
 
-  const handleBooking = async () => {
+  const handleBooking = useCallback(async () => {
     if (!date || !hour || !minute || !period) return;
 
     const hour24 = period === "pm"
       ? (hour === "12" ? 12 : parseInt(hour) + 12)
       : (hour === "12" ? 0 : parseInt(hour));
-    const bookingDateTime = new Date(
-      `${format(date, "yyyy-MM-dd")}T${hour24.toString().padStart(2, "0")}:${minute}:00`
-    );
-
     const bookingData = {
       service_type: serviceType,
-      date_time: bookingDateTime,
+      date_time: new Date(
+        `${format(date, "yyyy-MM-dd")}T${hour24.toString().padStart(2, "0")}:${minute}:00`
+      ),
       pickup_location: pickupLocation,
       dropoff_location: dropoffLocation,
       vehicle: vehicle,
@@ -216,7 +244,11 @@ export function PriceEstimator() {
       console.error("Error saving booking:", error);
       alert("Failed to save booking. Please try again.");
     }
-  };
+  }, [
+    date, hour, minute, period, serviceType, pickupLocation,
+    dropoffLocation, vehicle, passengers, additionalHours,
+    wantBuggy, wantPorter, bags, meetAndGreetType
+  ]);
 
   return (
     <Card className="w-full">

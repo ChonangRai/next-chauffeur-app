@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/button";
 import { Alert, AlertDescription } from "../../../components/ui/alert";
 import AuthLayout from "../../../components/auth/AuthLayout";
 import Logo from "../../../components/auth/Logo";
-import { Check, AlertCircle, Loader2 } from "lucide-react";
+import { Check, AlertCircle, Loader2, Link } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
@@ -44,6 +44,7 @@ const ConfirmSignup = () => {
           await supabase.auth.refreshSession();
         }
       } catch (error) {
+        console.log(error);
         setStatus("error");
         setMessage("An error occurred while verifying your email. Please try again later.");
       }
@@ -106,10 +107,10 @@ const ConfirmSignup = () => {
             </Alert>
             <div className="flex flex-col space-y-3 pt-2">
               <Button asChild variant="outline" size="lg">
-                <a href="/user/signup">Back to Sign Up</a>
+                <Link href="/user/signup">Back to Sign Up</Link>
               </Button>
               <Button asChild variant="ghost" className="text-sm">
-                <a href="/">Go to Homepage</a>
+                <Link href="/">Go to Homepage</Link>
               </Button>
               <p className="text-sm text-gray-500 pt-2">Need help? Contact our support team.</p>
             </div>

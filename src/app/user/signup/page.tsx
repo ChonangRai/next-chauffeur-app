@@ -1,14 +1,14 @@
 "use client";
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
-import { Icons } from "@/components/ui/icons";
-import { supabase } from "@/lib/supabase";
+import { Icons } from "../../../components/ui/icons";
+import { supabase } from "../../../lib/supabase";
 
 const logoURL = "/favicon.ico";
 
@@ -86,9 +86,12 @@ export default function SignUp() {
         setSuccess("Registration successful! Please check your email to verify your account.");
         setTimeout(() => router.push("/user/signin"), 3000);
       }
-    } catch (error: any) {
-      console.error("Signup error:", error);
-      setError(error.message || "Registration failed. Please try again.");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An unexpected error occurred.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -107,9 +110,14 @@ export default function SignUp() {
       });
 
       if (error) throw error;
-    } catch (error: any) {
-      setError(error.message || "Google signup failed. Please try again.");
-    } finally {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("Google sign-up failed. Please try again.");
+      }
+    }
+    finally {
       setIsGoogleLoading(false);
     }
   };

@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { supabaseAdmin } from "@/lib/supabase";
-import Notification from "@/components/ui/notification";
+import { supabaseAdmin } from "../../lib/supabase";
+import Notification from "../../components/ui/notification";
 import BookingRow from "./BookingRow";
-import { Booking, Driver, DriverStatus } from "@/types/admin";
+import { Booking, Driver, DriverStatus } from "../../types/admin";
 
 type BookingsTabProps = {
   bookings: Booking[];
@@ -37,10 +37,16 @@ export default function BookingsTab({
       if (error) throw new Error(error.message);
       await fetchBookings();
       showNotification("success", `Booking status updated to ${newStatus}`);
-    } catch (err: any) {
-      console.error("Error updating booking status:", err);
-      showNotification("error", `Failed to update booking status: ${err.message || "Unknown error"}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error updating booking status:", err);
+        showNotification("error", `Failed to update booking status: ${err.message}`);
+      } else {
+        console.error("Unknown error updating booking status:", err);
+        showNotification("error", "Failed to update booking status: Unknown error");
+      }
     }
+
   };
 
   // Handle assigning a driver to a booking
@@ -55,10 +61,17 @@ export default function BookingsTab({
       if (error) throw new Error(error.message);
       await fetchBookings();
       showNotification("success", driverId ? "Driver assigned successfully" : "Driver unassigned successfully");
-    } catch (err: any) {
-      console.error("Error assigning driver:", err);
-      showNotification("error", `Failed to assign driver: ${err.message || "Unknown error"}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error assigning driver:", err);
+        showNotification("error", `Failed to assign driver: ${err.message}`);
+      } else {
+        console.error("Unknown error assigning driver:", err);
+        showNotification("error", "Failed to assign driver: Unknown error");
+      }
     }
+
+
   };
 
   // Handle marking a booking as completed by the driver
@@ -89,10 +102,16 @@ export default function BookingsTab({
       await fetchBookings();
       await fetchDriverPayments();
       showNotification("success", "Booking marked as completed. Driver payment record created.");
-    } catch (err: any) {
-      console.error("Error marking booking as completed:", err);
-      showNotification("error", `Failed to mark booking as completed: ${err.message || "Unknown error"}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error marking booking as completed:", err);
+        showNotification("error", `Failed to mark booking as completed: ${err.message}`);
+      } else {
+        console.error("Unknown error marking booking as completed:", err);
+        showNotification("error", "Failed to mark booking as completed: Unknown error");
+      }
     }
+
   };
 
   // Handle deleting a booking
@@ -106,10 +125,16 @@ export default function BookingsTab({
 
       await fetchBookings();
       showNotification("success", "Booking deleted successfully!");
-    } catch (err: any) {
-      console.error("Error deleting booking:", err);
-      showNotification("error", `Failed to delete booking: ${err.message || "Unknown error"}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Error deleting booking:", err);
+        showNotification("error", `Failed to delete booking: ${err.message}`);
+      } else {
+        console.error("Unknown error deleting booking:", err);
+        showNotification("error", "Failed to delete booking: Unknown error");
+      }
     }
+
   };
 
   return (

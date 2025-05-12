@@ -1,13 +1,13 @@
 "use client";
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
-import { Icons } from "@/components/ui/icons";
-import { supabase } from "@/lib/supabase";
+import { Icons } from "../../../components/ui/icons";
+import { supabase } from "../../../lib/supabase";
 
 const logoURL = "/favicon.ico";
 
@@ -31,11 +31,15 @@ export default function SignIn() {
         email,
         password,
       });
-      
+
       if (error) throw error;
       router.push("/user/dashboard");
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An unexpected error occurred.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -44,7 +48,7 @@ export default function SignIn() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setError(null);
-    
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -54,8 +58,12 @@ export default function SignIn() {
       });
 
       if (error) throw error;
-    } catch (error: any) {
-      setError(error.message || "Google sign-in failed. Please try again.");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An unexpected error occurred.");
+      }
     } finally {
       setIsGoogleLoading(false);
     }
@@ -81,9 +89,9 @@ export default function SignIn() {
 
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
         <h2 className="text-2xl font-bold mb-4 text-center">Sign In</h2>
-        
-{/* Google Sign-In Button */}
-<div className="mb-6">
+
+        {/* Google Sign-In Button */}
+        <div className="mb-6">
           <Button
             variant="outline"
             type="button"
@@ -131,18 +139,18 @@ export default function SignIn() {
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Signing In..." : "Sign In"}
           </Button>
-          
+
           {error && <p className="text-red-500 text-center">{error}</p>}
           {errorMessage && (
             <p className="text-red-500 text-center">
-              {errorMessage === 'user_creation_failed' 
-                ? "Failed to create user profile. Please try again." 
+              {errorMessage === 'user_creation_failed'
+                ? "Failed to create user profile. Please try again."
                 : errorMessage}
             </p>
           )}
-          
+
           <p className="text-center">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/user/signup" className="text-blue-500 hover:underline">
               Sign Up
             </Link>
