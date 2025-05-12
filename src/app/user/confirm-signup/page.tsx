@@ -8,25 +8,10 @@ import Logo from "../../../components/auth/Logo";
 import { Check, AlertCircle, Loader2, Link } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
-// Fallback component to display while Suspense is loading
-const ConfirmSignupFallback = () => (
-  <AuthLayout title="Email Verification" subtitle="Confirming your email address">
-    <div className="flex flex-col items-center justify-center py-6">
-      <Logo className="mb-8" />
-      <div className="text-center">
-        <div className="flex justify-center">
-          <span className="relative flex h-16 w-16">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-25"></span>
-            <Loader2 className="relative h-16 w-16 animate-spin text-brand-600" />
-          </span>
-        </div>
-        <p className="text-gray-700 mt-6 text-lg">Verifying your email address...</p>
-      </div>
-    </div>
-  </AuthLayout>
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Main ConfirmSignup component
 const ConfirmSignupContent = () => {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
@@ -43,11 +28,6 @@ const ConfirmSignupContent = () => {
       }
 
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-        // Verify the token with Supabase
         const { error } = await supabase.auth.verifyOtp({
           type: "email",
           token_hash: token,
@@ -59,7 +39,6 @@ const ConfirmSignupContent = () => {
         } else {
           setStatus("success");
           setMessage("Your email has been successfully verified! Your account is now active.");
-          // Optionally, refresh the user session
           await supabase.auth.refreshSession();
         }
       } catch (error) {
@@ -140,11 +119,27 @@ const ConfirmSignupContent = () => {
   );
 };
 
-// Wrap the ConfirmSignupContent in Suspense
-export default function ConfirmSignup() {
+const ConfirmSignup = () => {
   return (
-    <Suspense fallback={<ConfirmSignupFallback />}>
+    <Suspense fallback={
+      <AuthLayout title="Email Verification" subtitle="Confirming your email address">
+        <div className="flex flex-col items-center justify-center py-6">
+          <Logo className="mb-8" />
+          <div className="text-center">
+            <div className="flex justify-center">
+              <span className="relative flex h-16 w-16">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-25"></span>
+                <Loader2 className="relative h-16 w-16 animate-spin text-brand-600" />
+              </span>
+            </div>
+            <p className="text-gray-700 mt-6 text-lg">Loading verification...</p>
+          </div>
+        </div>
+      </AuthLayout>
+    }>
       <ConfirmSignupContent />
     </Suspense>
   );
-}
+};
+
+export default ConfirmSignup;
