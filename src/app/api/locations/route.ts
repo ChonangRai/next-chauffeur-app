@@ -10,7 +10,10 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true }, { status: 201 });
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   const { status } = await request.json();
   const { error } = await supabase.from("locations").update({ status }).eq("id", params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
