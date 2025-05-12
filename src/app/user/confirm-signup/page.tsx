@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import { Alert, AlertDescription } from "../../../components/ui/alert";
@@ -8,11 +8,26 @@ import Logo from "../../../components/auth/Logo";
 import { Check, AlertCircle, Loader2, Link } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Fallback component to display while Suspense is loading
+const ConfirmSignupFallback = () => (
+  <AuthLayout title="Email Verification" subtitle="Confirming your email address">
+    <div className="flex flex-col items-center justify-center py-6">
+      <Logo className="mb-8" />
+      <div className="text-center">
+        <div className="flex justify-center">
+          <span className="relative flex h-16 w-16">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-25"></span>
+            <Loader2 className="relative h-16 w-16 animate-spin text-brand-600" />
+          </span>
+        </div>
+        <p className="text-gray-700 mt-6 text-lg">Verifying your email address...</p>
+      </div>
+    </div>
+  </AuthLayout>
+);
 
-const ConfirmSignup = () => {
+// Main ConfirmSignup component
+const ConfirmSignupContent = () => {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
   const searchParams = useSearchParams();
@@ -28,6 +43,10 @@ const ConfirmSignup = () => {
       }
 
       try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
         // Verify the token with Supabase
         const { error } = await supabase.auth.verifyOtp({
           type: "email",
@@ -121,4 +140,11 @@ const ConfirmSignup = () => {
   );
 };
 
-export default ConfirmSignup;
+// Wrap the ConfirmSignupContent in Suspense
+export default function ConfirmSignup() {
+  return (
+    <Suspense fallback={<ConfirmSignupFallback />}>
+      <ConfirmSignupContent />
+    </Suspense>
+  );
+}
