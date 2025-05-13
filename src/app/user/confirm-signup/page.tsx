@@ -7,11 +7,18 @@ export const metadata: Metadata = {
   title: 'Email Verification',
 };
 
+// Add this export to ensure searchParams is properly typed
+export const dynamic = 'force-dynamic';
+
+interface PageProps {
+  searchParams: { 
+    token?: string | string[];
+  };
+}
+
 export default function ConfirmSignupPage({
   searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
+}: PageProps) {
   const token = Array.isArray(searchParams.token) 
     ? searchParams.token[0] 
     : searchParams.token;
