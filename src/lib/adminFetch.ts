@@ -7,12 +7,25 @@ type FetchResult<T> = {
   isLoading: boolean;
 };
 
+// Helper function to check if supabaseAdmin is initialized
+const getSupabaseAdmin = () => {
+  if (!supabaseAdmin) {
+    throw new Error("Supabase client is not initialized");
+  }
+  return supabaseAdmin;
+};
+
 export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
   let isLoading = true;
   try {
-    const { data, error } = await supabaseAdmin.from("vehicles").select("*").order("base_price", { ascending: true });
+    const { data, error } = await getSupabaseAdmin()
+      .from("vehicles")
+      .select("*")
+      .order("base_price", { ascending: true });
+      
     if (error) throw new Error(error.message);
     isLoading = false;
+    
     const normalizedData = data?.map((vehicle) => {
       const normalizedVehicle = {
         id: vehicle.id,
@@ -34,13 +47,16 @@ export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
       };
       return normalizedVehicle;
     }) || [];
+    
     return { data: normalizedData, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching vehicles:", err);
     isLoading = false;
     const errorMessage = (err instanceof Error && err.message.includes("relation \"public.vehicles\" does not exist"))
       ? "The 'vehicles' table does not exist in the database. Please create it."
-      : "Failed to load vehicles. Please try again.";
+      : err instanceof Error 
+        ? err.message
+        : "Failed to load vehicles. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };
@@ -48,9 +64,14 @@ export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
 export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
   let isLoading = true;
   try {
-    const { data, error } = await supabaseAdmin.from("bookings").select("*").order("created_at", { ascending: false });
+    const { data, error } = await getSupabaseAdmin()
+      .from("bookings")
+      .select("*")
+      .order("created_at", { ascending: false });
+      
     if (error) throw new Error(error.message);
     isLoading = false;
+    
     const normalizedData = data?.map((booking) => {
       const validDriverStatus: DriverStatus = ["unassigned", "assigned", "completed"].includes(booking.driver_status)
         ? booking.driver_status as DriverStatus
@@ -80,13 +101,16 @@ export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
         passengers: booking.passengers,
       };
     }) || [];
+    
     return { data: normalizedData, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching bookings:", err);
     isLoading = false;
     const errorMessage = (err instanceof Error && err.message.includes("relation \"public.bookings\" does not exist"))
       ? "The 'bookings' table does not exist in the database. Please create it."
-      : "Failed to load bookings. Please try again.";
+      : err instanceof Error 
+        ? err.message
+        : "Failed to load bookings. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };
@@ -94,7 +118,7 @@ export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
 export const fetchDrivers = async (): Promise<FetchResult<Driver>> => {
   let isLoading = true;
   try {
-    const { data, error } = await supabaseAdmin.from("drivers").select("*");
+    const { data, error } = await getSupabaseAdmin().from("drivers").select("*");
     if (error) throw new Error(error.message);
     isLoading = false;
     return { data: data || [], error: null, isLoading };
@@ -103,7 +127,9 @@ export const fetchDrivers = async (): Promise<FetchResult<Driver>> => {
     isLoading = false;
     const errorMessage = (err instanceof Error && err.message.includes("relation \"public.drivers\" does not exist"))
       ? "The 'drivers' table does not exist in the database. Please create it."
-      : "Failed to load drivers. Please try again.";
+      : err instanceof Error 
+        ? err.message
+        : "Failed to load drivers. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };
@@ -111,7 +137,11 @@ export const fetchDrivers = async (): Promise<FetchResult<Driver>> => {
 export const fetchDriverPayments = async (): Promise<FetchResult<DriverPayment>> => {
   let isLoading = true;
   try {
-    const { data, error } = await supabaseAdmin.from("driver_payments").select("*").order("created_at", { ascending: false });
+    const { data, error } = await getSupabaseAdmin()
+      .from("driver_payments")
+      .select("*")
+      .order("created_at", { ascending: false });
+      
     if (error) throw new Error(error.message);
     isLoading = false;
     return { data: data || [], error: null, isLoading };
@@ -120,7 +150,9 @@ export const fetchDriverPayments = async (): Promise<FetchResult<DriverPayment>>
     isLoading = false;
     const errorMessage = (err instanceof Error && err.message.includes("relation \"public.driver_payments\" does not exist"))
       ? "The 'driver_payments' table does not exist in the database. Please create it."
-      : "Failed to load driver payments. Please try again.";
+      : err instanceof Error 
+        ? err.message
+        : "Failed to load driver payments. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };
@@ -128,7 +160,7 @@ export const fetchDriverPayments = async (): Promise<FetchResult<DriverPayment>>
 export const fetchLocations = async (): Promise<FetchResult<Location>> => {
   let isLoading = true;
   try {
-    const { data, error } = await supabaseAdmin.from("locations").select("*");
+    const { data, error } = await getSupabaseAdmin().from("locations").select("*");
     if (error) throw new Error(error.message);
     isLoading = false;
     return { data: data || [], error: null, isLoading };
@@ -137,7 +169,9 @@ export const fetchLocations = async (): Promise<FetchResult<Location>> => {
     isLoading = false;
     const errorMessage = (err instanceof Error && err.message.includes("relation \"public.locations\" does not exist"))
       ? "The 'locations' table does not exist in the database. Please create it."
-      : "Failed to load locations. Please try again.";
+      : err instanceof Error 
+        ? err.message
+        : "Failed to load locations. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };
@@ -145,7 +179,7 @@ export const fetchLocations = async (): Promise<FetchResult<Location>> => {
 export const fetchServicePricing = async (): Promise<FetchResult<ServicePricing>> => {
   let isLoading = true;
   try {
-    const { data, error } = await supabaseAdmin.from("service_pricing").select("*");
+    const { data, error } = await getSupabaseAdmin().from("service_pricing").select("*");
     if (error) throw new Error(error.message);
     isLoading = false;
     return { data: data || [], error: null, isLoading };
@@ -154,7 +188,9 @@ export const fetchServicePricing = async (): Promise<FetchResult<ServicePricing>
     isLoading = false;
     const errorMessage = (err instanceof Error && err.message.includes("relation \"public.service_pricing\" does not exist"))
       ? "The 'service_pricing' table does not exist in the database. Please create it."
-      : "Failed to load service pricing. Please try again.";
+      : err instanceof Error 
+        ? err.message
+        : "Failed to load service pricing. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };
@@ -162,7 +198,7 @@ export const fetchServicePricing = async (): Promise<FetchResult<ServicePricing>
 export const fetchExtraCharges = async (): Promise<FetchResult<ExtraCharge>> => {
   let isLoading = true;
   try {
-    const { data, error } = await supabaseAdmin.from("extra_charges").select("*");
+    const { data, error } = await getSupabaseAdmin().from("extra_charges").select("*");
     if (error) throw new Error(error.message);
     isLoading = false;
     return { data: data || [], error: null, isLoading };
@@ -171,7 +207,9 @@ export const fetchExtraCharges = async (): Promise<FetchResult<ExtraCharge>> => 
     isLoading = false;
     const errorMessage = (err instanceof Error && err.message.includes("relation \"public.extra_charges\" does not exist"))
       ? "The 'extra_charges' table does not exist in the database. Please create it."
-      : "Failed to load extra charges. Please try again.";
+      : err instanceof Error 
+        ? err.message
+        : "Failed to load extra charges. Please try again.";
     return { data: null, error: errorMessage, isLoading };
   }
 };

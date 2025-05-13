@@ -3,12 +3,28 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-// Stripe webhook secret (set this in Vercel environment variables after creating the webhook in Stripe)
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
   try {
+    // First check if supabaseAdmin is available
+    if (!supabaseAdmin) {
+      console.error("Supabase admin client not configured");
+      return NextResponse.json(
+        { error: "Internal server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    // Validate webhook secret
+    if (!webhookSecret) {
+      console.error("STRIPE_WEBHOOK_SECRET is not set");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
     const body = await req.text();
     const signature = req.headers.get("stripe-signature");
 
@@ -42,11 +58,17 @@ export async function POST(req: Request) {
       }
 
       // Update the booking status to "confirmed"
-      const { error } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("bookings")
-        .update({ status: "confirmed" })
+        .update({ 
+          status: "confirmed",
+          payment_status: "paid",
+          payment_date: new Date().toISOString()
+        })
         .eq("id", bookingId)
-        .eq("stripe_session_id", session.id);
+        .eq("stripe_session_id", session.id)
+        .select()
+        .single();
 
       if (error) {
         console.error("Supabase update error:", error);
@@ -56,17 +78,16 @@ export async function POST(req: Request) {
         );
       }
 
-      console.log(`Booking ${bookingId} confirmed`);
+      console.log(`Booking ${bookingId} confirmed`, data);
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook error:", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Webhook error:", errorMessage);
+    
     return NextResponse.json(
-      { error: "Webhook error" },
+      { error: `Webhook error: ${errorMessage}` },
       { status: 400 }
     );
   }

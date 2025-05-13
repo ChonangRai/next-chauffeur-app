@@ -24,117 +24,89 @@ export default function BookingsTab({
 }: BookingsTabProps) {
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // Show notification
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 5000);
   };
 
-  // Handle updating booking status
-  const handleUpdateBookingStatus = async (bookingId: string, newStatus: string) => {
-    try {
-      const { error } = await supabaseAdmin.from("bookings").update({ status: newStatus }).eq("id", bookingId);
-      if (error) throw new Error(error.message);
-      await fetchBookings();
-      showNotification("success", `Booking status updated to ${newStatus}`);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Error updating booking status:", err);
-        showNotification("error", `Failed to update booking status: ${err.message}`);
-      } else {
-        console.error("Unknown error updating booking status:", err);
-        showNotification("error", "Failed to update booking status: Unknown error");
-      }
+  const handleDatabaseOperation = async (operation: () => Promise<void>, successMessage: string) => {
+    if (!supabaseAdmin) {
+      showNotification("error", "Server configuration error: Admin access not available");
+      return;
     }
 
+    try {
+      await operation();
+      showNotification("success", successMessage);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Operation failed:", message);
+      showNotification("error", `Operation failed: ${message}`);
+    }
   };
 
-  // Handle assigning a driver to a booking
+  const handleUpdateBookingStatus = async (bookingId: string, newStatus: string) => {
+    await handleDatabaseOperation(async () => {
+      const { error } = await supabaseAdmin!
+        .from("bookings")
+        .update({ status: newStatus })
+        .eq("id", bookingId);
+      if (error) throw error;
+      await fetchBookings();
+    }, `Booking status updated to ${newStatus}`);
+  };
+
   const handleAssignDriver = async (bookingId: string, value: string) => {
-    try {
+    await handleDatabaseOperation(async () => {
       const driverId = value === "unassign" ? null : value;
       const driverStatus: DriverStatus = driverId ? "assigned" : "unassigned";
-      const { error } = await supabaseAdmin
+      const { error } = await supabaseAdmin!
         .from("bookings")
         .update({ driver_id: driverId, driver_status: driverStatus })
         .eq("id", bookingId);
-      if (error) throw new Error(error.message);
+      if (error) throw error;
       await fetchBookings();
-      showNotification("success", driverId ? "Driver assigned successfully" : "Driver unassigned successfully");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Error assigning driver:", err);
-        showNotification("error", `Failed to assign driver: ${err.message}`);
-      } else {
-        console.error("Unknown error assigning driver:", err);
-        showNotification("error", "Failed to assign driver: Unknown error");
-      }
-    }
-
-
+    }, value === "unassign" ? "Driver unassigned successfully" : "Driver assigned successfully");
   };
 
-  // Handle marking a booking as completed by the driver
   const handleMarkBookingCompleted = async (bookingId: string) => {
-    try {
+    await handleDatabaseOperation(async () => {
       const booking = bookings.find((b) => b.id === bookingId);
       if (!booking?.driver_id) {
-        showNotification("error", "No driver assigned to this booking.");
-        return;
+        throw new Error("No driver assigned to this booking");
       }
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabaseAdmin!
         .from("bookings")
         .update({ driver_status: "completed" })
         .eq("id", bookingId);
-      if (error) throw new Error(error.message);
+      if (error) throw error;
 
       const amount = booking.amount * 0.7;
-      const { error: paymentError } = await supabaseAdmin.from("driver_payments").insert({
-        driver_id: booking.driver_id,
-        booking_id: bookingId,
-        amount,
-        status: "pending",
-        payment_method: "Bank Transfer",
-      });
-      if (paymentError) throw new Error(paymentError.message);
+      const { error: paymentError } = await supabaseAdmin!
+        .from("driver_payments")
+        .insert({
+          driver_id: booking.driver_id,
+          booking_id: bookingId,
+          amount,
+          status: "pending",
+          payment_method: "Bank Transfer",
+        });
+      if (paymentError) throw paymentError;
 
-      await fetchBookings();
-      await fetchDriverPayments();
-      showNotification("success", "Booking marked as completed. Driver payment record created.");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Error marking booking as completed:", err);
-        showNotification("error", `Failed to mark booking as completed: ${err.message}`);
-      } else {
-        console.error("Unknown error marking booking as completed:", err);
-        showNotification("error", "Failed to mark booking as completed: Unknown error");
-      }
-    }
-
+      await Promise.all([fetchBookings(), fetchDriverPayments()]);
+    }, "Booking marked as completed. Driver payment record created.");
   };
 
-  // Handle deleting a booking
   const handleDeleteBooking = async (bookingId: string) => {
-    try {
-      const { error } = await supabaseAdmin
+    await handleDatabaseOperation(async () => {
+      const { error } = await supabaseAdmin!
         .from("bookings")
         .delete()
         .eq("id", bookingId);
-      if (error) throw new Error(error.message);
-
+      if (error) throw error;
       await fetchBookings();
-      showNotification("success", "Booking deleted successfully!");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Error deleting booking:", err);
-        showNotification("error", `Failed to delete booking: ${err.message}`);
-      } else {
-        console.error("Unknown error deleting booking:", err);
-        showNotification("error", "Failed to delete booking: Unknown error");
-      }
-    }
-
+    }, "Booking deleted successfully!");
   };
 
   return (

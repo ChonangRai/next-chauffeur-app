@@ -6,10 +6,19 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
   try {
+    // Check if supabaseAdmin is available first
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Server configuration error: Supabase admin client not available" },
+        { status: 500 }
+      );
+    }
+
     const { bookingDetails, amount } = await req.json();
 
     console.log("Received request body:", { bookingDetails, amount });
 
+    // Validate environment variables
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new Error("STRIPE_SECRET_KEY is not defined");
     }
@@ -17,6 +26,7 @@ export async function POST(req: Request) {
       throw new Error("NEXT_PUBLIC_BASE_URL is not defined");
     }
 
+    // Validate request body
     if (!bookingDetails || !amount) {
       return NextResponse.json(
         { error: "Missing bookingDetails or amount" },
@@ -39,11 +49,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate booking_ref based on the current timestamp
+    // Generate booking_ref
     const now = new Date();
-    const booking_ref = now.toISOString().replace(/[-:T.Z]/g, "").slice(0, 14); // e.g., 20250101-143022
+    const booking_ref = now.toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
 
-    // Save booking to Supabase with status "pending"
+    // Save booking to Supabase
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
       .insert({
@@ -62,7 +72,7 @@ export async function POST(req: Request) {
         duration: bookingDetails.isHireByHour ? bookingDetails.duration : null,
         duration_unit: bookingDetails.isHireByHour ? bookingDetails.durationUnit : null,
         driver_status: "unassigned",
-        booking_ref, 
+        booking_ref,
       })
       .select()
       .single();
@@ -115,7 +125,7 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create(stripeParams);
 
-    // Update the booking with the Stripe session ID
+    // Update booking with Stripe session ID
     const { error: updateError } = await supabaseAdmin
       .from("bookings")
       .update({ stripe_session_id: session.id })
