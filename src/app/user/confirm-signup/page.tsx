@@ -1,19 +1,23 @@
-import { Suspense } from 'react';
-import ConfirmSignupClient from './ConfirmSignupClient';
-import type { Metadata } from 'next';
+import { Suspense } from "react";
+import ConfirmSignupClient from "./ConfirmSignupClient";
+import type { Metadata } from "next";
 
+// Define metadata
 export const metadata: Metadata = {
-  title: 'Email Verification',
+  title: "Email Verification",
 };
 
-interface ConfirmSignupPageProps {
-  searchParams?: Record<string, string | string[] | undefined>;
-}
+// Type for searchParams based on Next.js expectations
+type SearchParams = {
+  [key: string]: string | string[] | undefined;
+};
 
-export default function ConfirmSignupPage({ searchParams }: ConfirmSignupPageProps) {
-  const token = Array.isArray(searchParams?.token)
-    ? searchParams?.token[0]
-    : searchParams?.token;
+export default function ConfirmSignupPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const token = Array.isArray(searchParams.token) ? searchParams.token[0] : searchParams.token;
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
