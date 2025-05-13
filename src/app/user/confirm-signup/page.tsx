@@ -1,4 +1,3 @@
-// app/user/confirm-signup/page.tsx
 import { Suspense } from 'react';
 import ConfirmSignupClient from './ConfirmSignupClient';
 import type { Metadata } from 'next';
@@ -7,21 +6,14 @@ export const metadata: Metadata = {
   title: 'Email Verification',
 };
 
-// Add this export to ensure searchParams is properly typed
-export const dynamic = 'force-dynamic';
-
-interface PageProps {
-  searchParams: { 
-    token?: string | string[];
-  };
+interface ConfirmSignupPageProps {
+  searchParams?: Record<string, string | string[] | undefined>;
 }
 
-export default function ConfirmSignupPage({
-  searchParams,
-}: PageProps) {
-  const token = Array.isArray(searchParams.token) 
-    ? searchParams.token[0] 
-    : searchParams.token;
+export default function ConfirmSignupPage({ searchParams }: ConfirmSignupPageProps) {
+  const token = Array.isArray(searchParams?.token)
+    ? searchParams?.token[0]
+    : searchParams?.token;
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
