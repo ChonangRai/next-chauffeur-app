@@ -7,17 +7,17 @@ export const metadata: Metadata = {
   title: "Email Verification",
 };
 
-// Type for searchParams based on Next.js expectations
-type SearchParams = {
-  [key: string]: string | string[] | undefined;
+// Define the props type for the page with unknown instead of any
+type ConfirmSignupPageProps = {
+  searchParams: Promise<unknown> | undefined;
 };
 
-export default function ConfirmSignupPage({
+export default async function ConfirmSignupPage({
   searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const token = Array.isArray(searchParams.token) ? searchParams.token[0] : searchParams.token;
+}: ConfirmSignupPageProps) {
+  // Await searchParams and assert the expected shape
+  const resolvedSearchParams = await (searchParams as Promise<{ [key: string]: string | string[] | undefined }>);
+  const token = Array.isArray(resolvedSearchParams?.token) ? resolvedSearchParams.token[0] : resolvedSearchParams?.token;
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
