@@ -56,7 +56,10 @@ export default function SigninClient({
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          // Use a relative path or environment variable for production
+          redirectTo: "/auth/callback",
+          // Alternatively, use a hardcoded production URL (replace with your Vercel URL)
+          // redirectTo: "https://your-vercel-app.vercel.app/auth/callback",
         },
       });
 
