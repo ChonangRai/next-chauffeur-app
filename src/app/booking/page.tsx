@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
-import VehicleServiceCard from "../../components/vehicle/vehicle";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
+import { supabase } from "@/lib/supabase";
+import VehicleServiceCard from "@/components/vehicle/vehicle";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "../../components/ui/select";
-import { Textarea } from "../../components/ui/textarea";
-import Notification from "../../components/ui/notification";
-import { Vehicle } from "../../types/admin";
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import Notification from "@/components/ui/notification";
+import { Vehicle } from "@/types/admin";
 
 // Predefined locations
 const PREDEFINED_LOCATIONS = [
