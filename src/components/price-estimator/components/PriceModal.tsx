@@ -1,3 +1,4 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -6,7 +7,7 @@ interface PriceModalProps {
   setShowModal: (show: boolean) => void;
   estimatedPrice: string;
   priceBreakdown: string[];
-  onContinue: () => Promise<void>;
+  onContinue: () => void; // Changed from () => Promise<void>
 }
 
 export default function PriceModal({ showModal, setShowModal, estimatedPrice, priceBreakdown, onContinue }: PriceModalProps) {

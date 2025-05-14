@@ -1,30 +1,28 @@
-import { cn } from "@/lib/utils";
+"use client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ServiceTypeSelectorProps {
-  serviceType: string;
-  setServiceType: (type: string) => void;
+  serviceType: "meetAndGreet" | "airportTransfer" | "hourlyHire";
+  setServiceType: (value: "meetAndGreet" | "airportTransfer" | "hourlyHire") => void;
 }
 
 export default function ServiceTypeSelector({ serviceType, setServiceType }: ServiceTypeSelectorProps) {
+  // Handler to ensure the value matches the union type
+  const handleServiceTypeChange = (value: string) => {
+    // Type assertion since we control the SelectItem values
+    setServiceType(value as "meetAndGreet" | "airportTransfer" | "hourlyHire");
+  };
+
   return (
-    <nav className="border-b border-gray-200 mb-4">
-      <div className="flex space-x-2">
-        {["meetAndGreet", "airportTransfer", "dailyHire"].map((type) => (
-          <button
-            key={type}
-            type="button"
-            className={cn(
-              "py-2 px-4 font-medium",
-              serviceType === type
-                ? "border-b-2 border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-            )}
-            onClick={() => setServiceType(type)}
-          >
-            {type === "meetAndGreet" ? "Meet & Greet" : type === "airportTransfer" ? "Airport Transfer" : "Daily Hire"}
-          </button>
-        ))}
-      </div>
-    </nav>
+    <Select value={serviceType} onValueChange={handleServiceTypeChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select Service Type" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="meetAndGreet">Meet and Greet</SelectItem>
+        <SelectItem value="airportTransfer">Airport Transfer</SelectItem>
+        <SelectItem value="hourlyHire">Hourly Hire</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

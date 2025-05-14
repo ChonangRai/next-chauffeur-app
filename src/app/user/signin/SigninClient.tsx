@@ -53,13 +53,15 @@ export default function SigninClient({
     setError(null);
 
     try {
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+      const redirectTo = `${baseUrl}/auth/callback`;
+      console.log("Google OAuth redirectTo:", redirectTo); // Debug log
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          // Use a relative path or environment variable for production
-          redirectTo: "/auth/callback",
-          // Alternatively, use a hardcoded production URL (replace with your Vercel URL)
-          // redirectTo: "https://your-vercel-app.vercel.app/auth/callback",
+          redirectTo,
+          scopes: "email profile", // Ensure Google provides necessary data
         },
       });
 
@@ -96,7 +98,6 @@ export default function SigninClient({
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
         <h2 className="text-2xl font-bold mb-4 text-center">Sign In</h2>
 
-        {/* Google Sign-In Button */}
         <div className="mb-6">
           <Button
             variant="outline"
@@ -114,7 +115,6 @@ export default function SigninClient({
           </Button>
         </div>
 
-        {/* Divider */}
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -126,7 +126,6 @@ export default function SigninClient({
           </div>
         </div>
 
-        {/* Email/Password Form */}
         <form onSubmit={handleSignIn} className="space-y-4">
           <Input
             type="email"

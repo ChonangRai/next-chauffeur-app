@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
-import { PriceEstimator } from "@/components/price-estimator/PriceEtimator"
 import Image from "next/image"
+import { PriceEstimator } from "@/components/price-estimator/PriceEstimator"
 // import { Input } from "@/components/ui/input"
 // import { Label } from "@radix-ui/react-label"
 // import { useState } from "react"
@@ -112,7 +112,7 @@ export default function Home() {
       <section id="estimate" className="py-16 bg-muted">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
-            <PriceEstimator />
+            <PriceEstimator/>
           </div>
         </div>
       </section>
@@ -126,8 +126,9 @@ export default function Home() {
                 <Image
                   src="/images/airport-transfer.jpg"
                   alt="Airport Transfer"
-                  height={192}
-                  width={384}
+                  height={256}
+                  width={512}
+                  priority={true}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -140,10 +141,11 @@ export default function Home() {
               <div className="h-48 bg-gray-300">
                 <Image
                   src="/images/corporate-travel.jpg"
-                  height={192}
-                  width={384}
+                  height={256}
+                  width={512}
                   alt="Corporate Travel"
                   className="w-full h-full object-cover"
+
                 />
               </div>
               <div className="p-6">
@@ -155,8 +157,8 @@ export default function Home() {
               <div className="h-48 bg-gray-300">
                 <Image
                   src="/images/special-events.jpg"
-                  height={192}
-                  width={384}
+                  height={256}
+                  width={512}
                   alt="Special Events"
                   className="w-full h-full object-cover"
                 />
