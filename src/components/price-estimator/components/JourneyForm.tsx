@@ -55,6 +55,7 @@ interface JourneyFormProps {
   contactConsent: boolean;
   setContactConsent: (consent: boolean) => void;
   calculatedAmount: number | null;
+  locationError?: string | null; // Added prop for location error
 }
 
 export default function JourneyForm({
@@ -101,6 +102,7 @@ export default function JourneyForm({
   contactConsent,
   setContactConsent,
   calculatedAmount,
+  locationError,
 }: JourneyFormProps) {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [timePopoverOpen, setTimePopoverOpen] = useState(false);
@@ -110,7 +112,6 @@ export default function JourneyForm({
     return `${hour}:${minute} ${period.toUpperCase()}`;
   };
 
-
   return (
     <form onSubmit={(e) => handleSubmit(e, step === "estimate")} className="space-y-6">
       {step === "estimate" && (
@@ -118,11 +119,11 @@ export default function JourneyForm({
           {serviceType === "meetAndGreet" && (
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
               <div className="w-full sm:w-1/2 space-y-2">
-                <Label>Pickup Location</Label>
+                <Label>{meetAndGreetType === "connection" ? "Arrival Terminal" : "Pickup Location"}</Label>
                 <div className="w-1/2 max-w-[150px]">
                   <Select value={pickupLocation} onValueChange={setPickupLocation}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select pickup" />
+                      <SelectValue placeholder={meetAndGreetType === "connection" ? "Select arrival terminal" : "Select pickup"} />
                     </SelectTrigger>
                     <SelectContent>
                       {locations.length > 0 ? (
@@ -151,6 +152,34 @@ export default function JourneyForm({
                   </Select>
                 </div>
               </div>
+            </div>
+          )}
+
+          {serviceType === "meetAndGreet" && meetAndGreetType === "connection" && (
+            <div className="space-y-2 w-full min-w-[200px]">
+              <Label>Departure Terminal</Label>
+              <div className="w-1/2 max-w-[150px]">
+                <Select value={dropoffLocation} onValueChange={setDropoffLocation}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select departure terminal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.length > 0 ? (
+                      locations.map((location) => (
+                        <SelectItem key={location} value={location}>{location}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-location" disabled>No locations available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              {locationError && (
+                <p className="text-xs text-red-500 flex items-center max-w-full overflow-hidden truncate">
+                  <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
+                  {locationError}
+                </p>
+              )}
             </div>
           )}
 
@@ -308,7 +337,7 @@ export default function JourneyForm({
                 Continue With Booking
               </Button>
             ) : (
-              <Button type="submit" className="w-auto px-4">
+              <Button type="submit" className="w-auto px-4" disabled={!!locationError}>
                 Calculate Estimate
               </Button>
             )}

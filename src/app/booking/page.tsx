@@ -1,643 +1,408 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import VehicleServiceCard from "@/components/vehicle/vehicle";
+import { useSearchParams } from "next/navigation";
+import JourneyForm from "@/components/price-estimator/components/JourneyForm";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import Notification from "@/components/ui/notification";
-import { Vehicle } from "@/types/admin";
-
-// Predefined locations
-const PREDEFINED_LOCATIONS = [
-  "Gatwick Airport",
-  "Luton Airport",
-  "London City",
-  "Heathrow Airport",
-];
-
-// Mock distance calculation based on predefined routes (in miles)
-const calculateMockDistance = (pickup: string, dropoff: string): number => {
-  const normalizedPickup = pickup.toLowerCase();
-  const normalizedDropoff = dropoff.toLowerCase();
-
-  // Mock distances for common routes
-  const distanceMap: Record<string, Record<string, number>> = {
-    "gatwick airport": {
-      "luton airport": 50,
-      "london city": 30,
-      "heathrow airport": 40,
-    },
-    "luton airport": {
-      "gatwick airport": 50,
-      "london city": 35,
-      "heathrow airport": 45,
-    },
-    "london city": {
-      "gatwick airport": 30,
-      "luton airport": 35,
-      "heathrow airport": 20,
-    },
-    "heathrow airport": {
-      "gatwick airport": 40,
-      "luton airport": 45,
-      "london city": 20,
-    },
-  };
-
-  if (normalizedPickup === normalizedDropoff) return 0;
-  return distanceMap[normalizedPickup]?.[normalizedDropoff] || 50; // Default to 50 miles if not a predefined route
-};
+import { AlertCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 type BookingDetails = {
   pickupLocation: string;
   dropoffLocation: string;
-  duration: number;
-  durationUnit: string;
-  dateTime: string;
+  date: Date | undefined;
+  hour: string;
+  minute: string;
+  period: string;
   fullName: string;
   email: string;
   phone: string;
   additionalRequests: string;
-  isHireByHour: boolean;
-  isDailyHire: boolean;
+  passengers: number;
+  additionalHours: number;
+  bags: number;
+  wantBuggy: boolean;
+  wantPorter: boolean;
   contactConsent: boolean;
+  serviceType: "meetAndGreet" | "airportTransfer" | "dailyHire";
+  calculatedAmount: number | null;
+  meetAndGreetType: "arrival" | "departure" | "connection";
 };
 
-export default function BookingPage() {
-  const [isHireByHour, setIsHireByHour] = useState(false);
-  const [isDailyHire, setIsDailyHire] = useState(false);
-  const [showVehicles, setShowVehicles] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+export default function Booking() {
+  const searchParams = useSearchParams();
+  const [step, setStep] = useState<"estimate" | "details">("estimate");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [vehiclesLoading, setVehiclesLoading] = useState(true);
-  const [vehiclesError, setVehiclesError] = useState<string | null>(null);
-  const [calculatedAmount, setCalculatedAmount] = useState<number | null>(null);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [bookingId, setBookingId] = useState<number | null>(null);
 
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
-    pickupLocation: "Gatwick Airport",
-    dropoffLocation: "London City",
-    duration: 1,
-    durationUnit: "hours",
-    dateTime: "",
+    pickupLocation: "",
+    dropoffLocation: "",
+    date: undefined,
+    hour: "",
+    minute: "",
+    period: "",
     fullName: "",
     email: "",
     phone: "",
     additionalRequests: "",
-    isHireByHour: false,
-    isDailyHire: false,
+    passengers: 1,
+    additionalHours: 0,
+    bags: 0,
+    wantBuggy: false,
+    wantPorter: false,
     contactConsent: false,
+    serviceType: "meetAndGreet",
+    calculatedAmount: null,
+    meetAndGreetType: "arrival",
   });
 
-  const now = new Date();
-  const minDateTime = new Date(now.getTime() + 5 * 60 * 1000);
-  const minDateTimeString = minDateTime.toISOString().slice(0, 16);
-
   useEffect(() => {
-    const fetchVehicles = async () => {
+    const fetchLocations = async () => {
       try {
         const { data, error } = await supabase
-          .from("vehicles")
-          .select("*")
-          .order("price_per_hour", { ascending: true });
+          .from("locations")
+          .select("name")
+          .eq("status", "active")
+          .order("name", { ascending: true });
         if (error) throw new Error(error.message);
-        setVehicles(data || []);
-      } catch (err: unknown) {
-        const error = err as Error;
-        console.error("Error fetching vehicles:", error);
-        setVehiclesError("Failed to load vehicles. Please try again.");
-      }
-      finally {
-        setVehiclesLoading(false);
+        const locationNames = data.map((loc) => loc.name) || [];
+        setLocations(locationNames);
+        if (locationNames.length > 0 && !bookingDetails.pickupLocation) {
+          setBookingDetails((prev) => ({ ...prev, pickupLocation: locationNames[0] }));
+        }
+      } catch (err) {
+        console.error("Error fetching locations:", err);
+        setLocationsError("Failed to load locations. Please try again.");
+      } finally {
+        setLocationsLoading(false);
       }
     };
 
-    fetchVehicles();
+    fetchLocations();
 
-    const savedDetails = localStorage.getItem("bookingDetails");
-    if (savedDetails) {
-      const parsedDetails = JSON.parse(savedDetails);
-      setBookingDetails(parsedDetails);
-      setIsHireByHour(parsedDetails.isHireByHour);
-      setIsDailyHire(parsedDetails.isDailyHire);
-      setShowVehicles(true);
-      setFormErrors({});
+    const serviceType = searchParams.get("serviceType") as "meetAndGreet" | "airportTransfer" | "dailyHire" | null;
+    if (serviceType && searchParams.get("fromEstimator") === "true") {
+      const dateTime = searchParams.get("dateTime") ? new Date(searchParams.get("dateTime")!) : undefined;
+      const hour = dateTime ? (dateTime.getHours() % 12 || 12).toString().padStart(2, "0") : "";
+      const minute = dateTime ? dateTime.getMinutes().toString().padStart(2, "0") : "";
+      const period = dateTime ? (dateTime.getHours() >= 12 ? "pm" : "am") : "";
+
+      setBookingDetails((prev) => ({
+        ...prev,
+        serviceType,
+        pickupLocation: searchParams.get("pickupLocation") || prev.pickupLocation,
+        dropoffLocation: searchParams.get("dropoffLocation") || "",
+        date: dateTime,
+        hour,
+        minute,
+        period,
+        passengers: parseInt(searchParams.get("passengers") || "1"),
+        additionalHours: parseInt(searchParams.get("additionalHours") || "0"),
+        bags: parseInt(searchParams.get("bags") || "0"),
+        wantBuggy: searchParams.get("wantBuggy") === "true",
+        wantPorter: searchParams.get("wantPorter") === "true",
+        calculatedAmount: parseFloat(searchParams.get("estimatedPrice")?.replace("£", "") || "0"),
+        meetAndGreetType: (searchParams.get("meetAndGreetType") as "arrival" | "departure" | "connection") || "arrival",
+      }));
+      setStep("details");
     }
-  }, []);
+  }, [searchParams]);
+
+  const calculateAmount = () => {
+    let basePrice = 0;
+    switch (bookingDetails.serviceType) {
+      case "meetAndGreet":
+        basePrice = bookingDetails.meetAndGreetType === "connection" ? 280 : 140; // Simplified for booking page
+        break;
+      case "airportTransfer":
+        basePrice = 100;
+        break;
+      case "dailyHire":
+        basePrice = bookingDetails.additionalHours * 180;
+        break;
+    }
+    const additionalPassengers = Math.max(0, bookingDetails.passengers - 2) * 45;
+    const additionalHoursCost = bookingDetails.additionalHours * 50;
+    const porterCost = Math.ceil(bookingDetails.bags / 8) * 65;
+    const buggyCost = bookingDetails.wantBuggy ? 80 : 0;
+
+    const amount = basePrice + additionalPassengers + additionalHoursCost + porterCost + buggyCost;
+    setBookingDetails((prev) => ({ ...prev, calculatedAmount: amount }));
+  };
 
   useEffect(() => {
-    if (!selectedVehicle) {
-      setCalculatedAmount(null);
-      return;
+    if (step === "details" && bookingDetails.calculatedAmount === null) {
+      calculateAmount();
     }
-
-    const selectedVehicleData = vehicles.find((v) => v.id === selectedVehicle);
-    if (!selectedVehicleData) {
-      setCalculatedAmount(null);
-      return;
-    }
-
-    let amount: number;
-    if (isHireByHour) {
-      const hoursMultiplier = bookingDetails.durationUnit === "days" ? 24 : 1;
-      amount = selectedVehicleData.price_per_hour * bookingDetails.duration * hoursMultiplier;
-    } else if (isDailyHire) {
-      amount = selectedVehicleData.daily_rate || selectedVehicleData.base_price * 24; // Default to 24x base_price if no daily_rate
-    } else {
-      const distance = calculateMockDistance(
-        bookingDetails.pickupLocation,
-        bookingDetails.dropoffLocation
-      );
-      const ratePerMile = 2;
-      amount = selectedVehicleData.base_price + distance * ratePerMile;
-    }
-    setCalculatedAmount(amount);
-  }, [selectedVehicle, bookingDetails, isHireByHour, isDailyHire, vehicles]);
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { id, value } = e.target;
-    setBookingDetails((prev) => ({ ...prev, [id]: value }));
-    if (formErrors[id]) {
-      setFormErrors((prev) => ({ ...prev, [id]: "" }));
-    }
-  };
-
-  const handleSelectChange = (field: string) => (value: string) => {
-    setBookingDetails((prev) => ({ ...prev, [field]: value }));
-    if (formErrors[field]) {
-      setFormErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
+  }, [step, bookingDetails.serviceType, bookingDetails.passengers, bookingDetails.additionalHours, bookingDetails.bags, bookingDetails.wantBuggy]);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    const now = new Date();
-    const bufferTime = new Date(now.getTime() + 5 * 60 * 1000);
-
-    if (!bookingDetails.pickupLocation)
-      errors.pickupLocation = "Pickup location is required";
-    if (!isHireByHour && !isDailyHire && !bookingDetails.dropoffLocation)
-      errors.dropoffLocation = "Drop-off location is required";
-    if (isHireByHour && bookingDetails.duration < 1)
-      errors.duration = "Duration must be at least 1";
-    if (!bookingDetails.dateTime)
-      errors.dateTime = "Date and time is required";
-    else if (new Date(bookingDetails.dateTime) < bufferTime)
-      errors.dateTime = "Date/time must be at least 5 minutes in the future";
+    if (!bookingDetails.pickupLocation) errors.pickupLocation = "Pickup location is required";
+    if (bookingDetails.serviceType === "meetAndGreet" && bookingDetails.meetAndGreetType === "connection" && !bookingDetails.dropoffLocation) {
+      errors.dropoffLocation = "Departure terminal is required for connection bookings";
+    }
+    if (!bookingDetails.date) errors.date = "Date is required";
+    if (!bookingDetails.hour || !bookingDetails.minute || !bookingDetails.period) errors.time = "Time is required";
     if (!bookingDetails.fullName) errors.fullName = "Full name is required";
     if (!bookingDetails.email) errors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(bookingDetails.email))
-      errors.email = "Email is invalid";
+    else if (!/\S+@\S+\.\S+/.test(bookingDetails.email)) errors.email = "Email is invalid";
     if (!bookingDetails.phone) errors.phone = "Phone is required";
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleContinue = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, proceedToDetails?: boolean) => {
     e.preventDefault();
-    if (validateForm()) {
-      localStorage.setItem("bookingDetails", JSON.stringify(bookingDetails));
-      setShowVehicles(true);
+    if (proceedToDetails && step === "estimate") {
+      setStep("details");
+      return;
     }
-  };
 
-  const handleReset = () => {
-    localStorage.removeItem("bookingDetails");
-    setShowVehicles(false);
-    setSelectedVehicle(null);
-    setFormErrors({});
-    setNotification(null);
-    setCalculatedAmount(null);
-    setBookingDetails({
-      pickupLocation: "Gatwick Airport",
-      dropoffLocation: "London City",
-      duration: 1,
-      durationUnit: "hours",
-      dateTime: "",
-      fullName: "",
-      email: "",
-      phone: "",
-      additionalRequests: "",
-      isHireByHour: false,
-      isDailyHire: false,
-      contactConsent: false,
-    });
-    setIsHireByHour(false);
-    setIsDailyHire(false);
-  };
+    if (!validateForm() || !bookingDetails.calculatedAmount) return;
 
-  const handlePayment = async () => {
-    if (!selectedVehicle || isProcessing || calculatedAmount === null) return;
     setIsProcessing(true);
     setNotification(null);
 
     try {
-      const selectedVehicleData = vehicles.find((v) => v.id === selectedVehicle);
-      if (!selectedVehicleData) throw new Error("Selected vehicle not found");
+      const hour24 = bookingDetails.period === "pm"
+        ? (bookingDetails.hour === "12" ? 12 : parseInt(bookingDetails.hour) + 12)
+        : (bookingDetails.hour === "12" ? 0 : parseInt(bookingDetails.hour));
+      const dateTime = bookingDetails.date ? new Date(bookingDetails.date) : new Date();
+      dateTime.setHours(hour24, parseInt(bookingDetails.minute), 0, 0);
 
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingDetails: {
-            selectedVehicle: selectedVehicleData.name,
-            fullName: bookingDetails.fullName,
-            email: bookingDetails.email,
-            phone: bookingDetails.phone,
-            pickupLocation: bookingDetails.pickupLocation,
-            dropoffLocation: bookingDetails.dropoffLocation,
-            additionalRequests: bookingDetails.additionalRequests,
-            dateTime: bookingDetails.dateTime,
-            isHireByHour: bookingDetails.isHireByHour,
-            isDailyHire: bookingDetails.isDailyHire,
-            duration: bookingDetails.isHireByHour ? bookingDetails.duration : null,
-            durationUnit: bookingDetails.isHireByHour ? bookingDetails.durationUnit : null,
-            contactConsent: bookingDetails.contactConsent,
-          },
-          amount: calculatedAmount,
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("bookings")
+        .insert({
+          user_id: null,
+          service_type: bookingDetails.serviceType,
+          pickup_location: bookingDetails.pickupLocation,
+          date_time: dateTime.toISOString(),
+          full_name: bookingDetails.fullName,
+          email: bookingDetails.email,
+          phone: bookingDetails.phone,
+          additional_requests: bookingDetails.additionalRequests,
+          contact_consent: bookingDetails.contactConsent,
+          amount: bookingDetails.calculatedAmount,
+        })
+        .select("id")
+        .single();
+
+      if (bookingError) throw new Error(bookingError.message);
+
+      const newBookingId = bookingData.id;
+      setBookingId(newBookingId);
+
+      const { error: detailsError } = await supabase.from("booking_details").insert({
+        booking_id: newBookingId,
+        passengers: bookingDetails.passengers,
+        additional_hours: bookingDetails.additionalHours,
+        bags: bookingDetails.bags,
+        want_buggy: bookingDetails.wantBuggy,
+        want_porter: bookingDetails.wantPorter,
+        ...(bookingDetails.serviceType === "meetAndGreet" && bookingDetails.meetAndGreetType === "connection" && {
+          dropoff_location: bookingDetails.dropoffLocation,
         }),
       });
 
-      console.log("Response status:", response.status);
-      console.log("Response headers:", response.headers.get("content-type"));
+      if (detailsError) throw new Error(detailsError.message);
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("Non-JSON response received:", text);
-        throw new Error(`Expected JSON response, but received: ${text.slice(0, 100)}...`);
-      }
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to process payment");
-      }
-
-      const { url } = data;
-      setNotification({ type: "success", message: "Redirecting to payment..." });
-      window.location.href = url;
-    } catch (error: unknown) {
-      const err = error as Error;
-      console.error("Payment error:", err);
+      setNotification({
+        type: "success",
+        message: "Booking created successfully!",
+      });
+      setShowAuthModal(true);
+    } catch (err) {
       setNotification({
         type: "error",
-        message: err.message || "Something went wrong while processing payment. Please try again.",
+        message: err instanceof Error ? err.message : "Failed to create booking. Please try again.",
       });
+    } finally {
       setIsProcessing(false);
     }
+  };
 
+  const handleAuthChoice = (choice: "signup" | "signin" | "guest") => {
+    setShowAuthModal(false);
+    if (choice === "signup") {
+      window.location.href = `/signup?bookingId=${bookingId}`;
+    } else if (choice === "signin") {
+      window.location.href = `/signin?bookingId=${bookingId}`;
+    } else {
+      window.location.href = "/payment";
+    }
+  };
+
+  const handleReset = () => {
+    setFormErrors({});
+    setNotification(null);
+    setStep("estimate");
+    setBookingDetails({
+      pickupLocation: locations[0] || "",
+      dropoffLocation: "",
+      date: undefined,
+      hour: "",
+      minute: "",
+      period: "",
+      fullName: "",
+      email: "",
+      phone: "",
+      additionalRequests: "",
+      passengers: 1,
+      additionalHours: 0,
+      bags: 0,
+      wantBuggy: false,
+      wantPorter: false,
+      contactConsent: false,
+      serviceType: "meetAndGreet",
+      calculatedAmount: null,
+      meetAndGreetType: "arrival",
+    });
   };
 
   return (
     <main className="flex flex-col min-h-screen">
       <div className="bg-muted py-12">
         <div className="container mx-auto px-4">
-          <h1 className="text-4xl md:text-5xl font-bold text-center">
-            Book Your Ride
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-bold text-center">Book Your Journey</h1>
         </div>
       </div>
 
       <section className="py-16">
         <div className="container mx-auto px-4">
           {notification && (
-            <Notification type={notification.type} message={notification.message} />
+            <div className={`p-4 mb-4 rounded ${notification.type === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+              {notification.message}
+            </div>
           )}
 
-          {vehiclesLoading ? (
-            <p className="text-center text-gray-600">Loading vehicles...</p>
-          ) : vehiclesError ? (
-            <p className="text-red-500 text-center">{vehiclesError}</p>
-          ) : !showVehicles ? (
-            <div className="bg-muted p-8 rounded-lg shadow-lg max-w-3xl mx-auto">
-              <h2 className="text-2xl font-bold mb-6">Enter Your Journey Details</h2>
-              <form onSubmit={handleContinue} className="space-y-6">
-                <div className="flex gap-4 mb-6">
-                  <Button
-                    variant={!isHireByHour && !isDailyHire ? "default" : "outline"}
-                    onClick={() => {
-                      setIsHireByHour(false);
-                      setIsDailyHire(false);
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        isHireByHour: false,
-                        isDailyHire: false,
-                        dropoffLocation: prev.dropoffLocation || "",
-                      }));
-                    }}
-                    className="w-1/3"
-                    type="button"
-                  >
-                    One Way
-                  </Button>
-                  <Button
-                    variant={isHireByHour ? "default" : "outline"}
-                    onClick={() => {
-                      setIsHireByHour(true);
-                      setIsDailyHire(false);
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        isHireByHour: true,
-                        isDailyHire: false,
-                        dropoffLocation: "",
-                      }));
-                    }}
-                    className="w-1/3"
-                    type="button"
-                  >
-                    Hire By Hour
-                  </Button>
-                  <Button
-                    variant={isDailyHire ? "default" : "outline"}
-                    onClick={() => {
-                      setIsHireByHour(false);
-                      setIsDailyHire(true);
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        isHireByHour: false,
-                        isDailyHire: true,
-                        dropoffLocation: "",
-                      }));
-                    }}
-                    className="w-1/3"
-                    type="button"
-                  >
-                    Daily Hire
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="pickupLocation" className="text-sm font-medium">
-                    Pickup Location <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    value={bookingDetails.pickupLocation}
-                    onValueChange={handleSelectChange("pickupLocation")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select pickup location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PREDEFINED_LOCATIONS.map((location) => (
-                        <SelectItem key={location} value={location}>
-                          {location}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {formErrors.pickupLocation && (
-                    <p className="text-red-500 text-sm">{formErrors.pickupLocation}</p>
-                  )}
-                </div>
-
-                {!isHireByHour && !isDailyHire && (
-                  <div className="space-y-2">
-                    <label htmlFor="dropoffLocation" className="text-sm font-medium">
-                      Drop-off Location <span className="text-red-500">*</span>
-                    </label>
-                    <Select
-                      value={bookingDetails.dropoffLocation}
-                      onValueChange={handleSelectChange("dropoffLocation")}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select drop-off location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PREDEFINED_LOCATIONS.map((location) => (
-                          <SelectItem key={location} value={location}>
-                            {location}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {formErrors.dropoffLocation && (
-                      <p className="text-red-500 text-sm">{formErrors.dropoffLocation}</p>
-                    )}
-                  </div>
-                )}
-
-                {isHireByHour && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      Duration <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="duration"
-                        type="number"
-                        min={1}
-                        className="w-1/3"
-                        value={bookingDetails.duration}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value);
-                          setBookingDetails((prev) => ({
-                            ...prev,
-                            duration: isNaN(value) ? 1 : value,
-                          }));
-                        }}
-                      />
-                      <Select
-                        value={bookingDetails.durationUnit}
-                        onValueChange={handleSelectChange("durationUnit")}
-                      >
-                        <SelectTrigger className="w-2/3">
-                          <SelectValue placeholder="Select unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hours">Hours</SelectItem>
-                          <SelectItem value="days">Days</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {formErrors.duration && (
-                      <p className="text-red-500 text-sm">{formErrors.duration}</p>
-                    )}
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label htmlFor="dateTime" className="text-sm font-medium">
-                    Date & Time <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    id="dateTime"
-                    type="datetime-local"
-                    value={bookingDetails.dateTime}
-                    onChange={handleInputChange}
-                    required
-                    min={minDateTimeString}
-                  />
-                  {formErrors.dateTime && (
-                    <p className="text-red-500 text-sm">{formErrors.dateTime}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="fullName" className="text-sm font-medium">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    id="fullName"
-                    value={bookingDetails.fullName}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {formErrors.fullName && (
-                    <p className="text-red-500 text-sm">{formErrors.fullName}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={bookingDetails.email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {formErrors.email && (
-                    <p className="text-red-500 text-sm">{formErrors.email}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="phone" className="text-sm font-medium">
-                    Phone <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={bookingDetails.phone}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  {formErrors.phone && (
-                    <p className="text-red-500 text-sm">{formErrors.phone}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="additionalRequests" className="text-sm font-medium">
-                    Additional Requests
-                  </label>
-                  <Textarea
-                    id="additionalRequests"
-                    value={bookingDetails.additionalRequests}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={bookingDetails.contactConsent}
-                      onChange={(e) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          contactConsent: e.target.checked,
-                        }))
-                      }
-                      className="mr-2"
-                    />
-                    <span className="text-sm">
-                      I agree to be contacted if there are issues with my booking.
-                    </span>
-                  </label>
-                </div>
-
-                <Button type="submit" className="w-full">
-                  Find Available Vehicles
-                </Button>
-              </form>
+          {locationsLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
             </div>
+          ) : locationsError ? (
+            <p className="text-red-500 text-center">{locationsError}</p>
           ) : (
-            <div className="space-y-8">
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex justify-between items-start">
-                  <h2 className="text-2xl font-bold mb-4">Your Journey Details</h2>
-                  <Button variant="outline" onClick={handleReset}>
-                    Edit Details
-                  </Button>
-                </div>
-                <p><strong>Service Type:</strong> {isHireByHour ? "Hire By Hour" : isDailyHire ? "Daily Hire" : "One Way"}</p>
-                {isHireByHour ? (
-                  <p><strong>Duration:</strong> {bookingDetails.duration} {bookingDetails.durationUnit}</p>
-                ) : isDailyHire ? (
-                  <p><strong>Duration:</strong> 1 Day</p>
-                ) : (
-                  <>
-                    <p><strong>Drop-off Location:</strong> {bookingDetails.dropoffLocation}</p>
-                    <p><strong>Estimated Distance:</strong> {calculateMockDistance(bookingDetails.pickupLocation, bookingDetails.dropoffLocation)} miles</p>
-                  </>
-                )}
-                <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation}</p>
-                <p><strong>Date & Time:</strong> {new Date(bookingDetails.dateTime).toLocaleString()}</p>
-                {calculatedAmount !== null && (
-                  <p><strong>Estimated Cost:</strong> £{calculatedAmount.toFixed(2)}</p>
-                )}
-              </div>
+            <div className="bg-muted p-8 rounded-lg shadow-lg max-w-3xl mx-auto">
+              <h2 className="text-2xl font-bold mb-6">Enter Your Details</h2>
 
-              <h2 className="text-2xl font-bold mt-8">Available Vehicles</h2>
-              <div className="space-y-6">
-                {vehicles.map((vehicle) => (
-                  <div key={vehicle.id}>
-                    <VehicleServiceCard
-                      title={isHireByHour ? "Hire By Hour" : isDailyHire ? "Daily Hire" : "One Way"}
-                      name={vehicle.name}
-                      description={vehicle.description}
-                      passengers={vehicle.passengers}
-                      bags={vehicle.bags}
-                      wifi={vehicle.wifi}
-                      meetGreet={vehicle.meet_greet}
-                      drinks={vehicle.drinks}
-                      waitingTime={vehicle.waiting_time}
-                      price={isHireByHour ? vehicle.price_per_hour : isDailyHire ? (vehicle.daily_rate || vehicle.base_price * 24) : vehicle.base_price}
-                      selected={selectedVehicle === vehicle.id}
-                      onSelect={() => setSelectedVehicle(vehicle.id)}
-                    />
-                    {selectedVehicle === vehicle.id && (
-                      <Button
-                        className="w-full mt-4"
-                        onClick={handlePayment}
-                        disabled={isProcessing || calculatedAmount === null}
-                      >
-                        {isProcessing ? (
-                          <div className="flex items-center gap-2">
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                            </svg>
-                            Processing...
-                          </div>
-                        ) : (
-                          "Proceed to Payment"
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                ))}
+              {step === "details" && (
+                <div className="mb-6 p-4 bg-gray-100 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-2">Booking Summary</h3>
+                  <p><strong>Service Type:</strong> {bookingDetails.serviceType === "meetAndGreet" ? `Meet and Greet (${bookingDetails.meetAndGreetType})` : bookingDetails.serviceType === "airportTransfer" ? "Airport Transfer" : "Daily Hire"}</p>
+                  <p><strong>{bookingDetails.meetAndGreetType === "connection" ? "Arrival Terminal" : "Pickup Location"}:</strong> {bookingDetails.pickupLocation}</p>
+                  {bookingDetails.serviceType === "meetAndGreet" && bookingDetails.meetAndGreetType === "connection" && (
+                    <p><strong>Departure Terminal:</strong> {bookingDetails.dropoffLocation}</p>
+                  )}
+                  <p><strong>Date:</strong> {bookingDetails.date ? new Date(bookingDetails.date).toLocaleDateString() : "Not selected"}</p>
+                  <p><strong>Time:</strong> {bookingDetails.hour && bookingDetails.minute && bookingDetails.period ? `${bookingDetails.hour}:${bookingDetails.minute} ${bookingDetails.period.toUpperCase()}` : "Not selected"}</p>
+                  {bookingDetails.serviceType === "meetAndGreet" && (
+                    <>
+                      <p><strong>Passengers:</strong> {bookingDetails.passengers}</p>
+                      <p><strong>Additional Hours:</strong> {bookingDetails.additionalHours}</p>
+                      <p><strong>Bags:</strong> {bookingDetails.bags}</p>
+                      <p><strong>Buggy:</strong> {bookingDetails.wantBuggy ? "Yes" : "No"}</p>
+                      <p><strong>Porter:</strong> {bookingDetails.wantPorter ? "Yes" : "No"}</p>
+                    </>
+                  )}
+                  {(bookingDetails.serviceType === "airportTransfer" || bookingDetails.serviceType === "dailyHire") && (
+                    <>
+                      <p><strong>Passengers:</strong> {bookingDetails.passengers}</p>
+                      <p><strong>Additional Hours:</strong> {bookingDetails.additionalHours}</p>
+                    </>
+                  )}
+                  <p><strong>Estimated Cost:</strong> £{bookingDetails.calculatedAmount?.toFixed(2)}</p>
+                </div>
+              )}
+
+              <JourneyForm
+                serviceType={bookingDetails.serviceType}
+                step={step}
+                date={bookingDetails.date}
+                setDate={(date) => setBookingDetails((prev) => ({ ...prev, date }))}
+                hour={bookingDetails.hour}
+                setHour={(hour) => setBookingDetails((prev) => ({ ...prev, hour }))}
+                minute={bookingDetails.minute}
+                setMinute={(minute) => setBookingDetails((prev) => ({ ...prev, minute }))}
+                period={bookingDetails.period}
+                setPeriod={(period) => setBookingDetails((prev) => ({ ...prev, period }))}
+                pickupLocation={bookingDetails.pickupLocation}
+                setPickupLocation={(pickupLocation) => setBookingDetails((prev) => ({ ...prev, pickupLocation }))}
+                dropoffLocation={bookingDetails.dropoffLocation}
+                setDropoffLocation={(dropoffLocation) => setBookingDetails((prev) => ({ ...prev, dropoffLocation }))}
+                vehicle=""
+                setVehicle={() => { }}
+                passengers={bookingDetails.passengers}
+                setPassengers={(passengers) => setBookingDetails((prev) => ({ ...prev, passengers }))}
+                additionalHours={bookingDetails.additionalHours}
+                setAdditionalHours={(additionalHours) => setBookingDetails((prev) => ({ ...prev, additionalHours }))}
+                wantBuggy={bookingDetails.wantBuggy}
+                setWantBuggy={(wantBuggy) => setBookingDetails((prev) => ({ ...prev, wantBuggy }))}
+                wantPorter={bookingDetails.wantPorter}
+                setWantPorter={(wantPorter) => setBookingDetails((prev) => ({ ...prev, wantPorter }))}
+                bags={bookingDetails.bags}
+                setBags={(bags) => setBookingDetails((prev) => ({ ...prev, bags }))}
+                meetAndGreetType={bookingDetails.meetAndGreetType}
+                setMeetAndGreetType={(meetAndGreetType) => setBookingDetails((prev) => ({ ...prev, meetAndGreetType }))}
+                festiveMessage=""
+                extraInfo={[]}
+                handleSubmit={handleSubmit}
+                locations={locations}
+                fullName={bookingDetails.fullName}
+                setFullName={(fullName) => setBookingDetails((prev) => ({ ...prev, fullName }))}
+                email={bookingDetails.email}
+                setEmail={(email) => setBookingDetails((prev) => ({ ...prev, email }))}
+                phone={bookingDetails.phone}
+                setPhone={(phone) => setBookingDetails((prev) => ({ ...prev, phone }))}
+                additionalRequests={bookingDetails.additionalRequests}
+                setAdditionalRequests={(additionalRequests) => setBookingDetails((prev) => ({ ...prev, additionalRequests }))}
+                contactConsent={bookingDetails.contactConsent}
+                setContactConsent={(contactConsent) => setBookingDetails((prev) => ({ ...prev, contactConsent }))}
+                calculatedAmount={bookingDetails.calculatedAmount}
+              />
+
+              {Object.entries(formErrors).map(([field, message]) => (
+                <p key={field} className="text-red-500 text-xs flex items-center mt-2">
+                  <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
+                  {message}
+                </p>
+              ))}
+
+              <div className="space-y-2 mt-4">
+                <Button variant="outline" type="button" onClick={handleReset} className="w-full">
+                  Reset
+                </Button>
               </div>
             </div>
           )}
         </div>
       </section>
+
+      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Continue Your Booking</DialogTitle>
+            <DialogDescription>
+              Would you like to sign up or sign in to save your booking history, or check out as a guest?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 mt-4">
+            <Button onClick={() => handleAuthChoice("signup")}>Sign Up</Button>
+            <Button onClick={() => handleAuthChoice("signin")}>Sign In</Button>
+            <Button variant="outline" onClick={() => handleAuthChoice("guest")}>
+              Check Out as Guest
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
