@@ -14,6 +14,7 @@ interface MeetAndGreetOptionsProps {
   setWantPorter: (want: boolean) => void;
   bags: number;
   setBags: (bags: number) => void;
+  isHeathrowExcludingT5: boolean;
 }
 
 export default function MeetAndGreetOptions({

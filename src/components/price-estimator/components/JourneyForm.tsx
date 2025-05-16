@@ -22,10 +22,10 @@ interface JourneyFormProps {
   setMinute: (minute: string) => void;
   period: string;
   setPeriod: (period: string) => void;
-  pickupLocation: string;
-  setPickupLocation: (location: string) => void;
-  dropoffLocation: string;
-  setDropoffLocation: (location: string) => void;
+  pickupLocationId: string | null;
+  setPickupLocationId: (id: string | null) => void;
+  dropoffLocationId: string | null;
+  setDropoffLocationId: (id: string | null) => void;
   vehicle: string;
   setVehicle: (vehicle: string) => void;
   passengers: number;
@@ -43,7 +43,7 @@ interface JourneyFormProps {
   festiveMessage: string;
   extraInfo: string[];
   handleSubmit: (e: React.FormEvent, proceedToDetails?: boolean) => void;
-  locations: string[];
+  locations: { id: string; name: string }[];
   fullName: string;
   setFullName: (name: string) => void;
   email: string;
@@ -55,7 +55,11 @@ interface JourneyFormProps {
   contactConsent: boolean;
   setContactConsent: (consent: boolean) => void;
   calculatedAmount: number | null;
-  locationError?: string | null; // Added prop for location error
+  locationError?: string | null;
+  flightNumberArrival: string;
+  setFlightNumberArrival: (flight: string) => void;
+  flightNumberDeparture: string;
+  setFlightNumberDeparture: (flight: string) => void;
 }
 
 export default function JourneyForm({
@@ -69,10 +73,10 @@ export default function JourneyForm({
   setMinute,
   period,
   setPeriod,
-  pickupLocation,
-  setPickupLocation,
-  dropoffLocation,
-  setDropoffLocation,
+  pickupLocationId,
+  setPickupLocationId,
+  dropoffLocationId,
+  setDropoffLocationId,
   vehicle,
   setVehicle,
   passengers,
@@ -103,6 +107,10 @@ export default function JourneyForm({
   setContactConsent,
   calculatedAmount,
   locationError,
+  flightNumberArrival,
+  setFlightNumberArrival,
+  flightNumberDeparture,
+  setFlightNumberDeparture,
 }: JourneyFormProps) {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [timePopoverOpen, setTimePopoverOpen] = useState(false);
@@ -111,6 +119,12 @@ export default function JourneyForm({
     if (!hour || !minute || !period) return "Select time";
     return `${hour}:${minute} ${period.toUpperCase()}`;
   };
+
+  // Check if pickup location is Heathrow (excluding Terminal 5)
+  const isHeathrowExcludingT5 = pickupLocationId
+    ? !!locations.find(loc => loc.id === pickupLocationId)?.name?.startsWith("Heathrow") &&
+    !locations.find(loc => loc.id === pickupLocationId)?.name?.includes("Terminal 5")
+    : false;
 
   return (
     <form onSubmit={(e) => handleSubmit(e, step === "estimate")} className="space-y-6">
@@ -121,14 +135,14 @@ export default function JourneyForm({
               <div className="w-full sm:w-1/2 space-y-2">
                 <Label>{meetAndGreetType === "connection" ? "Arrival Terminal" : "Pickup Location"}</Label>
                 <div className="w-1/2 max-w-[150px]">
-                  <Select value={pickupLocation} onValueChange={setPickupLocation}>
+                  <Select value={pickupLocationId || ""} onValueChange={setPickupLocationId}>
                     <SelectTrigger>
                       <SelectValue placeholder={meetAndGreetType === "connection" ? "Select arrival terminal" : "Select pickup"} />
                     </SelectTrigger>
                     <SelectContent>
                       {locations.length > 0 ? (
                         locations.map((location) => (
-                          <SelectItem key={location} value={location}>{location}</SelectItem>
+                          <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
                         ))
                       ) : (
                         <SelectItem value="no-location" disabled>No locations available</SelectItem>
@@ -159,14 +173,14 @@ export default function JourneyForm({
             <div className="space-y-2 w-full min-w-[200px]">
               <Label>Departure Terminal</Label>
               <div className="w-1/2 max-w-[150px]">
-                <Select value={dropoffLocation} onValueChange={setDropoffLocation}>
+                <Select value={dropoffLocationId || ""} onValueChange={setDropoffLocationId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select departure terminal" />
                   </SelectTrigger>
                   <SelectContent>
                     {locations.length > 0 ? (
                       locations.map((location) => (
-                        <SelectItem key={location} value={location}>{location}</SelectItem>
+                        <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
                       ))
                     ) : (
                       <SelectItem value="no-location" disabled>No locations available</SelectItem>
@@ -267,7 +281,7 @@ export default function JourneyForm({
                   </PopoverContent>
                 </Popover>
                 {extraInfo.some(info => info.includes("Unsolicited Hours")) && (
-                  <p className="text-xs text-yellow-600 flex items-center max-w-full overflow-hidden truncate">
+                  <p className="text-xs text-yellow-600 flex items-center whitespace-nowrap">
                     <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
                     {extraInfo.find(info => info.includes("Unsolicited Hours"))}
                   </p>
@@ -281,14 +295,14 @@ export default function JourneyForm({
               <div className="space-y-2 w-full min-w-[200px]">
                 <Label htmlFor="dropOff">{serviceType === "dailyHire" ? "Journey Start" : "Destination"}</Label>
                 <div className="w-1/2 max-w-[150px]">
-                  <Select value={dropoffLocation} onValueChange={setDropoffLocation}>
+                  <Select value={dropoffLocationId || ""} onValueChange={setDropoffLocationId}>
                     <SelectTrigger id="dropOff">
                       <SelectValue placeholder={serviceType === "dailyHire" ? "Select journey start" : "Select destination"} />
                     </SelectTrigger>
                     <SelectContent>
                       {locations.length > 0 ? (
                         locations.map((location) => (
-                          <SelectItem key={location} value={location}>{location}</SelectItem>
+                          <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
                         ))
                       ) : (
                         <SelectItem value="no-location" disabled>No locations available</SelectItem>
@@ -317,18 +331,21 @@ export default function JourneyForm({
           )}
 
           {serviceType === "meetAndGreet" && (
-            <MeetAndGreetOptions
-              passengers={passengers}
-              setPassengers={setPassengers}
-              additionalHours={additionalHours}
-              setAdditionalHours={setAdditionalHours}
-              wantBuggy={wantBuggy}
-              setWantBuggy={setWantBuggy}
-              wantPorter={wantPorter}
-              setWantPorter={setWantPorter}
-              bags={bags}
-              setBags={setBags}
-            />
+            <>
+              <MeetAndGreetOptions
+                passengers={passengers}
+                setPassengers={setPassengers}
+                additionalHours={additionalHours}
+                setAdditionalHours={setAdditionalHours}
+                wantBuggy={wantBuggy}
+                setWantBuggy={setWantBuggy}
+                wantPorter={wantPorter}
+                setWantPorter={setWantPorter}
+                bags={bags}
+                setBags={setBags}
+                isHeathrowExcludingT5={isHeathrowExcludingT5} // Pass the condition
+              />
+            </>
           )}
 
           <div className="flex justify-end">
@@ -361,6 +378,28 @@ export default function JourneyForm({
             <Label htmlFor="phone">Phone <span className="text-red-500">*</span></Label>
             <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
+          {serviceType === "meetAndGreet" && (meetAndGreetType === "arrival" || meetAndGreetType === "connection") && (
+            <div className="space-y-2">
+              <Label htmlFor="flightNumberArrival">Flight Number (Arrival) <span className="text-red-500">*</span></Label>
+              <Input
+                id="flightNumberArrival"
+                value={flightNumberArrival}
+                onChange={(e) => setFlightNumberArrival(e.target.value)}
+                placeholder="Enter arrival flight number"
+              />
+            </div>
+          )}
+          {serviceType === "meetAndGreet" && (meetAndGreetType === "departure" || meetAndGreetType === "connection") && (
+            <div className="space-y-2">
+              <Label htmlFor="flightNumberDeparture">Flight Number (Departure) <span className="text-red-500">*</span></Label>
+              <Input
+                id="flightNumberDeparture"
+                value={flightNumberDeparture}
+                onChange={(e) => setFlightNumberDeparture(e.target.value)}
+                placeholder="Enter departure flight number"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="additionalRequests">Additional Requests</Label>

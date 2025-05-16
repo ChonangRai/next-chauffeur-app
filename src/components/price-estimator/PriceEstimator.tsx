@@ -16,8 +16,8 @@ export function PriceEstimator() {
   const [hour, setHour] = useState("2");
   const [minute, setMinute] = useState("00");
   const [period, setPeriod] = useState("pm");
-  const [pickupLocationId, setPickupLocationId] = useState<string | null>(null); // Changed to UUID
-  const [dropoffLocationId, setDropoffLocationId] = useState<string | null>(null); // Changed to UUID
+  const [pickupLocationId, setPickupLocationId] = useState<string | null>(null);
+  const [dropoffLocationId, setDropoffLocationId] = useState<string | null>(null);
   const [vehicle, setVehicle] = useState("sedan");
   const [passengers, setPassengers] = useState(1);
   const [additionalHours, setAdditionalHours] = useState(0);
@@ -31,7 +31,7 @@ export function PriceEstimator() {
   const [isFestive, setIsFestive] = useState(false);
   const [festiveMessage, setFestiveMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [locations, setLocations] = useState<{ id: string; name: string }[]>([]); // Changed to include ID
+  const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
   const [vatRate, setVatRate] = useState<number>(0.2);
   const [vehicleRates, setVehicleRates] = useState<Record<string, number>>({});
   const [airportTransferRate, setAirportTransferRate] = useState<number | null>(null);
@@ -45,7 +45,8 @@ export function PriceEstimator() {
   });
   const [error, setError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-
+  const [flightNumberArrival, setFlightNumberArrival] = useState("");
+  const [flightNumberDeparture, setFlightNumberDeparture] = useState("");
   const currentYear = new Date().getFullYear();
   const FESTIVE_PERIODS = useMemo(() => getFestivePeriods(currentYear), [currentYear]);
 
@@ -57,15 +58,15 @@ export function PriceEstimator() {
       try {
         const { data: locationsData, error: locationsError } = await supabase
           .from("locations")
-          .select("id, name, airport, terminal")
+          .select("id, airport, terminal, hotel_name_address")
           .eq("status", "active")
-          .order("name", { ascending: true });
+          .order("airport", { ascending: true });
 
         if (locationsError) throw locationsError;
 
         const locationList = locationsData.map((loc) => ({
           id: loc.id,
-          name: loc.terminal ? `${loc.airport} ${loc.terminal}` : loc.airport || loc.name,
+          name: loc.hotel_name_address || (loc.terminal ? `${loc.airport} ${loc.terminal}` : loc.airport),
         })) || [];
         setLocations(locationList);
 
@@ -93,9 +94,9 @@ export function PriceEstimator() {
           const meetGreetConnectionDiff = pricingData.find((item) => item.service_type === "meetAndGreetConnectionDifferentTerminals")?.value || 280;
 
           setAirportTransferRate(airportRate);
-          setMeetAndGreetRate({ 
-            arrivalDeparture: meetGreetArrival, 
-            connectionDifferentTerminals: meetGreetConnectionDiff 
+          setMeetAndGreetRate({
+            arrivalDeparture: meetGreetArrival,
+            connectionDifferentTerminals: meetGreetConnectionDiff
           });
         }
 
@@ -191,7 +192,6 @@ export function PriceEstimator() {
     });
   }, [festiveMessage]);
 
-  // Function to fetch location details by ID
   const getLocationDetails = async (locationId: string | null) => {
     if (!locationId) return { airport: null, terminal: null };
     const { data, error } = await supabase
@@ -209,20 +209,18 @@ export function PriceEstimator() {
     };
   };
 
-  // Compare pickup and dropoff locations
   const compareLocations = async () => {
     if (!pickupLocationId || !dropoffLocationId) return { isSameTerminal: false, isSameAirport: false };
 
     const pickup = await getLocationDetails(pickupLocationId);
     const dropoff = await getLocationDetails(dropoffLocationId);
 
-    const isSameTerminal = pickupLocationId === dropoffLocationId; // 100% match
-    const isSameAirport = pickup.airport === dropoff.airport; // Airport part matches
+    const isSameTerminal = pickupLocationId === dropoffLocationId;
+    const isSameAirport = pickup.airport === dropoff.airport;
 
     return { isSameTerminal, isSameAirport };
   };
 
-  // Validate locations for "connection" type
   useEffect(() => {
     if (serviceType === "meetAndGreet" && meetAndGreetType === "connection" && pickupLocationId && dropoffLocationId) {
       compareLocations().then(({ isSameAirport }) => {
@@ -237,7 +235,7 @@ export function PriceEstimator() {
     }
   }, [serviceType, meetAndGreetType, pickupLocationId, dropoffLocationId]);
 
-  const calculatePrice = useCallback((): number => {
+  const calculatePrice = useCallback(async (): Promise<number> => {
     if (!date || !hour || !minute || !period) return 0;
 
     const hour24 = period === "pm"
@@ -251,11 +249,10 @@ export function PriceEstimator() {
 
     switch (serviceType) {
       case "meetAndGreet":
-        // Determine if connection involves different terminals
         let isDifferentTerminals = false;
         if (meetAndGreetType === "connection" && pickupLocationId && dropoffLocationId) {
-          const { isSameTerminal, isSameAirport } = compareLocations();
-          if (!isSameAirport) return 0; // Price will not be calculated; error is shown
+          const { isSameTerminal, isSameAirport } = await compareLocations();
+          if (!isSameAirport) return 0;
           isDifferentTerminals = !isSameTerminal;
         }
 
@@ -294,10 +291,10 @@ export function PriceEstimator() {
           const pickup = await getLocationDetails(pickupLocationId);
           const dropoff = await getLocationDetails(dropoffLocationId);
           if (pickup.airport === 'Heathrow' && dropoff.airport === 'Heathrow' && pickup.terminal && dropoff.terminal) {
-            basePrice = airportTransferRate; // Adjust for terminal-to-terminal pricing
+            basePrice = airportTransferRate;
             breakdown.push(`Base Price (Terminal to Terminal at Heathrow): £${basePrice}`);
           } else if (pickup.airport === 'Heathrow') {
-            basePrice = airportTransferRate * 0.75; // Example: 75% of base rate for Heathrow
+            basePrice = airportTransferRate * 0.75;
             breakdown.push(`Base Price (Heathrow to Hotel): £${basePrice}`);
           } else {
             basePrice = airportTransferRate;
@@ -358,11 +355,11 @@ export function PriceEstimator() {
     dropoffLocationId,
   ]);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (locationError) return; // Prevent submission if there's a location error
-    const price = calculatePrice();
-    if (price === 0) return; // Don't show modal if price is 0 (e.g., due to location error)
+    if (locationError) return;
+    const price = await calculatePrice();
+    if (price === 0) return;
     setEstimatedPrice(`£${price.toFixed(2)}`);
     setShowModal(true);
   }, [calculatePrice, locationError]);
@@ -418,20 +415,20 @@ export function PriceEstimator() {
         {error && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>
         )}
-        
+
         {locationError && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded flex items-center">
             <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
             {locationError}
           </div>
         )}
-        
-        <Tabs 
-          value={serviceType} 
+
+        <Tabs
+          value={serviceType}
           onValueChange={(value) => {
             setServiceType(value as "meetAndGreet" | "airportTransfer" | "dailyHire");
-            setLocationError(null); // Reset location error when switching tabs
-          }} 
+            setLocationError(null);
+          }}
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-3">
@@ -439,7 +436,7 @@ export function PriceEstimator() {
             <TabsTrigger value="airportTransfer">Airport Transfer</TabsTrigger>
             <TabsTrigger value="dailyHire">Daily Hire</TabsTrigger>
           </TabsList>
-          
+
           {["meetAndGreet", "airportTransfer", "dailyHire"].map((tab) => (
             <TabsContent key={tab} value={tab}>
               <JourneyForm
@@ -453,10 +450,10 @@ export function PriceEstimator() {
                 setMinute={setMinute}
                 period={period}
                 setPeriod={setPeriod}
-                pickupLocationId={pickupLocationId} // Updated prop
-                setPickupLocationId={setPickupLocationId} // Updated prop
-                dropoffLocationId={dropoffLocationId} // Updated prop
-                setDropoffLocationId={setDropoffLocationId} // Updated prop
+                pickupLocationId={pickupLocationId}
+                setPickupLocationId={setPickupLocationId}
+                dropoffLocationId={dropoffLocationId}
+                setDropoffLocationId={setDropoffLocationId}
                 vehicle={vehicle}
                 setVehicle={setVehicle}
                 passengers={passengers}
@@ -476,21 +473,26 @@ export function PriceEstimator() {
                 handleSubmit={handleSubmit}
                 locations={locations}
                 fullName=""
-                setFullName={() => {}}
+                setFullName={() => { }}
                 email=""
-                setEmail={() => {}}
+                setEmail={() => { }}
                 phone=""
-                setPhone={() => {}}
+                setPhone={() => { }}
                 additionalRequests=""
-                setAdditionalRequests={() => {}}
+                setAdditionalRequests={() => { }}
                 contactConsent={false}
-                setContactConsent={() => {}}
+                setContactConsent={() => { }}
                 calculatedAmount={null}
+                locationError={locationError}
+                flightNumberArrival={flightNumberArrival}
+                setFlightNumberArrival={setFlightNumberArrival}
+                flightNumberDeparture={flightNumberDeparture}
+                setFlightNumberDeparture={setFlightNumberDeparture}
               />
             </TabsContent>
           ))}
         </Tabs>
-        
+
         <PriceModal
           showModal={showModal}
           setShowModal={setShowModal}
