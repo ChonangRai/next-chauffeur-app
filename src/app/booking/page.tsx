@@ -200,11 +200,28 @@ export default function Booking() {
       const dateTime = bookingDetails.date ? new Date(bookingDetails.date) : new Date();
       dateTime.setHours(hour24, parseInt(bookingDetails.minute), 0, 0);
 
-      console.log(await supabase.from("bookings").select("*").limit(1))
+      const userResponse = await supabase.auth.getUser();
+      console.log("User response:", userResponse);
+      const sessionResponse = await supabase.auth.getSession();
+      console.log("Session response:", sessionResponse);
+      const userId = userResponse.data.user?.id || null;
+
+      console.log("Inserting into bookings with payload:", {
+        user_id: userId,
+        service_type: bookingDetails.serviceType,
+        date_time: dateTime.toISOString(),
+        full_name: bookingDetails.fullName,
+        email: bookingDetails.email,
+        phone: bookingDetails.phone,
+        additional_requests: bookingDetails.additionalRequests,
+        contact_consent: bookingDetails.contactConsent,
+        amount: bookingDetails.calculatedAmount,
+      });
+
       const { data: bookingData, error: bookingError } = await supabase
         .from("bookings")
         .insert({
-          user_id: null,
+          user_id: userId,
           service_type: bookingDetails.serviceType,
           booking_date_time: dateTime.toISOString(),
           full_name: bookingDetails.fullName,
@@ -214,10 +231,14 @@ export default function Booking() {
           contact_consent: bookingDetails.contactConsent,
           amount: bookingDetails.calculatedAmount,
         })
-        .select("id")
+        .select("id, booking_ref")
         .single();
 
-      if (bookingError) throw new Error(bookingError.message);
+      console.log("Insert response:", { data: bookingData, error: bookingError });
+      if (bookingError) {
+        console.log("Insert error details:", bookingError.details);
+        throw new Error(bookingError.message);
+      }
 
       const newBookingId = bookingData.id;
       setBookingId(newBookingId);
@@ -231,11 +252,14 @@ export default function Booking() {
         want_porter: bookingDetails.wantPorter,
         initial_point_id: bookingDetails.pickupLocationId,
         ...(bookingDetails.serviceType === "meetAndGreet" && bookingDetails.meetAndGreetType === "connection" && {
-          final_point_id: bookingDetails.dropoffLocationId,
+          final_point_location_id: bookingDetails.dropoffLocationId,
         }),
       });
 
-      if (detailsError) throw new Error(detailsError.message);
+      if (detailsError) {
+        console.log("Booking details error:", detailsError);
+        throw new Error(detailsError.message);
+      }
 
       setNotification({
         type: "success",
@@ -243,6 +267,7 @@ export default function Booking() {
       });
       setShowAuthModal(true);
     } catch (err) {
+      console.log("Caught error:", err);
       setNotification({
         type: "error",
         message: err instanceof Error ? err.message : "Failed to create booking. Please try again.",
@@ -251,6 +276,7 @@ export default function Booking() {
       setIsProcessing(false);
     }
   };
+
 
   const handleAuthChoice = (choice: "signup" | "signin" | "guest") => {
     setShowAuthModal(false);
