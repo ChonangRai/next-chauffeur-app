@@ -14,613 +14,426 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Clock, AlertCircle } from "lucide-react";
+import { CalendarIcon, Clock, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import MeetAndGreetOptions from "./MeetAndGreetOptions";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import type { Location, Vehicle } from "@/lib/types";
+import { forwardRef } from "react";
 
 interface JourneyFormProps {
-  airportTransferType?: "one_way" | "connection";
-  setAirportTransferType?: (type: "one_way" | "connection") => void;
-  hireDuration?: "10 hours";
-  setHireDuration?: (duration: "10 hours") => void;
-  serviceType: "meetAndGreet" | "airportTransfer" | "dailyHire";
-  step: "estimate" | "details";
-  date: Date | undefined;
-  setDate: (date: Date | undefined) => void;
-  hour: string;
-  setHour: (hour: string) => void;
-  minute: string;
-  setMinute: (minute: string) => void;
-  period: string;
-  setPeriod: (period: string) => void;
-  pickupLocationId: string | null;
-  setPickupLocationId: (id: string | null) => void;
-  dropoffLocationId: string | null;
-  setDropoffLocationId: (id: string | null) => void;
-  vehicle: string;
-  setVehicle: (vehicle: string) => void;
-  passengers: number;
-  setPassengers: (passengers: number) => void;
-  additionalHours: number;
-  setAdditionalHours: (hours: number) => void;
-  wantBuggy: boolean;
-  setWantBuggy: (want: boolean) => void;
-  wantPorter: boolean;
-  setWantPorter: (want: boolean) => void;
-  bags: number;
-  setBags: (bags: number) => void;
-  meetAndGreetType: "arrival" | "departure" | "connection";
-  setMeetAndGreetType: (type: "arrival" | "departure" | "connection") => void;
-  festiveMessage: string;
-  extraInfo: string[];
-  handleSubmit: (e: React.FormEvent, proceedToDetails?: boolean) => void;
-  locations: { id: string; name: string }[];
-  fullName: string;
-  setFullName: (name: string) => void;
-  email: string;
-  setEmail: (email: string) => void;
-  phone: string;
-  setPhone: (phone: string) => void;
-  additionalRequests: string;
-  setAdditionalRequests: (requests: string) => void;
-  contactConsent: boolean;
-  setContactConsent: (consent: boolean) => void;
-  calculatedAmount: number | null;
-  locationError?: string | null;
-  flightNumberArrival: string;
-  setFlightNumberArrival: (flight: string) => void;
-  flightNumberDeparture: string;
-  setFlightNumberDeparture: (flight: string) => void;
+  type: "meetAndAssist" | "airportTransfer" | "hireByHour";
+  locations: Location[];
+  vehicles?: Vehicle[];
+  onCalculate: (e?: React.FormEvent) => void;
+  submitButtonText?: string;
+  isLoading?: boolean;
+  formData: {
+    date: Date | undefined;
+    hour: string;
+    minute: string;
+    meetAndAssistType?: "arrival" | "departure" | "connection";
+    passengers: number;
+    wantBuggy?: boolean;
+    wantPorter?: boolean;
+    bags?: number;
+    flightNumberArrival?: string;
+    flightNumberDeparture?: string;
+    additionalHours: number;
+    vehicle?: string;
+  };
+  setFormData: {
+    setDate: (date: Date | undefined) => void;
+    setHour: (hour: string) => void;
+    setMinute: (minute: string) => void;
+    setMeetAndAssistType?: (type: "arrival" | "departure" | "connection") => void;
+    setPassengers: (passengers: number) => void;
+    setWantBuggy?: (want: boolean) => void;
+    setWantPorter?: (want: boolean) => void;
+    setBags?: (bags: number) => void;
+    setFlightNumberArrival?: (flight: string) => void;
+    setFlightNumberDeparture?: (flight: string) => void;
+    setAdditionalHours: (hours: number) => void;
+    setVehicle?: (vehicle: string) => void;
+  };
 }
 
 export default function JourneyForm({
-  serviceType,
-  step,
-  date,
-  setDate,
-  hour,
-  setHour,
-  minute,
-  setMinute,
-  period,
-  setPeriod,
-  pickupLocationId,
-  setPickupLocationId,
-  dropoffLocationId,
-  setDropoffLocationId,
-  vehicle,
-  setVehicle,
-  passengers,
-  setPassengers,
-  additionalHours,
-  setAdditionalHours,
-  wantBuggy,
-  setWantBuggy,
-  wantPorter,
-  setWantPorter,
-  bags,
-  setBags,
-  meetAndGreetType,
-  setMeetAndGreetType,
-  festiveMessage,
-  extraInfo,
-  handleSubmit,
+  type,
   locations,
-  fullName,
-  setFullName,
-  email,
-  setEmail,
-  phone,
-  setPhone,
-  additionalRequests,
-  setAdditionalRequests,
-  contactConsent,
-  setContactConsent,
-  calculatedAmount,
-  locationError,
-  flightNumberArrival,
-  setFlightNumberArrival,
-  flightNumberDeparture,
-  setFlightNumberDeparture,
-  airportTransferType,
-  setAirportTransferType,
-  hireDuration,
-  setHireDuration,
+  vehicles,
+  onCalculate,
+  formData,
+  setFormData,
+  submitButtonText = "Calculate Estimate",
+  isLoading = false,
 }: JourneyFormProps) {
-  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
-  const [timePopoverOpen, setTimePopoverOpen] = useState(false);
-
-  const formatTime = () => {
-    if (!hour || !minute || !period) return "Select time";
-    return `${hour}:${minute} ${period.toUpperCase()}`;
+  const formatTime = (hour: string, minute: string) => {
+    const hourNum = parseInt(hour);
+    const ampm = hourNum >= 12 ? 'PM' : 'AM';
+    const hour12 = hourNum % 12 || 12;
+    return `${hour12}:${minute} ${ampm}`;
   };
 
-  // Check if pickup location is Heathrow (excluding Terminal 5)
-  const isHeathrowExcludingT5 = pickupLocationId
-    ? !!locations
-        .find((loc) => loc.id === pickupLocationId)
-        ?.name?.startsWith("Heathrow") &&
-      !locations
-        .find((loc) => loc.id === pickupLocationId)
-        ?.name?.includes("Terminal 5")
-    : false;
+  const MAX_PASSENGERS = 8;
+  const MAX_BAGS = 16;
+  const MAX_ADDITIONAL_HOURS = 12;
 
-  const renderServiceTypeOptions = () => {
-    switch (serviceType) {
-      case "airportTransfer":
-        return (
-          <div className="space-y-2 w-full min-w-[200px]">
-            <Label>Transfer Type</Label>
-            <div className="w-1/2 max-w-[150px]">
+  const DatePickerButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
+    ({ className, ...props }, ref) => (
+      <Button
+        ref={ref}
+        variant="outline"
+        className={cn(
+          "w-full justify-start text-left font-normal",
+          !formData.date && "text-muted-foreground",
+          className
+        )}
+        {...props}
+      >
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        {formData.date ? format(formData.date, "MMM do, yyyy") : "Select date"}
+      </Button>
+    )
+  );
+  DatePickerButton.displayName = "DatePickerButton";
+
+  const TimePickerButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
+    ({ className, ...props }, ref) => (
+      <Button
+        ref={ref}
+        variant="outline"
+        className={cn(
+          "w-full justify-start text-left font-normal",
+          !formData.hour && "text-muted-foreground",
+          className
+        )}
+        {...props}
+      >
+        <Clock className="mr-2 h-4 w-4" />
+        {formData.hour ? formatTime(formData.hour, formData.minute) : "Select time"}
+      </Button>
+    )
+  );
+  TimePickerButton.displayName = "TimePickerButton";
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onCalculate(); }} className="space-y-8">
+      <div className="grid gap-8">
+        <div className="grid grid-cols-2 gap-6">
+          {/* Pickup Location */}
+          <div className="w-[240px] space-y-3">
+            <Label>Pickup Location</Label>
+            <Select
+              value={locations[0]?.id}
+              onValueChange={(value) => console.log(value)}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select terminal" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((location) => (
+                  <SelectItem key={location.id} value={location.id}>
+                    {location.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Meet & Greet Type */}
+          {formData.meetAndAssistType && setFormData.setMeetAndAssistType && (
+            <div className="w-[240px] space-y-3">
+              <Label>Meet & Greet Type</Label>
               <Select
-                value={airportTransferType || "one_way"}
-                onValueChange={setAirportTransferType || (() => {})}
+                value={formData.meetAndAssistType}
+                onValueChange={setFormData.setMeetAndAssistType}
+                disabled={isLoading}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="one_way">One Way</SelectItem>
-                  <SelectItem value="round_trip">Round Trip</SelectItem>
+                  <SelectItem value="arrival">Arrival</SelectItem>
+                  <SelectItem value="departure">Departure</SelectItem>
+                  <SelectItem value="connection">Connection</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-        );
-      case "dailyHire":
-        return (
-          <div className="space-y-2 w-full min-w-[200px]">
-            <Label>Hire Duration</Label>
-            <div className="w-1/2 max-w-[150px]">
-              <Select
-                value={hireDuration || "full_day"}
-                onValueChange={setHireDuration || (() => {})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="full_day">Full Day</SelectItem>
-                  <SelectItem value="half_day">Half Day</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-  return (
-    <form
-      onSubmit={(e) => handleSubmit(e, step === "estimate")}
-      className="space-y-6"
-    >
-      {step === "estimate" && (
-        <>
-          {serviceType === "meetAndGreet" && (
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              <div className="w-full sm:w-1/2 space-y-2">
-                <Label>
-                  {meetAndGreetType === "connection"
-                    ? "Arrival Terminal"
-                    : "Pickup Location"}
-                </Label>
-                <div className="w-1/2 max-w-[150px]">
-                  <Select
-                    value={pickupLocationId || ""}
-                    onValueChange={setPickupLocationId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          meetAndGreetType === "connection"
-                            ? "Select arrival terminal"
-                            : "Select pickup"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.length > 0 ? (
-                        locations.map((location) => (
-                          <SelectItem key={location.id} value={location.id}>
-                            {location.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-location" disabled>
-                          No locations available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="w-full sm:w-1/2 space-y-2">
-                <Label>Meet & Greet Type</Label>
-                <div className="w-1/2 max-w-[150px]">
-                  <Select
-                    value={meetAndGreetType}
-                    onValueChange={setMeetAndGreetType}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="arrival">Arrival</SelectItem>
-                      <SelectItem value="departure">Departure</SelectItem>
-                      <SelectItem value="connection">Connection</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
             </div>
           )}
+        </div>
 
-          {serviceType === "meetAndGreet" &&
-            meetAndGreetType === "connection" && (
-              <div className="space-y-2 w-full min-w-[200px]">
-                <Label>Departure Terminal</Label>
-                <div className="w-1/2 max-w-[150px]">
-                  <Select
-                    value={dropoffLocationId || ""}
-                    onValueChange={setDropoffLocationId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select departure terminal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.length > 0 ? (
-                        locations.map((location) => (
-                          <SelectItem key={location.id} value={location.id}>
-                            {location.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-location" disabled>
-                          No locations available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {locationError && (
-                  <p className="text-xs text-red-500 flex items-center max-w-full overflow-hidden truncate">
-                    <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
-                    {locationError}
-                  </p>
-                )}
-              </div>
-            )}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Date */}
+          <div className="w-[240px] space-y-3">
+            <Label>Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <DatePickerButton disabled={isLoading} />
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  selected={formData.date}
+                  onSelect={(date) => {
+                    setFormData.setDate(date);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2 w-full min-w-[200px]">
-              <Label>Date</Label>
-              <div className="w-1/2 max-w-[150px]">
-                <Popover
-                  open={datePopoverOpen}
-                  onOpenChange={setDatePopoverOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      selected={date}
-                      onSelect={(selectedDate) => {
-                        setDate(selectedDate);
-                        setDatePopoverOpen(false);
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              {festiveMessage && (
-                <p className="text-xs text-yellow-600 flex items-center max-w-full overflow-hidden truncate">
-                  <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
-                  {festiveMessage}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2 w-full min-w-[200px]">
-              <Label>Time</Label>
-              <div className="w-1/2 max-w-[150px]">
-                <Popover
-                  open={timePopoverOpen}
-                  onOpenChange={setTimePopoverOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !hour && !minute && !period && "text-muted-foreground"
-                      )}
-                    >
-                      <Clock className="mr-2 h-4 w-4" />
-                      {formatTime()}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-4">
-                    <div className="flex gap-2 mb-4">
-                      <Select value={hour} onValueChange={setHour}>
-                        <SelectTrigger className="w-[80px]">
+          {/* Time */}
+          <div className="w-[240px] space-y-3">
+            <Label>Time</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <TimePickerButton disabled={isLoading} />
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px]" align="start">
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select 
+                        value={formData.hour} 
+                        onValueChange={(val) => {
+                          const hour24 = parseInt(val);
+                          setFormData.setHour(hour24.toString().padStart(2, "0"));
+                        }}
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger>
                           <SelectValue placeholder="Hour" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) =>
-                            (i + 1).toString().padStart(2, "0")
-                          ).map((h) => (
-                            <SelectItem key={h} value={h}>
-                              {h}
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => (
+                            <SelectItem key={hour} value={hour.toString()}>
+                              {hour} {hour < 12 ? 'AM' : 'PM'}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <Select value={minute} onValueChange={setMinute}>
-                        <SelectTrigger className="w-[80px]">
+                      <Select 
+                        value={formData.minute} 
+                        onValueChange={setFormData.setMinute}
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger>
                           <SelectValue placeholder="Minute" />
                         </SelectTrigger>
                         <SelectContent>
-                          {["00", "15", "30", "45"].map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {m}
+                          {["00", "15", "30", "45"].map((minute) => (
+                            <SelectItem key={minute} value={minute}>
+                              {minute}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <Select value={period} onValueChange={setPeriod}>
-                        <SelectTrigger className="w-[80px]">
-                          <SelectValue placeholder="AM/PM" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="am">AM</SelectItem>
-                          <SelectItem value="pm">PM</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setTimePopoverOpen(false)}
-                    >
-                      Done
-                    </Button>
-                  </PopoverContent>
-                </Popover>
-                {extraInfo.some((info) =>
-                  info.includes("Unsolicited Hours")
-                ) && (
-                  <p className="text-xs text-yellow-600 flex items-center whitespace-nowrap">
-                    <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
-                    {extraInfo.find((info) =>
-                      info.includes("Unsolicited Hours")
-                    )}
-                  </p>
-                )}
-              </div>
-            </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
+        </div>
 
-          {(serviceType === "airportTransfer" ||
-            serviceType === "dailyHire") && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2 w-full min-w-[200px]">
-                <Label htmlFor="dropOff">
-                  {serviceType === "dailyHire"
-                    ? "Journey Start"
-                    : "Destination"}
-                </Label>
-                <div className="w-1/2 max-w-[150px]">
-                  <Select
-                    value={dropoffLocationId || ""}
-                    onValueChange={setDropoffLocationId}
-                  >
-                    <SelectTrigger id="dropOff">
-                      <SelectValue
-                        placeholder={
-                          serviceType === "dailyHire"
-                            ? "Select journey start"
-                            : "Select destination"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.length > 0 ? (
-                        locations.map((location) => (
-                          <SelectItem key={location.id} value={location.id}>
-                            {location.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-location" disabled>
-                          No locations available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2 w-full min-w-[200px]">
-                <Label htmlFor="vehicle">Vehicle Type</Label>
-                <div className="w-1/2 max-w-[150px]">
-                  <Select value={vehicle} onValueChange={setVehicle}>
-                    <SelectTrigger id="vehicle">
-                      <SelectValue placeholder="Select vehicle type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sedan">
-                        Luxury Sedan (£180 base)
-                      </SelectItem>
-                      <SelectItem value="suv">
-                        Executive SUV (£250 base)
-                      </SelectItem>
-                      <SelectItem value="van">
-                        Luxury Van (£300 base)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {serviceType === "meetAndGreet" && (
-            <>
-              <MeetAndGreetOptions
-                passengers={passengers}
-                setPassengers={setPassengers}
-                additionalHours={additionalHours}
-                setAdditionalHours={setAdditionalHours}
-                wantBuggy={wantBuggy}
-                setWantBuggy={setWantBuggy}
-                wantPorter={wantPorter}
-                setWantPorter={setWantPorter}
-                bags={bags}
-                setBags={setBags}
-                isHeathrowExcludingT5={isHeathrowExcludingT5} // Pass the condition
-              />
-            </>
-          )}
-
-          <div className="flex justify-end">
-            {calculatedAmount !== null ? (
-              <Button type="submit" className="w-auto px-4">
-                Continue With Booking
-              </Button>
-            ) : (
+        <div className="grid grid-cols-2 gap-6">
+          {/* Passengers */}
+          <div className="space-y-3">
+            <Label>Number of Passengers</Label>
+            <div className="flex items-center gap-4">
               <Button
-                type="submit"
-                className="w-auto px-4"
-                disabled={!!locationError}
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setFormData.setPassengers(Math.max(1, formData.passengers - 1))}
+                disabled={isLoading || formData.passengers <= 1}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                Calculate Estimate
+                <Minus className="h-4 w-4" />
               </Button>
-            )}
-          </div>
-        </>
-      )}
-      {serviceType !== "meetAndGreet" &&
-        step === "estimate" &&
-        renderServiceTypeOptions()}
-      {step === "details" && calculatedAmount !== null && (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="fullName">
-              Full Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="fullName"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+              <span className="w-8 text-center">{formData.passengers}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setFormData.setPassengers(Math.min(MAX_PASSENGERS, formData.passengers + 1))}
+                disabled={isLoading || formData.passengers >= MAX_PASSENGERS}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">
-              Email <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+          {/* Additional Hours */}
+          <div className="space-y-3">
+            <Label>Additional Hours</Label>
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setFormData.setAdditionalHours(Math.max(0, formData.additionalHours - 1))}
+                disabled={isLoading || formData.additionalHours <= 0}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="w-8 text-center">{formData.additionalHours}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setFormData.setAdditionalHours(Math.min(MAX_ADDITIONAL_HOURS, formData.additionalHours + 1))}
+                disabled={isLoading || formData.additionalHours >= MAX_ADDITIONAL_HOURS}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">
-              Phone <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
+        {/* Vehicle Selection for Hire by Hour */}
+        {type === "hireByHour" && vehicles && setFormData.setVehicle && (
+          <div className="space-y-3">
+            <Label>Select Vehicle</Label>
+            <Select
+              value={formData.vehicle}
+              onValueChange={setFormData.setVehicle}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a vehicle" />
+              </SelectTrigger>
+              <SelectContent>
+                {vehicles.map((vehicle) => (
+                  <SelectItem key={vehicle.id} value={vehicle.id}>
+                    {vehicle.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          {serviceType === "meetAndGreet" &&
-            (meetAndGreetType === "arrival" ||
-              meetAndGreetType === "connection") && (
-              <div className="space-y-2">
-                <Label htmlFor="flightNumberArrival">
-                  Flight Number (Arrival){" "}
-                  <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="flightNumberArrival"
-                  value={flightNumberArrival}
-                  onChange={(e) => setFlightNumberArrival(e.target.value)}
-                  placeholder="Enter arrival flight number"
-                />
+        )}
+
+        {/* Additional Services */}
+        {type === "meetAndAssist" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-6">
+              {/* Buggy Service */}
+              <div className="space-y-3">
+                <Label>Want Buggy Service?</Label>
+                <div className="flex items-center gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setFormData.setWantBuggy?.(true)}
+                    disabled={isLoading}
+                    className={cn(
+                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      !formData.wantBuggy && "bg-transparent text-foreground"
+                    )}
+                  >
+                    Yes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setFormData.setWantBuggy?.(false)}
+                    disabled={isLoading}
+                    className={cn(
+                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      formData.wantBuggy && "bg-transparent text-foreground"
+                    )}
+                  >
+                    No
+                  </Button>
+                </div>
+              </div>
+
+              {/* Porter Service */}
+              <div className="space-y-3">
+                <Label>Want Porter Service?</Label>
+                <div className="flex items-center gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setFormData.setWantPorter?.(true)}
+                    disabled={isLoading}
+                    className={cn(
+                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      !formData.wantPorter && "bg-transparent text-foreground"
+                    )}
+                  >
+                    Yes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setFormData.setWantPorter?.(false)}
+                    disabled={isLoading}
+                    className={cn(
+                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      formData.wantPorter && "bg-transparent text-foreground"
+                    )}
+                  >
+                    No
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {formData.wantPorter && setFormData.setBags && (
+              <div className="space-y-3">
+                <Label>Number of Bags</Label>
+                <div className="flex items-center gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (setFormData.setBags) {
+                        setFormData.setBags(Math.max(0, (formData.bags || 0) - 1));
+                      }
+                    }}
+                    disabled={isLoading || (formData.bags || 0) <= 0}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-8 text-center">{formData.bags || 0}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (setFormData.setBags) {
+                        setFormData.setBags(Math.min(MAX_BAGS, (formData.bags || 0) + 1));
+                      }
+                    }}
+                    disabled={isLoading || (formData.bags || 0) >= MAX_BAGS}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
-          {serviceType === "meetAndGreet" &&
-            (meetAndGreetType === "departure" ||
-              meetAndGreetType === "connection") && (
-              <div className="space-y-2">
-                <Label htmlFor="flightNumberDeparture">
-                  Flight Number (Departure){" "}
-                  <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="flightNumberDeparture"
-                  value={flightNumberDeparture}
-                  onChange={(e) => setFlightNumberDeparture(e.target.value)}
-                  placeholder="Enter departure flight number"
-                />
-              </div>
-            )}
-
-          <div className="space-y-2">
-            <Label htmlFor="additionalRequests">Additional Requests</Label>
-            <Textarea
-              id="additionalRequests"
-              value={additionalRequests}
-              onChange={(e) => setAdditionalRequests(e.target.value)}
-            />
           </div>
+        )}
 
-          <div className="space-y-2">
-            <Label className="flex items-center">
-              <input
-                id="contactConsent"
-                type="checkbox"
-                checked={contactConsent}
-                onChange={(e) => setContactConsent(e.target.checked)}
-                className="mr-2"
-              />
-              <span>
-                I agree to be contacted if there are issues with my booking.
-              </span>
-            </Label>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-lg font-semibold">
-              Estimated Cost: £{calculatedAmount.toFixed(2)}
-            </p>
-            <Button type="submit" className="w-full">
-              Book Now
-            </Button>
-          </div>
-        </>
-      )}
+        <Button
+          type="submit"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+          disabled={isLoading}
+        >
+          {submitButtonText}
+        </Button>
+      </div>
     </form>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import JourneyForm from "@/components/price-estimator/components/JourneyForm";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, ArrowLeft } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { getLocations } from "@/lib/firebase-admin";
+import type { Location } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 type BookingDetails = {
   pickupLocationId: string | null;
@@ -30,7 +34,7 @@ type BookingDetails = {
   wantBuggy: boolean;
   wantPorter: boolean;
   contactConsent: boolean;
-  serviceType: "meetAndGreet" | "airportTransfer" | "dailyHire";
+  serviceType: "meetAndAssist" | "airportTransfer" | "hireByHour";
   calculatedAmount: number | null;
   meetAndGreetType: "arrival" | "departure" | "connection";
   flightNumberArrival: string;
@@ -39,30 +43,26 @@ type BookingDetails = {
   hireDuration?: "full_day" | "half_day";
 };
 
-export default function Booking() {
+function BookingContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState<"estimate" | "details">("estimate");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-  const [locations, setLocations] = useState<{ id: string; name: string }[]>(
-    []
-  );
+  const [locations, setLocations] = useState<Location[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [bookingId, setBookingId] = useState<number | null>(null);
 
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
     pickupLocationId: null,
     dropoffLocationId: null,
-    date: undefined,
-    hour: "",
-    minute: "",
-    period: "",
+    date: new Date(new Date().setDate(new Date().getDate() + 1)),
+    hour: "14",
+    minute: "00",
+    period: "pm",
     fullName: "",
     email: "",
     phone: "",
@@ -73,40 +73,26 @@ export default function Booking() {
     wantBuggy: false,
     wantPorter: false,
     contactConsent: false,
-    serviceType: "meetAndGreet",
+    serviceType: "meetAndAssist",
     calculatedAmount: null,
     meetAndGreetType: "arrival",
     flightNumberArrival: "",
     flightNumberDeparture: "",
-    airportTransferType: "one_way",
-    hireDuration: "full_day",
   });
 
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const { data, error } = await supabase
-          .from("locations")
-          .select("id, airport, terminal, hotel_name_address")
-          .eq("status", "active")
-          .order("airport", { ascending: true });
-        if (error) throw new Error(error.message);
-        const locationList =
-          data.map((loc) => ({
-            id: loc.id,
-            name:
-              loc.hotel_name_address ||
-              (loc.terminal ? `${loc.airport} ${loc.terminal}` : loc.airport),
-          })) || [];
-        setLocations(locationList);
+        const locationsData = await getLocations();
+        setLocations(locationsData);
         if (
-          locationList.length > 0 &&
+          locationsData.length > 0 &&
           !bookingDetails.pickupLocationId &&
           !searchParams.get("pickupLocationId")
         ) {
           setBookingDetails((prev) => ({
             ...prev,
-            pickupLocationId: locationList[0].id,
+            pickupLocationId: locationsData[0].id,
             calculatedAmount: null,
           }));
         }
@@ -121,9 +107,9 @@ export default function Booking() {
     fetchLocations();
 
     const serviceType = searchParams.get("serviceType") as
-      | "meetAndGreet"
+      | "meetAndAssist"
       | "airportTransfer"
-      | "dailyHire"
+      | "hireByHour"
       | null;
     if (serviceType && searchParams.get("fromEstimator") === "true") {
       const dateTime = searchParams.get("dateTime")
@@ -166,225 +152,91 @@ export default function Booking() {
     }
   }, [bookingDetails.pickupLocationId, searchParams]);
 
-  const calculateAmount = () => {
-    let basePrice = 0;
-    switch (bookingDetails.serviceType) {
-      case "meetAndGreet":
-        basePrice =
-          bookingDetails.meetAndGreetType === "connection" ? 280 : 140;
-        break;
-      case "airportTransfer":
-        basePrice = 100;
-        break;
-      case "dailyHire":
-        basePrice = bookingDetails.additionalHours * 180;
-        break;
-    }
-    const additionalPassengers =
-      Math.max(0, bookingDetails.passengers - 2) * 45;
-    const additionalHoursCost = bookingDetails.additionalHours * 50;
-    const porterCost = Math.ceil(bookingDetails.bags / 8) * 65;
-    const buggyCost = bookingDetails.wantBuggy ? 80 : 0;
-
-    const amount =
-      basePrice +
-      additionalPassengers +
-      additionalHoursCost +
-      porterCost +
-      buggyCost;
-    setBookingDetails((prev) => ({ ...prev, calculatedAmount: amount }));
-  };
-
-  useEffect(() => {
-    if (step === "details" && bookingDetails.calculatedAmount === null) {
-      calculateAmount();
-    } else if (
-      step === "estimate" &&
-      bookingDetails.calculatedAmount === null
-    ) {
-      calculateAmount();
-    } else {
-      calculateAmount(); // Recalculate whenever dependencies change
-    }
-  }, [
-    step,
-    bookingDetails.serviceType,
-    bookingDetails.passengers,
-    bookingDetails.additionalHours,
-    bookingDetails.bags,
-    bookingDetails.wantBuggy,
-    bookingDetails.pickupLocationId,
-  ]);
-
-  const validateForm = () => {
-    const errors: Record<string, string> = {};
-    if (!bookingDetails.pickupLocationId)
-      errors.pickupLocation = "Pickup location is required";
-    if (
-      bookingDetails.serviceType === "meetAndGreet" &&
-      bookingDetails.meetAndGreetType === "connection" &&
-      !bookingDetails.dropoffLocationId
-    ) {
-      errors.dropoffLocation =
-        "Departure terminal is required for connection bookings";
-    }
-    if (!bookingDetails.date) errors.date = "Date is required";
-    if (
-      !bookingDetails.hour ||
-      !bookingDetails.minute ||
-      !bookingDetails.period
-    )
-      errors.time = "Time is required";
-    if (!bookingDetails.fullName) errors.fullName = "Full name is required";
-    if (!bookingDetails.email) errors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(bookingDetails.email))
-      errors.email = "Email is invalid";
-    if (!bookingDetails.phone) errors.phone = "Phone is required";
-    if (bookingDetails.serviceType === "meetAndGreet") {
-      if (
-        bookingDetails.meetAndGreetType === "arrival" ||
-        bookingDetails.meetAndGreetType === "connection"
-      ) {
-        if (!bookingDetails.flightNumberArrival)
-          errors.flightNumberArrival = "Arrival flight number is required";
-      }
-      if (
-        bookingDetails.meetAndGreetType === "departure" ||
-        bookingDetails.meetAndGreetType === "connection"
-      ) {
-        if (!bookingDetails.flightNumberDeparture)
-          errors.flightNumberDeparture = "Departure flight number is required";
-      }
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (
-    e: React.FormEvent,
-    proceedToDetails?: boolean
-  ) => {
-    e.preventDefault();
-    if (proceedToDetails && step === "estimate") {
-      setStep("details");
-      return;
-    }
-
-    if (!validateForm() || !bookingDetails.calculatedAmount) return;
-
-    setIsProcessing(true);
-    setNotification(null);
-
-    try {
-      const hour24 =
-        bookingDetails.period === "pm"
-          ? bookingDetails.hour === "12"
-            ? 12
-            : parseInt(bookingDetails.hour) + 12
-          : bookingDetails.hour === "12"
-          ? 0
-          : parseInt(bookingDetails.hour);
-      const dateTime = bookingDetails.date
-        ? new Date(bookingDetails.date)
-        : new Date();
-      dateTime.setHours(hour24, parseInt(bookingDetails.minute), 0, 0);
-
-      const userResponse = await supabase.auth.getUser();
-      const userId = userResponse.data.user?.id || null;
-
-      const { data: bookingData, error: bookingError } = await supabase
-        .from("bookings")
-        .insert({
-          user_id: userId,
-          service_type: bookingDetails.serviceType,
-          booking_date_time: dateTime.toISOString(),
-          full_name: bookingDetails.fullName,
-          contact_email: bookingDetails.email,
-          contact_number: bookingDetails.phone,
-          additional_requests: bookingDetails.additionalRequests,
-          contact_consent: bookingDetails.contactConsent,
-          amount: bookingDetails.calculatedAmount,
-        })
-        .select("id, booking_ref")
-        .single();
-
-      if (bookingError) throw new Error(bookingError.message);
-
-      const newBookingId = bookingData.id;
-      setBookingId(newBookingId);
-
-      // Prepare booking details data based on service type
-      const bookingDetailsData: any = {
-        booking_id: newBookingId,
-        passengers: bookingDetails.passengers,
-        additional_hours: bookingDetails.additionalHours,
-        bags: bookingDetails.bags,
-        want_buggy: bookingDetails.wantBuggy,
-        want_porter: bookingDetails.wantPorter,
-        initial_point_id: bookingDetails.pickupLocationId,
-      };
-
-      // Set service type specific fields
-      switch (bookingDetails.serviceType) {
-        case "meetAndGreet":
-          bookingDetailsData.meet_and_greet_type =
-            bookingDetails.meetAndGreetType;
-          bookingDetailsData.airport_transfer_type = null;
-          bookingDetailsData.hire_duration = null;
-          if (bookingDetails.meetAndGreetType === "connection") {
-            bookingDetailsData.final_point_location_id =
-              bookingDetails.dropoffLocationId;
-          }
-          break;
-        case "airportTransfer":
-          bookingDetailsData.meet_and_greet_type = null;
-          bookingDetailsData.airport_transfer_type =
-            bookingDetails.airportTransferType || "one_way";
-          bookingDetailsData.hire_duration = null;
-          bookingDetailsData.final_point_location_id =
-            bookingDetails.dropoffLocationId;
-          break;
-        case "dailyHire":
-          bookingDetailsData.meet_and_greet_type = null;
-          bookingDetailsData.airport_transfer_type = null;
-          bookingDetailsData.hire_duration =
-            bookingDetails.hireDuration || "full_day";
-          break;
-      }
-
-      const { error: detailsError } = await supabase
-        .from("booking_details")
-        .insert(bookingDetailsData);
-
-      if (detailsError) throw new Error(detailsError.message);
-
-      setNotification({
-        type: "success",
-        message: "Booking created successfully!",
-      });
-      setShowAuthModal(true);
-    } catch (err) {
-      setNotification({
-        type: "error",
-        message:
-          err instanceof Error
-            ? err.message
-            : "Failed to create booking. Please try again.",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleAuthChoice = (choice: "signup" | "signin" | "guest") => {
+  const handleAuthChoice = async (choice: "signup" | "signin" | "guest") => {
     setShowAuthModal(false);
     if (choice === "signup") {
-      window.location.href = `/user/signup?bookingId=${bookingId}`;
+      window.location.href = `/user/signup?from=booking`;
     } else if (choice === "signin") {
-      window.location.href = `/user/signin?bookingId=${bookingId}`;
+      window.location.href = `/user/signin?from=booking`;
     } else {
-      window.location.href = "/payment";
+      // Handle guest checkout with Stripe
+      try {
+        const pickupLocation = locations.find(loc => loc.id === bookingDetails.pickupLocationId);
+        const dropoffLocation = locations.find(loc => loc.id === bookingDetails.dropoffLocationId);
+        
+        if (!pickupLocation) {
+          setNotification({
+            type: "error",
+            message: "Pickup location is required",
+          });
+          return;
+        }
+
+        if (!bookingDetails.date) {
+          setNotification({
+            type: "error",
+            message: "Date is required",
+          });
+          return;
+        }
+
+        const dateTime = new Date(
+          bookingDetails.date.getFullYear(),
+          bookingDetails.date.getMonth(),
+          bookingDetails.date.getDate(),
+          parseInt(bookingDetails.hour),
+          parseInt(bookingDetails.minute)
+        ).toISOString();
+
+        const response = await fetch("/api/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bookingDetails: {
+              fullName: bookingDetails.fullName,
+              email: bookingDetails.email,
+              phone: bookingDetails.phone,
+              pickupLocation: pickupLocation.name,
+              dropoffLocation: dropoffLocation?.name,
+              dateTime,
+              selectedVehicle: bookingDetails.serviceType,
+              isHireByHour: bookingDetails.serviceType === "hireByHour",
+              duration: bookingDetails.additionalHours,
+              durationUnit: "hours",
+              additionalRequests: bookingDetails.additionalRequests,
+              flightNumberArrival: bookingDetails.flightNumberArrival,
+              flightNumberDeparture: bookingDetails.flightNumberDeparture,
+              passengers: bookingDetails.passengers,
+              bags: bookingDetails.bags,
+              wantBuggy: bookingDetails.wantBuggy,
+              wantPorter: bookingDetails.wantPorter,
+              contactConsent: true, // Required for guest checkout
+            },
+            amount: calculateEstimatedCost(),
+          }),
+        });
+
+        const { url, error } = await response.json();
+
+        if (error) {
+          setNotification({
+            type: "error",
+            message: error,
+          });
+          return;
+        }
+
+        // Redirect to Stripe Checkout
+        window.location.href = url;
+      } catch (err) {
+        console.error("Payment error:", err);
+        setNotification({
+          type: "error",
+          message: "Failed to process payment. Please try again.",
+        });
+      }
     }
   };
 
@@ -392,33 +244,99 @@ export default function Booking() {
     setFormErrors({});
     setNotification(null);
     setStep("estimate");
-    setBookingDetails((prev) => {
-      const updated: BookingDetails = {
-        pickupLocationId: locations[0]?.id || null,
-        dropoffLocationId: null,
-        date: undefined,
-        hour: "",
-        minute: "",
-        period: "",
-        fullName: "",
-        email: "",
-        phone: "",
-        additionalRequests: "",
-        passengers: 1,
-        additionalHours: 0,
-        bags: 0,
-        wantBuggy: false,
-        wantPorter: false,
-        contactConsent: false,
-        serviceType: "meetAndGreet", // Explicitly set to a valid union type value
-        calculatedAmount: null,
-        meetAndGreetType: "arrival",
-        flightNumberArrival: "",
-        flightNumberDeparture: "",
-      };
-      calculateAmount();
-      return updated;
-    });
+    setBookingDetails((prev) => ({
+      ...prev,
+      pickupLocationId: locations[0]?.id || null,
+      dropoffLocationId: null,
+      date: new Date(new Date().setDate(new Date().getDate() + 1)),
+      hour: "14",
+      minute: "00",
+      period: "pm",
+      fullName: "",
+      email: "",
+      phone: "",
+      additionalRequests: "",
+      passengers: 1,
+      additionalHours: 0,
+      bags: 0,
+      wantBuggy: false,
+      wantPorter: false,
+      contactConsent: false,
+      serviceType: "meetAndAssist",
+      calculatedAmount: null,
+      meetAndGreetType: "arrival",
+      flightNumberArrival: "",
+      flightNumberDeparture: "",
+    }));
+  };
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    // Validate date and time
+    const errors: Record<string, string> = {};
+    if (!bookingDetails.date) errors.date = "Date is required";
+    if (!bookingDetails.hour || !bookingDetails.minute) errors.time = "Time is required";
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setStep("details");
+  };
+
+  const handleFinalSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    // Validate required fields
+    const errors: Record<string, string> = {};
+    if (!bookingDetails.fullName) errors.fullName = "Full name is required";
+    if (!bookingDetails.email) errors.email = "Email is required";
+    if (!bookingDetails.phone) errors.phone = "Phone number is required";
+    
+    // Validate flight numbers based on service type
+    if (bookingDetails.serviceType === "meetAndAssist") {
+      if ((bookingDetails.meetAndGreetType === "arrival" || 
+           bookingDetails.meetAndGreetType === "connection") && 
+          !bookingDetails.flightNumberArrival) {
+        errors.flightNumberArrival = "Arrival flight number is required";
+      }
+      if ((bookingDetails.meetAndGreetType === "departure" || 
+           bookingDetails.meetAndGreetType === "connection") && 
+          !bookingDetails.flightNumberDeparture) {
+        errors.flightNumberDeparture = "Departure flight number is required";
+      }
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setShowAuthModal(true);
+  };
+
+  // Calculate estimated cost
+  const calculateEstimatedCost = () => {
+    let basePrice = 0;
+    switch (bookingDetails.serviceType) {
+      case "meetAndAssist":
+        basePrice = bookingDetails.meetAndGreetType === "connection" ? 280 : 140;
+        break;
+      case "airportTransfer":
+        basePrice = 100;
+        break;
+      case "hireByHour":
+        basePrice = bookingDetails.additionalHours * 180;
+        break;
+    }
+
+    if (bookingDetails.wantBuggy) basePrice += 80;
+    if (bookingDetails.wantPorter) basePrice += 65;
+    if (bookingDetails.bags > 0) basePrice += bookingDetails.bags * 10;
+
+    // Add VAT (20%)
+    const vatAmount = basePrice * 0.20;
+    return basePrice + vatAmount;
   };
 
   return (
@@ -431,7 +349,7 @@ export default function Booking() {
         </div>
       </div>
 
-      <section className="py-16">
+      <section className="py-8 md:py-16">
         <div className="container mx-auto px-4">
           {notification && (
             <div
@@ -452,156 +370,46 @@ export default function Booking() {
           ) : locationsError ? (
             <p className="text-red-500 text-center">{locationsError}</p>
           ) : (
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-4xl mx-auto">
               {step === "estimate" ? (
-                <div className="bg-muted p-8 rounded-lg shadow-lg">
-                  <h2 className="text-2xl font-bold mb-6">
-                    Enter Your Details
-                  </h2>
+                <div className="bg-muted p-4 md:p-8 rounded-lg shadow-lg">
+                  <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Enter Your Journey Details</h2>
                   <JourneyForm
-                    serviceType={bookingDetails.serviceType}
-                    step={step}
-                    date={bookingDetails.date}
-                    setDate={(date) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        date,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    hour={bookingDetails.hour}
-                    setHour={(hour) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        hour,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    minute={bookingDetails.minute}
-                    setMinute={(minute) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        minute,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    period={bookingDetails.period}
-                    setPeriod={(period) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        period,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    pickupLocationId={bookingDetails.pickupLocationId}
-                    setPickupLocationId={(pickupLocationId) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        pickupLocationId,
-                        calculatedAmount: null,
-                      }))
-                    } // Trigger recalc on location change
-                    dropoffLocationId={bookingDetails.dropoffLocationId}
-                    setDropoffLocationId={(dropoffLocationId) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        dropoffLocationId,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    vehicle=""
-                    setVehicle={() => {}}
-                    passengers={bookingDetails.passengers}
-                    setPassengers={(passengers) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        passengers,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    additionalHours={bookingDetails.additionalHours}
-                    setAdditionalHours={(additionalHours) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        additionalHours,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    wantBuggy={bookingDetails.wantBuggy}
-                    setWantBuggy={(wantBuggy) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        wantBuggy,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    wantPorter={bookingDetails.wantPorter}
-                    setWantPorter={(wantPorter) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        wantPorter,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    bags={bookingDetails.bags}
-                    setBags={(bags) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        bags,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    meetAndGreetType={bookingDetails.meetAndGreetType}
-                    setMeetAndGreetType={(meetAndGreetType) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        meetAndGreetType,
-                        calculatedAmount: null,
-                      }))
-                    }
-                    festiveMessage=""
-                    extraInfo={[]}
-                    handleSubmit={handleSubmit}
+                    type={bookingDetails.serviceType}
                     locations={locations}
-                    fullName={bookingDetails.fullName}
-                    setFullName={(fullName) =>
-                      setBookingDetails((prev) => ({ ...prev, fullName }))
-                    }
-                    email={bookingDetails.email}
-                    setEmail={(email) =>
-                      setBookingDetails((prev) => ({ ...prev, email }))
-                    }
-                    phone={bookingDetails.phone}
-                    setPhone={(phone) =>
-                      setBookingDetails((prev) => ({ ...prev, phone }))
-                    }
-                    additionalRequests={bookingDetails.additionalRequests}
-                    setAdditionalRequests={(additionalRequests) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        additionalRequests,
-                      }))
-                    }
-                    contactConsent={bookingDetails.contactConsent}
-                    setContactConsent={(contactConsent) =>
-                      setBookingDetails((prev) => ({ ...prev, contactConsent }))
-                    }
-                    calculatedAmount={bookingDetails.calculatedAmount}
-                    locationError={null}
-                    flightNumberArrival={bookingDetails.flightNumberArrival}
-                    setFlightNumberArrival={(flightNumberArrival) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        flightNumberArrival,
-                      }))
-                    }
-                    flightNumberDeparture={bookingDetails.flightNumberDeparture}
-                    setFlightNumberDeparture={(flightNumberDeparture) =>
-                      setBookingDetails((prev) => ({
-                        ...prev,
-                        flightNumberDeparture,
-                      }))
-                    }
+                    onCalculate={handleSubmit}
+                    submitButtonText="Continue to Booking"
+                    formData={{
+                      date: bookingDetails.date,
+                      hour: bookingDetails.hour,
+                      minute: bookingDetails.minute,
+                      meetAndAssistType: bookingDetails.meetAndGreetType,
+                      passengers: bookingDetails.passengers,
+                      wantBuggy: bookingDetails.wantBuggy,
+                      wantPorter: bookingDetails.wantPorter,
+                      bags: bookingDetails.bags,
+                      additionalHours: bookingDetails.additionalHours,
+                    }}
+                    setFormData={{
+                      setDate: (date: Date | undefined) =>
+                        setBookingDetails((prev) => ({ ...prev, date })),
+                      setHour: (hour: string) =>
+                        setBookingDetails((prev) => ({ ...prev, hour })),
+                      setMinute: (minute: string) =>
+                        setBookingDetails((prev) => ({ ...prev, minute })),
+                      setMeetAndAssistType: (type: "arrival" | "departure" | "connection") =>
+                        setBookingDetails((prev) => ({ ...prev, meetAndGreetType: type })),
+                      setPassengers: (passengers: number) =>
+                        setBookingDetails((prev) => ({ ...prev, passengers })),
+                      setWantBuggy: (want: boolean) =>
+                        setBookingDetails((prev) => ({ ...prev, wantBuggy: want })),
+                      setWantPorter: (want: boolean) =>
+                        setBookingDetails((prev) => ({ ...prev, wantPorter: want })),
+                      setBags: (bags: number) =>
+                        setBookingDetails((prev) => ({ ...prev, bags })),
+                      setAdditionalHours: (hours: number) =>
+                        setBookingDetails((prev) => ({ ...prev, additionalHours: hours })),
+                    }}
                   />
 
                   {Object.entries(formErrors).map(([field, message]) => (
@@ -626,8 +434,8 @@ export default function Booking() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="md:w-1/2 bg-gray-200 p-6 rounded-lg">
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="lg:w-1/2 bg-gray-200 p-4 md:p-6 rounded-lg">
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-lg font-semibold">Booking Summary</h3>
                       <Button
@@ -640,10 +448,10 @@ export default function Booking() {
                         Go Back
                       </Button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 text-sm md:text-base">
                       <p>
                         <strong>Service Type:</strong>{" "}
-                        {bookingDetails.serviceType === "meetAndGreet"
+                        {bookingDetails.serviceType === "meetAndAssist"
                           ? `Meet and Greet (${bookingDetails.meetAndGreetType})`
                           : bookingDetails.serviceType === "airportTransfer"
                           ? "Airport Transfer"
@@ -660,7 +468,7 @@ export default function Booking() {
                           (loc) => loc.id === bookingDetails.pickupLocationId
                         )?.name || "Not selected"}
                       </p>
-                      {bookingDetails.serviceType === "meetAndGreet" &&
+                      {bookingDetails.serviceType === "meetAndAssist" &&
                         bookingDetails.meetAndGreetType === "connection" && (
                           <p>
                             <strong>Departure Terminal:</strong>{" "}
@@ -670,26 +478,6 @@ export default function Booking() {
                             )?.name || "Not selected"}
                           </p>
                         )}
-                      {bookingDetails.serviceType === "meetAndGreet" && (
-                        <>
-                          {(bookingDetails.meetAndGreetType === "arrival" ||
-                            bookingDetails.meetAndGreetType === "connection") &&
-                            bookingDetails.flightNumberArrival && (
-                              <p>
-                                <strong>Arrival Flight Number:</strong>{" "}
-                                {bookingDetails.flightNumberArrival}
-                              </p>
-                            )}
-                          {(bookingDetails.meetAndGreetType === "departure" ||
-                            bookingDetails.meetAndGreetType === "connection") &&
-                            bookingDetails.flightNumberDeparture && (
-                              <p>
-                                <strong>Departure Flight Number:</strong>{" "}
-                                {bookingDetails.flightNumberDeparture}
-                              </p>
-                            )}
-                        </>
-                      )}
                       <p>
                         <strong>Date:</strong>{" "}
                         {bookingDetails.date
@@ -699,14 +487,11 @@ export default function Booking() {
                       <p>
                         <strong>Time:</strong>{" "}
                         {bookingDetails.hour &&
-                        bookingDetails.minute &&
-                        bookingDetails.period
-                          ? `${bookingDetails.hour}:${
-                              bookingDetails.minute
-                            } ${bookingDetails.period.toUpperCase()}`
+                        bookingDetails.minute
+                          ? `${bookingDetails.hour}:${bookingDetails.minute}`
                           : "Not selected"}
                       </p>
-                      {bookingDetails.serviceType === "meetAndGreet" && (
+                      {bookingDetails.serviceType === "meetAndAssist" && (
                         <>
                           <p>
                             <strong>Passengers:</strong>{" "}
@@ -730,7 +515,7 @@ export default function Booking() {
                         </>
                       )}
                       {(bookingDetails.serviceType === "airportTransfer" ||
-                        bookingDetails.serviceType === "dailyHire") && (
+                        bookingDetails.serviceType === "hireByHour") && (
                         <>
                           <p>
                             <strong>Passengers:</strong>{" "}
@@ -742,151 +527,159 @@ export default function Booking() {
                           </p>
                         </>
                       )}
-                      <p>
-                        <strong>Estimated Cost:</strong> £
-                        {bookingDetails.calculatedAmount?.toFixed(2)}
-                      </p>
+                      <div className="border-t pt-4 mt-4">
+                        <p className="text-lg font-semibold">
+                          <strong>Estimated Cost:</strong> £{calculateEstimatedCost().toFixed(2)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="md:w-1/2 bg-gray-50 p-6 rounded-lg">
-                    <h2 className="text-2xl font-bold mb-6">
-                      Enter Your Details
-                    </h2>
-                    <JourneyForm
-                      serviceType={bookingDetails.serviceType}
-                      step={step}
-                      date={bookingDetails.date}
-                      setDate={(date) =>
-                        setBookingDetails((prev) => ({ ...prev, date }))
-                      }
-                      hour={bookingDetails.hour}
-                      setHour={(hour) =>
-                        setBookingDetails((prev) => ({ ...prev, hour }))
-                      }
-                      minute={bookingDetails.minute}
-                      setMinute={(minute) =>
-                        setBookingDetails((prev) => ({ ...prev, minute }))
-                      }
-                      period={bookingDetails.period}
-                      setPeriod={(period) =>
-                        setBookingDetails((prev) => ({ ...prev, period }))
-                      }
-                      pickupLocationId={bookingDetails.pickupLocationId}
-                      setPickupLocationId={(pickupLocationId) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          pickupLocationId,
-                        }))
-                      }
-                      dropoffLocationId={bookingDetails.dropoffLocationId}
-                      setDropoffLocationId={(dropoffLocationId) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          dropoffLocationId,
-                        }))
-                      }
-                      vehicle=""
-                      setVehicle={() => {}}
-                      passengers={bookingDetails.passengers}
-                      setPassengers={(passengers) =>
-                        setBookingDetails((prev) => ({ ...prev, passengers }))
-                      }
-                      additionalHours={bookingDetails.additionalHours}
-                      setAdditionalHours={(additionalHours) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          additionalHours,
-                        }))
-                      }
-                      wantBuggy={bookingDetails.wantBuggy}
-                      setWantBuggy={(wantBuggy) =>
-                        setBookingDetails((prev) => ({ ...prev, wantBuggy }))
-                      }
-                      wantPorter={bookingDetails.wantPorter}
-                      setWantPorter={(wantPorter) =>
-                        setBookingDetails((prev) => ({ ...prev, wantPorter }))
-                      }
-                      bags={bookingDetails.bags}
-                      setBags={(bags) =>
-                        setBookingDetails((prev) => ({ ...prev, bags }))
-                      }
-                      meetAndGreetType={bookingDetails.meetAndGreetType}
-                      setMeetAndGreetType={(meetAndGreetType) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          meetAndGreetType,
-                        }))
-                      }
-                      festiveMessage=""
-                      extraInfo={[]}
-                      handleSubmit={handleSubmit}
-                      locations={locations}
-                      fullName={bookingDetails.fullName}
-                      setFullName={(fullName) =>
-                        setBookingDetails((prev) => ({ ...prev, fullName }))
-                      }
-                      email={bookingDetails.email}
-                      setEmail={(email) =>
-                        setBookingDetails((prev) => ({ ...prev, email }))
-                      }
-                      phone={bookingDetails.phone}
-                      setPhone={(phone) =>
-                        setBookingDetails((prev) => ({ ...prev, phone }))
-                      }
-                      additionalRequests={bookingDetails.additionalRequests}
-                      setAdditionalRequests={(additionalRequests) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          additionalRequests,
-                        }))
-                      }
-                      contactConsent={bookingDetails.contactConsent}
-                      setContactConsent={(contactConsent) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          contactConsent,
-                        }))
-                      }
-                      calculatedAmount={bookingDetails.calculatedAmount}
-                      locationError={null}
-                      flightNumberArrival={bookingDetails.flightNumberArrival}
-                      setFlightNumberArrival={(flightNumberArrival) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          flightNumberArrival,
-                        }))
-                      }
-                      flightNumberDeparture={
-                        bookingDetails.flightNumberDeparture
-                      }
-                      setFlightNumberDeparture={(flightNumberDeparture) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                          flightNumberDeparture,
-                        }))
-                      }
-                    />
-
-                    {Object.entries(formErrors).map(([field, message]) => (
-                      <p
-                        key={field}
-                        className="text-red-500 text-xs flex items-center mt-2"
-                      >
-                        <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
-                        {message}
-                      </p>
-                    ))}
-
-                    <div className="space-y-2 mt-4">
-                      <Button
-                        variant="outline"
-                        type="button"
-                        onClick={handleReset}
-                        className="w-full"
-                      >
-                        Reset
-                      </Button>
-                    </div>
+                  <div className="lg:w-1/2 bg-gray-50 p-4 md:p-6 rounded-lg">
+                    <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Enter Your Details</h2>
+                    <form onSubmit={handleFinalSubmit} className="space-y-4">
+                      {bookingDetails.serviceType === "meetAndAssist" && (
+                        <>
+                          {(bookingDetails.meetAndGreetType === "arrival" || 
+                            bookingDetails.meetAndGreetType === "connection") && (
+                            <div>
+                              <Label>
+                                Arrival Flight Number
+                                <span className="text-red-500 ml-1">*</span>
+                              </Label>
+                              <Input
+                                value={bookingDetails.flightNumberArrival}
+                                onChange={(e) =>
+                                  setBookingDetails((prev) => ({
+                                    ...prev,
+                                    flightNumberArrival: e.target.value,
+                                  }))
+                                }
+                                placeholder="Enter arrival flight number"
+                                className={formErrors.flightNumberArrival ? "border-red-500" : ""}
+                              />
+                              {formErrors.flightNumberArrival && (
+                                <p className="text-red-500 text-sm mt-1">{formErrors.flightNumberArrival}</p>
+                              )}
+                            </div>
+                          )}
+                          {(bookingDetails.meetAndGreetType === "departure" || 
+                            bookingDetails.meetAndGreetType === "connection") && (
+                            <div>
+                              <Label>
+                                Departure Flight Number
+                                <span className="text-red-500 ml-1">*</span>
+                              </Label>
+                              <Input
+                                value={bookingDetails.flightNumberDeparture}
+                                onChange={(e) =>
+                                  setBookingDetails((prev) => ({
+                                    ...prev,
+                                    flightNumberDeparture: e.target.value,
+                                  }))
+                                }
+                                placeholder="Enter departure flight number"
+                                className={formErrors.flightNumberDeparture ? "border-red-500" : ""}
+                              />
+                              {formErrors.flightNumberDeparture && (
+                                <p className="text-red-500 text-sm mt-1">{formErrors.flightNumberDeparture}</p>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div>
+                        <Label>
+                          Full Name
+                          <span className="text-red-500 ml-1">*</span>
+                        </Label>
+                        <Input
+                          value={bookingDetails.fullName}
+                          onChange={(e) =>
+                            setBookingDetails((prev) => ({
+                              ...prev,
+                              fullName: e.target.value,
+                            }))
+                          }
+                          placeholder="Enter your full name"
+                          className={formErrors.fullName ? "border-red-500" : ""}
+                        />
+                        {formErrors.fullName && (
+                          <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>
+                          Email
+                          <span className="text-red-500 ml-1">*</span>
+                        </Label>
+                        <Input
+                          type="email"
+                          value={bookingDetails.email}
+                          onChange={(e) =>
+                            setBookingDetails((prev) => ({
+                              ...prev,
+                              email: e.target.value,
+                            }))
+                          }
+                          placeholder="Enter your email"
+                          className={formErrors.email ? "border-red-500" : ""}
+                        />
+                        {formErrors.email && (
+                          <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>
+                          Phone Number
+                          <span className="text-red-500 ml-1">*</span>
+                        </Label>
+                        <Input
+                          type="tel"
+                          value={bookingDetails.phone}
+                          onChange={(e) =>
+                            setBookingDetails((prev) => ({
+                              ...prev,
+                              phone: e.target.value,
+                            }))
+                          }
+                          placeholder="Enter your phone number"
+                          className={formErrors.phone ? "border-red-500" : ""}
+                        />
+                        {formErrors.phone && (
+                          <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Additional Notes</Label>
+                        <Textarea
+                          value={bookingDetails.additionalRequests}
+                          onChange={(e) =>
+                            setBookingDetails((prev) => ({
+                              ...prev,
+                              additionalRequests: e.target.value,
+                            }))
+                          }
+                          placeholder="Any additional requests or information"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Button
+                          variant="outline"
+                          type="button"
+                          onClick={() => setStep("estimate")}
+                          className="w-full"
+                        >
+                          Back
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          className="w-full"
+                          onClick={() => setShowAuthModal(true)}
+                        >
+                          Continue to Booking
+                        </Button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               )}
@@ -900,19 +693,26 @@ export default function Booking() {
           <DialogHeader>
             <DialogTitle>Continue Your Booking</DialogTitle>
             <DialogDescription>
-              Would you like to sign up or sign in to save your booking history,
-              or check out as a guest?
+              Would you like to sign up or sign in to save your booking history, track your booking status, receive updates, and make changes? Or would you prefer to continue as a guest?
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 mt-4">
             <Button onClick={() => handleAuthChoice("signup")}>Sign Up</Button>
             <Button onClick={() => handleAuthChoice("signin")}>Sign In</Button>
             <Button variant="outline" onClick={() => handleAuthChoice("guest")}>
-              Check Out as Guest
+              Continue as Guest
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+export default function Booking() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <BookingContent />
+    </Suspense>
   );
 }

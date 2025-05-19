@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { supabaseAdmin } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +8,9 @@ import { Vehicle } from "@/types/admin";
 import { Label } from "../ui/label";
 import Image from "next/image";
 import Notification from "@/components/ui/notification";
+import { db, storage } from "@/lib/firebase";
+import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 type VehicleFormData = {
   title: string;
@@ -89,11 +91,6 @@ export default function VehiclesTab({
     operation: () => Promise<void>,
     successMessage: string
   ) => {
-    if (!supabaseAdmin) {
-      showNotification("error", "Server configuration error: Admin access not available");
-      return;
-    }
-
     try {
       await operation();
       showNotification("success", successMessage);
@@ -121,31 +118,19 @@ export default function VehiclesTab({
       let imageUrl = "";
       if (newVehicleImage) {
         const fileExt = newVehicleImage.name.split(".").pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabaseAdmin!
-          .storage
-          .from("vehicles")
-          .upload(fileName, newVehicleImage);
-
-        if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
-
-        const { data: publicUrlData } = supabaseAdmin!
-          .storage
-          .from("vehicles")
-          .getPublicUrl(fileName);
-
-        imageUrl = publicUrlData.publicUrl;
+        const fileName = `vehicles/${Date.now()}.${fileExt}`;
+        const storageRef = ref(storage, fileName);
+        
+        await uploadBytes(storageRef, newVehicleImage);
+        imageUrl = await getDownloadURL(storageRef);
       }
 
-      const { error } = await supabaseAdmin!
-        .from("vehicles")
-        .insert({
-          ...newVehicle,
-          image_url: imageUrl || null,
-          created_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
+      const vehiclesRef = collection(db, "vehicles");
+      await addDoc(vehiclesRef, {
+        ...newVehicle,
+        image_url: imageUrl || null,
+        created_at: new Date().toISOString(),
+      });
 
       setShowAddVehicleModal(false);
       resetNewVehicleForm();
@@ -174,33 +159,19 @@ export default function VehiclesTab({
 
       if (editVehicleImage) {
         const fileExt = editVehicleImage.name.split(".").pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabaseAdmin!
-          .storage
-          .from("vehicles")
-          .upload(fileName, editVehicleImage);
-
-        if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
-
-        const { data: publicUrlData } = supabaseAdmin!
-          .storage
-          .from("vehicles")
-          .getPublicUrl(fileName);
-
-        imageUrl = publicUrlData.publicUrl;
+        const fileName = `vehicles/${Date.now()}.${fileExt}`;
+        const storageRef = ref(storage, fileName);
+        
+        await uploadBytes(storageRef, editVehicleImage);
+        imageUrl = await getDownloadURL(storageRef);
       }
 
       const { id, ...updateData } = editingVehicle;
-      const { error } = await supabaseAdmin!
-        .from("vehicles")
-        .update({
-          ...updateData,
-          image_url: imageUrl || null,
-        })
-        .eq("id", id);
-
-      if (error) throw error;
+      const vehicleRef = doc(db, "vehicles", id);
+      await updateDoc(vehicleRef, {
+        ...updateData,
+        image_url: imageUrl || null,
+      });
 
       setShowEditVehicleModal(false);
       setEditingVehicle(null);
@@ -216,25 +187,16 @@ export default function VehiclesTab({
     await handleDatabaseOperation(async () => {
       const vehicle = vehicles.find((v) => v.id === vehicleId);
       if (vehicle?.image_url) {
-        const imagePath = vehicle.image_url.split("/").pop();
-        if (imagePath) {
-          const { error: storageError } = await supabaseAdmin!
-            .storage
-            .from("vehicles")
-            .remove([imagePath]);
-
-          if (storageError) {
-            console.warn("Failed to delete associated image:", storageError.message);
-          }
+        try {
+          const imageRef = ref(storage, vehicle.image_url);
+          await deleteObject(imageRef);
+        } catch (error) {
+          console.warn("Failed to delete associated image:", error);
         }
       }
 
-      const { error: deleteError } = await supabaseAdmin!
-        .from("vehicles")
-        .delete()
-        .eq("id", vehicleId);
-
-      if (deleteError) throw new Error(`Database deletion failed: ${deleteError.message}`);
+      const vehicleRef = doc(db, "vehicles", vehicleId);
+      await deleteDoc(vehicleRef);
     }, "Vehicle deleted successfully");
   };
 
@@ -271,7 +233,7 @@ export default function VehiclesTab({
   const renderVehicleFormFields = (
     formData: VehicleFormData,
     setFormData: React.Dispatch<React.SetStateAction<VehicleFormData>>,
-    imageFile: File | null,
+    _imageFile: File | null,
     setImageFile: React.Dispatch<React.SetStateAction<File | null>>,
     isEditMode = false
   ) => (

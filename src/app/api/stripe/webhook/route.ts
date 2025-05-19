@@ -1,93 +1,67 @@
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
   try {
-    // First check if supabaseAdmin is available
-    if (!supabaseAdmin) {
-      console.error("Supabase admin client not configured");
-      return NextResponse.json(
-        { error: "Internal server configuration error" },
-        { status: 500 }
-      );
-    }
-
-    // Validate webhook secret
-    if (!webhookSecret) {
-      console.error("STRIPE_WEBHOOK_SECRET is not set");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
-
     const body = await req.text();
-    const signature = req.headers.get("stripe-signature");
+    const headersList = await headers();
+    const signature = headersList.get("stripe-signature");
 
     if (!signature) {
       return NextResponse.json(
-        { error: "Missing Stripe signature" },
+        { error: "Missing stripe signature" },
         { status: 400 }
       );
     }
 
-    // Verify the webhook signature
-    const event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      webhookSecret
-    );
+    const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
 
-    // Handle the checkout.session.completed event
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-
-      // Get the booking ID from the session metadata
-      const bookingId = session.metadata?.booking_id;
-
-      if (!bookingId) {
-        console.error("Booking ID not found in session metadata");
+      
+      if (!session.id) {
         return NextResponse.json(
-          { error: "Booking ID not found" },
+          { error: "Missing session ID" },
           { status: 400 }
         );
       }
 
-      // Update the booking status to "confirmed"
-      const { data, error } = await supabaseAdmin
-        .from("bookings")
-        .update({ 
-          status: "confirmed",
-          payment_status: "paid",
-          payment_date: new Date().toISOString()
-        })
-        .eq("id", bookingId)
-        .eq("stripe_session_id", session.id)
-        .select()
-        .single();
+      // Query for the booking with this session ID
+      const bookingsRef = collection(db, "bookings");
+      const q = query(bookingsRef, where("stripe_session_id", "==", session.id));
+      const querySnapshot = await getDocs(q);
 
-      if (error) {
-        console.error("Supabase update error:", error);
+      if (querySnapshot.empty) {
         return NextResponse.json(
-          { error: "Failed to update booking status" },
-          { status: 500 }
+          { error: "No booking found for this session" },
+          { status: 404 }
         );
       }
 
-      console.log(`Booking ${bookingId} confirmed`, data);
+      // Update the booking status
+      const bookingDoc = querySnapshot.docs[0];
+      const bookingRef = doc(db, "bookings", bookingDoc.id);
+      
+      await updateDoc(bookingRef, {
+        status: "confirmed",
+        payment_status: "paid",
+        updated_at: new Date()
+      });
+
+      return NextResponse.json({ received: true });
     }
 
     return NextResponse.json({ received: true });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Webhook error:", errorMessage);
-    
+  } catch (err) {
+    const error = err as Error;
     return NextResponse.json(
-      { error: `Webhook error: ${errorMessage}` },
+      { error: error.message || "Webhook error" },
       { status: 400 }
     );
   }

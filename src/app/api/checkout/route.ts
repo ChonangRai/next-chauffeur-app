@@ -1,62 +1,89 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
   try {
-    // Check if supabaseAdmin is available first
-    if (!supabaseAdmin) {
+    const { bookingDetails, amount } = await req.json();
+
+    // Validate environment variables
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.NEXT_PUBLIC_BASE_URL) {
       return NextResponse.json(
-        { error: "Server configuration error: Supabase admin client not available" },
+        { error: "Server configuration error" },
         { status: 500 }
       );
     }
 
-    const { bookingDetails, amount } = await req.json();
-
-    console.log("Received request body:", { bookingDetails, amount });
-
-    // Validate environment variables
-    if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error("STRIPE_SECRET_KEY is not defined");
-    }
-    if (!process.env.NEXT_PUBLIC_BASE_URL) {
-      throw new Error("NEXT_PUBLIC_BASE_URL is not defined");
-    }
-
     // Validate request body
-    if (!bookingDetails || !amount) {
+    if (!bookingDetails?.fullName || !bookingDetails?.email || !bookingDetails?.pickupLocation || !bookingDetails?.dateTime || !amount || amount <= 0) {
       return NextResponse.json(
-        { error: "Missing bookingDetails or amount" },
-        { status: 400 }
-      );
-    }
-    if (typeof amount !== "number" || amount <= 0) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
-    }
-    if (
-      !bookingDetails.selectedVehicle ||
-      !bookingDetails.fullName ||
-      !bookingDetails.email ||
-      !bookingDetails.pickupLocation ||
-      !bookingDetails.dateTime
-    ) {
-      return NextResponse.json(
-        { error: "Missing required booking details" },
+        { error: "Invalid booking details" },
         { status: 400 }
       );
     }
 
-    // Generate booking_ref
-    const now = new Date();
-    const booking_ref = now.toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+    try {
+      // Create Stripe checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "gbp",
+              product_data: {
+                name: `${bookingDetails.selectedVehicle} - ${
+                  bookingDetails.isHireByHour ? "By the Hour" : "One Way"
+                }`,
+                description: `Booking for ${bookingDetails.fullName}`,
+              },
+              unit_amount: Math.round(amount * 100),
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          fullName: String(bookingDetails.fullName),
+          email: String(bookingDetails.email),
+          phone: String(bookingDetails.phone || "N/A"),
+          pickup: String(bookingDetails.pickupLocation),
+          dropoff: String(bookingDetails.dropoffLocation || "N/A"),
+          additionalRequests: String(bookingDetails.additionalRequests || "None"),
+          dateTime: String(bookingDetails.dateTime),
+          selectedVehicle: String(bookingDetails.selectedVehicle),
+          isHireByHour: String(bookingDetails.isHireByHour || false),
+          duration: bookingDetails.isHireByHour ? String(bookingDetails.duration) : null,
+          durationUnit: bookingDetails.isHireByHour ? String(bookingDetails.durationUnit) : null,
+        },
+        customer_email: bookingDetails.email,
+        success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking`,
+        custom_text: {
+          submit: {
+            message: `Booking Summary:
+Service: ${bookingDetails.selectedVehicle}
+Date: ${new Date(bookingDetails.dateTime).toLocaleDateString()}
+Time: ${new Date(bookingDetails.dateTime).toLocaleTimeString()}
+Pickup: ${bookingDetails.pickupLocation}
+${bookingDetails.dropoffLocation ? `Dropoff: ${bookingDetails.dropoffLocation}` : ''}
+Passengers: ${bookingDetails.passengers}
+${bookingDetails.bags > 0 ? `Bags: ${bookingDetails.bags}` : ''}
+${bookingDetails.wantBuggy ? 'Buggy Service: Yes' : ''}
+${bookingDetails.wantPorter ? 'Porter Service: Yes' : ''}
+${bookingDetails.flightNumberArrival ? `Arrival Flight: ${bookingDetails.flightNumberArrival}` : ''}
+${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.flightNumberDeparture}` : ''}`,
+          },
+        },
+      });
 
-    // Save booking to Supabase
-    const { data: booking, error: bookingError } = await supabaseAdmin
-      .from("bookings")
-      .insert({
+      // Generate booking_ref
+      const booking_ref = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+
+      // Save booking to Firebase
+      const bookingData = {
         full_name: bookingDetails.fullName,
         email: bookingDetails.email,
         phone: bookingDetails.phone || null,
@@ -67,86 +94,38 @@ export async function POST(req: Request) {
         selected_vehicle: bookingDetails.selectedVehicle,
         amount: amount,
         status: "pending",
+        payment_status: "pending",
         is_hire_by_hour: bookingDetails.isHireByHour || false,
         contact_consent: bookingDetails.contactConsent || false,
         duration: bookingDetails.isHireByHour ? bookingDetails.duration : null,
         duration_unit: bookingDetails.isHireByHour ? bookingDetails.durationUnit : null,
         driver_status: "unassigned",
         booking_ref,
-      })
-      .select()
-      .single();
+        flight_number_arrival: bookingDetails.flightNumberArrival || null,
+        flight_number_departure: bookingDetails.flightNumberDeparture || null,
+        passengers: bookingDetails.passengers || 1,
+        bags: bookingDetails.bags || 0,
+        want_buggy: bookingDetails.wantBuggy || false,
+        want_porter: bookingDetails.wantPorter || false,
+        created_at: serverTimestamp(),
+        stripe_session_id: session.id,
+      };
 
-    if (bookingError) {
-      console.error("Supabase booking error:", bookingError);
+      const bookingsRef = collection(db, "bookings");
+      await addDoc(bookingsRef, bookingData);
+
+      return NextResponse.json({ url: session.url });
+    } catch (err) {
+      const error = err as Error;
       return NextResponse.json(
-        { error: "Failed to save booking: " + bookingError.message },
+        { error: error.message || "Failed to process booking" },
         { status: 500 }
       );
     }
-
-    console.log("Booking created:", booking);
-
-    // Create Stripe checkout session
-    const stripeParams: Stripe.Checkout.SessionCreateParams = {
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "gbp",
-            product_data: {
-              name: `${bookingDetails.selectedVehicle} - ${
-                bookingDetails.isHireByHour ? "By the Hour" : "One Way"
-              }`,
-            },
-            unit_amount: Math.round(amount * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        booking_id: booking.id,
-        fullName: String(bookingDetails.fullName),
-        email: String(bookingDetails.email),
-        phone: String(bookingDetails.phone || "N/A"),
-        pickup: String(bookingDetails.pickupLocation),
-        dropoff: String(bookingDetails.dropoffLocation || "N/A"),
-        additionalRequests: String(bookingDetails.additionalRequests || "None"),
-        dateTime: String(bookingDetails.dateTime),
-        selectedVehicle: String(bookingDetails.selectedVehicle),
-        isHireByHour: String(bookingDetails.isHireByHour || false),
-        duration: bookingDetails.isHireByHour ? String(bookingDetails.duration) : null,
-        durationUnit: bookingDetails.isHireByHour ? String(bookingDetails.durationUnit) : null,
-      },
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking`,
-    };
-
-    const session = await stripe.checkout.sessions.create(stripeParams);
-
-    // Update booking with Stripe session ID
-    const { error: updateError } = await supabaseAdmin
-      .from("bookings")
-      .update({ stripe_session_id: session.id })
-      .eq("id", booking.id);
-
-    if (updateError) {
-      console.error("Supabase update error:", updateError);
-      return NextResponse.json(
-        { error: "Failed to update booking with Stripe session ID: " + updateError.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ url: session.url });
-  } catch (error) {
-    console.error("Stripe error:", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+  } catch (err) {
+    const error = err as Error;
     return NextResponse.json(
-      { error: "Failed to process payment: " + (error instanceof Error ? error.message : "Unknown error") },
+      { error: error.message || "Failed to process request" },
       { status: 500 }
     );
   }

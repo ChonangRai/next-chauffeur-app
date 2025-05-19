@@ -1,48 +1,74 @@
 "use client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface PriceModalProps {
-  showModal: boolean;
-  setShowModal: (show: boolean) => void;
-  estimatedPrice: string;
-  priceBreakdown: string[];
-  onContinue: () => void; // Changed from () => Promise<void>
+  isOpen: boolean;
+  onClose: () => void;
+  estimatedPrice: number;
+  priceBreakdown: { description: string; amount: number }[];
+  onContinue: () => void;
 }
 
-export default function PriceModal({ showModal, setShowModal, estimatedPrice, priceBreakdown, onContinue }: PriceModalProps) {
-  if (!showModal) return null;
+export default function PriceModal({
+  isOpen,
+  onClose,
+  estimatedPrice,
+  priceBreakdown,
+  onContinue,
+}: PriceModalProps) {
+  const formatPrice = (amount: number) => {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: "GBP",
+    }).format(amount);
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h3 className="font-bold text-lg mb-4">Estimated Price</h3>
-        <div className="space-y-3 mb-6">
-          {priceBreakdown.map((item, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex justify-between py-2",
-                item.startsWith("Total:") ? "border-t border-gray-200 pt-3 font-bold text-lg" : "",
-                item.includes("→") ? "text-blue-600" : ""
-              )}
-            >
-              <span>{item.split(":")[0]}:</span>
-              <span>{item.split(":")[1]}</span>
-            </div>
-          ))}
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Price Estimate</DialogTitle>
+          <DialogDescription>
+            Here&apos;s a breakdown of your estimated price
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="border rounded-lg p-4">
+            <table className="w-full">
+              <tbody>
+                {priceBreakdown.map((item, index) => (
+                  <tr key={index} className="border-b last:border-0">
+                    <td className="py-2">{item.description}</td>
+                    <td className="py-2 text-right">
+                      {formatPrice(item.amount)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="font-bold">
+                  <td className="pt-4">Total</td>
+                  <td className="pt-4 text-right">
+                    {formatPrice(estimatedPrice)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="text-center mb-6">
-          <p className="text-3xl font-bold text-primary">{estimatedPrice}</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            This is an estimate. Final price may vary based on availability.
-          </p>
-        </div>
-        <div className="flex justify-end gap-4">
-          <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-          <Button onClick={onContinue}>Continue with Booking</Button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter className="flex gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={onContinue}>Continue to Booking</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

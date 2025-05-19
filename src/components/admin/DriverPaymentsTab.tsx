@@ -1,9 +1,12 @@
 "use client";
 import { useState } from "react";
-import { supabaseAdmin } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DriverPayment, Driver } from "@/types/admin";
+import { Label } from "../ui/label";
 import Notification from "@/components/ui/notification";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, updateDoc, doc, serverTimestamp, deleteDoc } from "firebase/firestore";
 
 type DriverPaymentsTabProps = {
   driverPayments: DriverPayment[];
@@ -13,53 +16,233 @@ type DriverPaymentsTabProps = {
   fetchDriverPayments: () => Promise<void>;
 };
 
+type PaymentFormState = {
+  driver_id: string;
+  booking_id: string;
+  amount: number | "";
+  status: "pending" | "paid" | "cancelled";
+  payment_date: string | null;
+  payment_method: string;
+};
+
 export default function DriverPaymentsTab({
   driverPayments,
   isLoadingPayments,
   paymentError,
   drivers,
-  fetchDriverPayments,
+  fetchDriverPayments
 }: DriverPaymentsTabProps) {
-  const [notification, setNotification] = useState<{ 
-    type: "success" | "error"; 
-    message: string 
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<DriverPayment | null>(null);
+  const [newPayment, setNewPayment] = useState<PaymentFormState>({
+    driver_id: "",
+    booking_id: "",
+    amount: "",
+    status: "pending",
+    payment_date: null,
+    payment_method: "bank_transfer",
+  });
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string
   } | null>(null);
+  const [editPaymentForm, setEditPaymentForm] = useState<PaymentFormState | null>(null);
 
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 5000);
   };
 
-  // Handle paying a driver
-  const handlePayDriver = async (paymentId: string) => {
-    if (!supabaseAdmin) {
-      showNotification("error", "Server configuration error: Admin access not available");
-      return;
-    }
+  const resetNewPaymentForm = () => {
+    setNewPayment({
+      driver_id: "",
+      booking_id: "",
+      amount: "",
+      status: "pending",
+      payment_date: null,
+      payment_method: "bank_transfer",
+    });
+  };
 
+  const closeAddPaymentModal = () => {
+    setShowAddPaymentModal(false);
+    resetNewPaymentForm();
+  };
+
+  const closeEditPaymentModal = () => {
+    setShowEditPaymentModal(false);
+    setEditingPayment(null);
+    setEditPaymentForm(null);
+  };
+
+  const handleDatabaseOperation = async (
+    operation: () => Promise<void>,
+    successMessage: string
+  ) => {
     try {
-      const { error } = await supabaseAdmin
-        .from("driver_payments")
-        .update({ 
-          status: "paid", 
-          payment_date: new Date().toISOString() 
-        })
-        .eq("id", paymentId);
-
-      if (error) throw error;
-
+      await operation();
+      showNotification("success", successMessage);
       await fetchDriverPayments();
-      showNotification("success", "Payment marked as paid successfully");
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to process payment";
-      console.error("Payment error:", errorMessage);
-      showNotification("error", errorMessage);
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      console.error("Operation failed:", message);
+      showNotification("error", `Operation failed: ${message}`);
     }
   };
 
+  const handleAddPayment = async () => {
+    await handleDatabaseOperation(async () => {
+      if (!newPayment.driver_id || !newPayment.booking_id || !newPayment.amount || Number(newPayment.amount) <= 0) {
+        throw new Error("Please fill in all required fields correctly");
+      }
+      const paymentsRef = collection(db, "driverPayments");
+      await addDoc(paymentsRef, {
+        ...newPayment,
+        amount: Number(newPayment.amount),
+        created_at: serverTimestamp(),
+      });
+      closeAddPaymentModal();
+    }, "Payment added successfully");
+  };
+
+  const handleEditPayment = async () => {
+    if (!editingPayment || !editPaymentForm) {
+      showNotification("error", "No payment selected for editing");
+      return;
+    }
+    await handleDatabaseOperation(async () => {
+      if (!editPaymentForm.driver_id || !editPaymentForm.booking_id || !editPaymentForm.amount || Number(editPaymentForm.amount) <= 0) {
+        throw new Error("Please fill in all required fields correctly");
+      }
+      const { id } = editingPayment;
+      const paymentRef = doc(db, "driverPayments", id);
+      await updateDoc(paymentRef, {
+        ...editPaymentForm,
+        amount: Number(editPaymentForm.amount),
+      });
+      closeEditPaymentModal();
+    }, "Payment updated successfully");
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm("Are you sure you want to delete this payment? This action cannot be undone.")) {
+      return;
+    }
+    await handleDatabaseOperation(async () => {
+      const paymentRef = doc(db, "driverPayments", paymentId);
+      await deleteDoc(paymentRef);
+    }, "Payment deleted successfully");
+  };
+
+  const handleEditClick = (payment: DriverPayment) => {
+    setEditingPayment(payment);
+    setEditPaymentForm({
+      driver_id: payment.driver_id,
+      booking_id: payment.booking_id,
+      amount: payment.amount,
+      status: payment.status as 'pending' | 'paid' | 'cancelled',
+      payment_date: payment.payment_date ? String(payment.payment_date) : null,
+      payment_method: payment.payment_method,
+    });
+    setShowEditPaymentModal(true);
+  };
+
+  const ModalFooter = ({ onSave, onCancel, saveLabel = "Save" }: {
+    onSave: () => void;
+    onCancel: () => void;
+    saveLabel?: string;
+  }) => (
+    <div className="flex gap-2 mt-4">
+      <Button onClick={onSave}>{saveLabel}</Button>
+      <Button variant="outline" onClick={onCancel}>Cancel</Button>
+    </div>
+  );
+
+  const renderPaymentFormFields = (
+    formData: PaymentFormState,
+    setFormData: React.Dispatch<React.SetStateAction<PaymentFormState>>,
+  ) => (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="driver_id">Driver</Label>
+        <select
+          id="driver_id"
+          value={formData.driver_id}
+          onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
+          className="w-full p-2 border rounded"
+        >
+          <option value="">Select a driver</option>
+          {drivers.map((driver) => (
+            <option key={driver.id} value={driver.id}>
+              {driver.full_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <Label htmlFor="booking_id">Booking ID</Label>
+        <Input
+          id="booking_id"
+          value={formData.booking_id}
+          onChange={(e) => setFormData({ ...formData, booking_id: e.target.value })}
+          placeholder="Enter booking ID"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="amount">Amount (£)</Label>
+        <Input
+          id="amount"
+          type="number"
+          min="0"
+          step="0.01"
+          value={formData.amount}
+          onChange={(e) => {
+            const val = e.target.value;
+            setFormData({ ...formData, amount: val === "" ? "" : parseFloat(val) });
+          }}
+          placeholder="Enter amount"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="status">Status</Label>
+        <select
+          id="status"
+          value={formData.status}
+          onChange={(e) => setFormData({ ...formData, status: e.target.value as 'pending' | 'paid' | 'cancelled' })}
+          className="w-full p-2 border rounded"
+        >
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      <div>
+        <Label htmlFor="payment_method">Payment Method</Label>
+        <select
+          id="payment_method"
+          value={formData.payment_method}
+          onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+          className="w-full p-2 border rounded"
+        >
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="cash">Cash</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Driver Payments</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-gray-800">Manage Driver Payments</h2>
+        <Button onClick={() => setShowAddPaymentModal(true)}>Add Payment</Button>
+      </div>
 
       {notification && (
         <Notification type={notification.type} message={notification.message} />
@@ -70,69 +253,77 @@ export default function DriverPaymentsTab({
       ) : paymentError ? (
         <p className="text-red-500 text-center">{paymentError}</p>
       ) : driverPayments.length === 0 ? (
-        <p className="text-center text-gray-600">No driver payments found.</p>
+        <p className="text-center text-gray-600">No payments found.</p>
       ) : (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <table className="w-full text-sm text-gray-700">
             <thead className="bg-gray-100">
               <tr>
-                <th className="p-4 text-left font-semibold">Payment ID</th>
-                <th className="p-4 text-left font-semibold">Created</th>
                 <th className="p-4 text-left font-semibold">Driver</th>
-                <th className="p-4 text-left font-semibold">Booking</th>
+                <th className="p-4 text-left font-semibold">Booking ID</th>
                 <th className="p-4 text-left font-semibold">Amount</th>
                 <th className="p-4 text-left font-semibold">Status</th>
-                <th className="p-4 text-left font-semibold">Paid On</th>
-                <th className="p-4 text-left font-semibold">Method</th>
+                <th className="p-4 text-left font-semibold">Payment Method</th>
                 <th className="p-4 text-left font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {driverPayments.map((payment) => {
-                const driver = drivers.find((d) => d.id === payment.driver_id);
-                return (
-                  <tr key={payment.id} className="border-b hover:bg-gray-50">
-                    <td className="p-4">{payment.id.slice(0, 8)}...</td>
-                    <td className="p-4">
-                      {new Date(payment.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="p-4">
-                      {driver?.full_name || "Unknown Driver"}
-                    </td>
-                    <td className="p-4">{payment.booking_id.slice(0, 8)}...</td>
-                    <td className="p-4">£{payment.amount.toFixed(2)}</td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        payment.status === "paid" 
-                          ? "bg-green-100 text-green-800" 
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}>
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {payment.payment_date
-                        ? new Date(payment.payment_date).toLocaleDateString()
-                        : "-"}
-                    </td>
-                    <td className="p-4">{payment.payment_method}</td>
-                    <td className="p-4">
-                      {payment.status === "pending" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePayDriver(payment.id)}
-                          className="bg-blue-50 hover:bg-blue-100 text-blue-700"
-                        >
-                          Mark Paid
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {driverPayments.map((payment) => (
+                <tr key={payment.id} className="border-b hover:bg-gray-50">
+                  <td className="p-4">
+                    {drivers.find((d) => d.id === payment.driver_id)?.full_name || "Unknown Driver"}
+                  </td>
+                  <td className="p-4">{payment.booking_id}</td>
+                  <td className="p-4">£{payment.amount.toFixed(2)}</td>
+                  <td className="p-4">{payment.status}</td>
+                  <td className="p-4">{payment.payment_method}</td>
+                  <td className="p-4 flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditClick(payment)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeletePayment(payment.id)}
+                    >
+                      Delete
+                    </Button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showAddPaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
+            <h3 className="text-xl font-bold mb-4">Add New Payment</h3>
+            {renderPaymentFormFields(newPayment, setNewPayment)}
+            <ModalFooter
+              onSave={handleAddPayment}
+              onCancel={closeAddPaymentModal}
+              saveLabel="Add Payment"
+            />
+          </div>
+        </div>
+      )}
+
+      {showEditPaymentModal && editPaymentForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
+            <h3 className="text-xl font-bold mb-4">Edit Payment</h3>
+            {renderPaymentFormFields(editPaymentForm, setEditPaymentForm as React.Dispatch<React.SetStateAction<PaymentFormState>>)}
+            <ModalFooter
+              onSave={handleEditPayment}
+              onCancel={closeEditPaymentModal}
+            />
+          </div>
         </div>
       )}
     </div>

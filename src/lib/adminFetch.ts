@@ -1,4 +1,5 @@
-import { supabaseAdmin } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { Vehicle, Booking, Driver, DriverPayment, DriverStatus, Location, ServicePricing, ExtraCharge } from "@/types/admin";
 
 type FetchResult<T> = {
@@ -7,209 +8,198 @@ type FetchResult<T> = {
   isLoading: boolean;
 };
 
-// Helper function to check if supabaseAdmin is initialized
-const getSupabaseAdmin = () => {
-  if (!supabaseAdmin) {
-    throw new Error("Supabase client is not initialized");
-  }
-  return supabaseAdmin;
-};
-
 export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
   let isLoading = true;
   try {
-    const { data, error } = await getSupabaseAdmin()
-      .from("vehicles")
-      .select("*")
-      .order("base_price", { ascending: true });
-      
-    if (error) throw new Error(error.message);
-    isLoading = false;
+    const vehiclesRef = collection(db, "vehicles");
+    const q = query(vehiclesRef, orderBy("basePrice", "asc"));
+    const snapshot = await getDocs(q);
     
-    const normalizedData = data?.map((vehicle) => {
-      const normalizedVehicle = {
-        id: vehicle.id,
+    const data = snapshot.docs.map(doc => {
+      const vehicle = doc.data();
+      return {
+        id: doc.id,
         title: vehicle.title || "",
         name: vehicle.name || "",
         description: vehicle.description || "",
         passengers: vehicle.passengers || 1,
         bags: vehicle.bags || 0,
         wifi: vehicle.wifi ?? false,
-        meet_greet: vehicle.meet_greet ?? false,
+        meet_greet: vehicle.meetGreet ?? false,
         drinks: vehicle.drinks ?? false,
-        waiting_time: vehicle.waiting_time || "",
-        base_price: vehicle.base_price || 0,
-        price_per_hour: vehicle.price_per_hour || 0,
-        image_url: vehicle.image_url || "",
-        created_at: vehicle.created_at,
-        vehicle_status: vehicle.vehicle_status,
-        daily_rate: vehicle.daily_rate
+        waiting_time: vehicle.waitingTime || "",
+        base_price: vehicle.basePrice || 0,
+        price_per_hour: vehicle.pricePerHour || 0,
+        image_url: vehicle.imageUrl || "",
+        created_at: vehicle.createdAt,
+        vehicle_status: vehicle.status,
+        daily_rate: vehicle.dailyRate
       };
-      return normalizedVehicle;
-    }) || [];
+    });
     
-    return { data: normalizedData, error: null, isLoading };
+    isLoading = false;
+    return { data, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching vehicles:", err);
     isLoading = false;
-    const errorMessage = (err instanceof Error && err.message.includes("relation \"public.vehicles\" does not exist"))
-      ? "The 'vehicles' table does not exist in the database. Please create it."
-      : err instanceof Error 
-        ? err.message
-        : "Failed to load vehicles. Please try again.";
-    return { data: null, error: errorMessage, isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load vehicles", isLoading };
   }
 };
 
 export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
   let isLoading = true;
   try {
-    const { data, error } = await getSupabaseAdmin()
-      .from("bookings")
-      .select("*")
-      .order("created_at", { ascending: false });
-      
-    if (error) throw new Error(error.message);
-    isLoading = false;
+    const bookingsRef = collection(db, "bookings");
+    const q = query(bookingsRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
     
-    const normalizedData = data?.map((booking) => {
-      const validDriverStatus: DriverStatus = ["unassigned", "assigned", "completed"].includes(booking.driver_status)
-        ? booking.driver_status as DriverStatus
+    const data = snapshot.docs.map(doc => {
+      const booking = doc.data();
+      const validDriverStatus: DriverStatus = ["unassigned", "assigned", "completed"].includes(booking.driverStatus)
+        ? booking.driverStatus as DriverStatus
         : "unassigned";
       return {
-        id: booking.id,
-        booking_ref: booking.booking_ref || new Date(booking.created_at).toISOString().replace(/[-:T.Z]/g, "").slice(0, 14),
-        created_at: booking.created_at,
-        full_name: booking.full_name || "",
+        id: doc.id,
+        booking_ref: booking.bookingRef || new Date(booking.createdAt).toISOString().replace(/[-:T.Z]/g, "").slice(0, 14),
+        created_at: booking.createdAt,
+        full_name: booking.fullName || "",
         email: booking.email || "",
         phone: booking.phone || null,
-        pickup_location: booking.pickup_location || "",
-        dropoff_location: booking.dropoff_location || null,
-        additional_requests: booking.additional_requests || null,
-        date_time: booking.date_time || "",
-        selected_vehicle: booking.selected_vehicle || "",
+        pickup_location: booking.pickupLocation || "",
+        dropoff_location: booking.dropoffLocation || null,
+        additional_requests: booking.additionalRequests || null,
+        date_time: booking.dateTime || "",
+        selected_vehicle: booking.selectedVehicle || "",
         amount: booking.amount || 0,
         status: booking.status || "pending",
-        is_hire_by_hour: booking.is_hire_by_hour ?? false,
+        is_hire_by_hour: booking.isHireByHour ?? false,
         duration: booking.duration || null,
-        duration_unit: booking.duration_unit || null,
-        driver_id: booking.driver_id || null,
+        duration_unit: booking.durationUnit || null,
+        driver_id: booking.driverId || null,
         driver_status: validDriverStatus,
-        contact_consent: booking.contact_consent,
-        is_daily_hire: booking.is_daily_hire ?? false,
-        service_type: booking.service_type,
+        contact_consent: booking.contactConsent,
+        is_daily_hire: booking.isDailyHire ?? false,
+        service_type: booking.serviceType,
         passengers: booking.passengers,
       };
-    }) || [];
+    });
     
-    return { data: normalizedData, error: null, isLoading };
+    isLoading = false;
+    return { data, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching bookings:", err);
     isLoading = false;
-    const errorMessage = (err instanceof Error && err.message.includes("relation \"public.bookings\" does not exist"))
-      ? "The 'bookings' table does not exist in the database. Please create it."
-      : err instanceof Error 
-        ? err.message
-        : "Failed to load bookings. Please try again.";
-    return { data: null, error: errorMessage, isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load bookings", isLoading };
   }
 };
 
 export const fetchDrivers = async (): Promise<FetchResult<Driver>> => {
   let isLoading = true;
   try {
-    const { data, error } = await getSupabaseAdmin().from("drivers").select("*");
-    if (error) throw new Error(error.message);
+    const driversRef = collection(db, "drivers");
+    const snapshot = await getDocs(driversRef);
+    const data = snapshot.docs.map(doc => {
+      const driver = doc.data();
+      return {
+        id: doc.id,
+        full_name: `${driver.firstName || ""} ${driver.lastName || ""}`.trim(),
+        email: driver.email || "",
+        phone: driver.phone || "",
+        payment_details: driver.paymentDetails || "",
+        status: driver.status || "inactive",
+      };
+    });
     isLoading = false;
-    return { data: data || [], error: null, isLoading };
+    return { data, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching drivers:", err);
     isLoading = false;
-    const errorMessage = (err instanceof Error && err.message.includes("relation \"public.drivers\" does not exist"))
-      ? "The 'drivers' table does not exist in the database. Please create it."
-      : err instanceof Error 
-        ? err.message
-        : "Failed to load drivers. Please try again.";
-    return { data: null, error: errorMessage, isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load drivers", isLoading };
   }
 };
 
 export const fetchDriverPayments = async (): Promise<FetchResult<DriverPayment>> => {
   let isLoading = true;
   try {
-    const { data, error } = await getSupabaseAdmin()
-      .from("driver_payments")
-      .select("*")
-      .order("created_at", { ascending: false });
-      
-    if (error) throw new Error(error.message);
+    const paymentsRef = collection(db, "driverPayments");
+    const q = query(paymentsRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map(doc => {
+      const payment = doc.data();
+      return {
+        id: doc.id,
+        created_at: payment.createdAt,
+        driver_id: payment.driverId,
+        booking_id: payment.bookingId,
+        amount: payment.amount || 0,
+        status: payment.status || "pending",
+        payment_date: payment.paymentDate || null,
+        payment_method: payment.paymentMethod || "bank_transfer",
+      };
+    });
     isLoading = false;
-    return { data: data || [], error: null, isLoading };
+    return { data, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching driver payments:", err);
     isLoading = false;
-    const errorMessage = (err instanceof Error && err.message.includes("relation \"public.driver_payments\" does not exist"))
-      ? "The 'driver_payments' table does not exist in the database. Please create it."
-      : err instanceof Error 
-        ? err.message
-        : "Failed to load driver payments. Please try again.";
-    return { data: null, error: errorMessage, isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load driver payments", isLoading };
   }
 };
 
 export const fetchLocations = async (): Promise<FetchResult<Location>> => {
   let isLoading = true;
   try {
-    const { data, error } = await getSupabaseAdmin().from("locations").select("*");
-    if (error) throw new Error(error.message);
+    const locationsRef = collection(db, "locations");
+    const snapshot = await getDocs(locationsRef);
+    const data = snapshot.docs.map((doc, index) => ({
+      id: index + 1,
+      name: doc.data().name || "",
+      status: doc.data().status || "active",
+    }));
     isLoading = false;
-    return { data: data || [], error: null, isLoading };
+    return { data, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching locations:", err);
     isLoading = false;
-    const errorMessage = (err instanceof Error && err.message.includes("relation \"public.locations\" does not exist"))
-      ? "The 'locations' table does not exist in the database. Please create it."
-      : err instanceof Error 
-        ? err.message
-        : "Failed to load locations. Please try again.";
-    return { data: null, error: errorMessage, isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load locations", isLoading };
   }
 };
 
 export const fetchServicePricing = async (): Promise<FetchResult<ServicePricing>> => {
   let isLoading = true;
   try {
-    const { data, error } = await getSupabaseAdmin().from("service_pricing").select("*");
-    if (error) throw new Error(error.message);
+    const pricingRef = collection(db, "servicePricing");
+    const snapshot = await getDocs(pricingRef);
+    const data = snapshot.docs.map((doc, index) => ({
+      id: index + 1,
+      service_type: doc.data().serviceType || "",
+      sub_type: doc.data().subType || "",
+      base_price: doc.data().basePrice || 0,
+    }));
     isLoading = false;
-    return { data: data || [], error: null, isLoading };
+    return { data, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching service pricing:", err);
     isLoading = false;
-    const errorMessage = (err instanceof Error && err.message.includes("relation \"public.service_pricing\" does not exist"))
-      ? "The 'service_pricing' table does not exist in the database. Please create it."
-      : err instanceof Error 
-        ? err.message
-        : "Failed to load service pricing. Please try again.";
-    return { data: null, error: errorMessage, isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load service pricing", isLoading };
   }
 };
 
 export const fetchExtraCharges = async (): Promise<FetchResult<ExtraCharge>> => {
   let isLoading = true;
   try {
-    const { data, error } = await getSupabaseAdmin().from("extra_charges").select("*");
-    if (error) throw new Error(error.message);
+    const chargesRef = collection(db, "extraCharges");
+    const snapshot = await getDocs(chargesRef);
+    const data = snapshot.docs.map((doc, index) => ({
+      id: index + 1,
+      charge_type: doc.data().chargeType || "",
+      amount: doc.data().amount || 0,
+    }));
     isLoading = false;
-    return { data: data || [], error: null, isLoading };
+    return { data, error: null, isLoading };
   } catch (err: unknown) {
     console.error("Error fetching extra charges:", err);
     isLoading = false;
-    const errorMessage = (err instanceof Error && err.message.includes("relation \"public.extra_charges\" does not exist"))
-      ? "The 'extra_charges' table does not exist in the database. Please create it."
-      : err instanceof Error 
-        ? err.message
-        : "Failed to load extra charges. Please try again.";
-    return { data: null, error: errorMessage, isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load extra charges", isLoading };
   }
 };

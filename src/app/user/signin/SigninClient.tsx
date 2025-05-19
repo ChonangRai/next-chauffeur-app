@@ -7,7 +7,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
 import { Icons } from "@/components/ui/icons";
-import { supabase } from "@/lib/supabase";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const logoURL = "/favicon.ico";
 
@@ -30,13 +31,15 @@ export default function SigninClient({
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-      router.push("/user/dashboard");
+      await signInWithEmailAndPassword(auth, email, password);
+      
+      // Check if user came from booking page
+      const fromBooking = searchParams?.from === 'booking';
+      if (fromBooking) {
+        router.push('/booking');
+      } else {
+        router.push('/user/dashboard');
+      }
     } catch (error: unknown) {
       if (error instanceof Error) {
         setError(error.message);
@@ -53,19 +56,16 @@ export default function SigninClient({
     setError(null);
 
     try {
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-      const redirectTo = `${baseUrl}/auth/callback`;
-      console.log("Google OAuth redirectTo:", redirectTo); // Debug log
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-          scopes: "email profile", // Ensure Google provides necessary data
-        },
-      });
-
-      if (error) throw error;
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      
+      // Check if user came from booking page
+      const fromBooking = searchParams?.from === 'booking';
+      if (fromBooking) {
+        router.push('/booking');
+      } else {
+        router.push('/user/dashboard');
+      }
     } catch (error: unknown) {
       if (error instanceof Error) {
         setError(error.message);
@@ -142,7 +142,14 @@ export default function SigninClient({
             required
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing In..." : "Sign In"}
+            {isLoading ? (
+              <>
+                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              "Sign In"
+            )}
           </Button>
 
           {error && <p className="text-red-500 text-center">{error}</p>}

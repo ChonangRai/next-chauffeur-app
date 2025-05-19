@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { Booking } from "@/types/admin";
-import { supabase } from "@/lib/supabase";
+import { auth, db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 
 export default function CustomerDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -14,30 +16,49 @@ export default function CustomerDashboard() {
 
   useEffect(() => {
     const fetchUserBookings = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) {
         router.push("/user/signin");
         return;
       }
 
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("date_time", { ascending: false });
-      if (error) {
-        setError(error.message);
-      } else {
-        setBookings(data as Booking[]);
+      try {
+        const bookingsRef = collection(db, "bookings");
+        const q = query(
+          bookingsRef,
+          where("user_id", "==", user.uid),
+          orderBy("date_time", "desc")
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const bookingsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Booking[];
+        
+        setBookings(bookingsData);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        if (err instanceof Error && err.message.includes("index")) {
+          setError("Please wait while we set up the database. This may take a few minutes.");
+        } else {
+          setError("Failed to fetch bookings. Please try again later.");
+        }
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
+
     fetchUserBookings();
   }, [router]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/user/signin");
+    try {
+      await signOut(auth);
+      router.push("/user/signin");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign out");
+    }
   };
 
   if (isLoading) return <p>Loading...</p>;
@@ -57,9 +78,14 @@ export default function CustomerDashboard() {
       <div className="container mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-4xl font-bold">Customer Dashboard</h1>
-          <Button variant="outline" onClick={handleSignOut}>
-            Sign Out
-          </Button>
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={() => router.push("/user/profile")}>
+              Profile
+            </Button>
+            <Button variant="outline" onClick={handleSignOut}>
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         <Card className="mb-6">

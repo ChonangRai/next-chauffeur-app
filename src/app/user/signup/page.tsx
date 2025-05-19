@@ -8,7 +8,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
 import { Icons } from "../../../components/ui/icons";
-import { supabase } from "../../../lib/supabase";
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth, db } from "../../../lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+
+interface UserProfileData {
+  email: string | null;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  displayName: string;
+  photoURL?: string | null;
+}
 
 const logoURL = "/favicon.ico";
 
@@ -27,6 +38,20 @@ export default function SignUp() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  const createUserProfile = async (userId: string, userData: UserProfileData) => {
+    try {
+      await setDoc(doc(db, "profiles", userId), {
+        ...userData,
+        role: "customer",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Error creating user profile:", err);
+      throw new Error("Failed to create user profile");
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -39,53 +64,26 @@ export default function SignUp() {
       return;
     }
 
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // Check if email exists
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select()
-        .eq("email", email)
-        .maybeSingle();
-
-      if (existingUser) {
-        setError("This email is already registered. Please sign in instead.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Sign up through Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            phone_number: phoneNumber,
-            role: 'customer'
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Create user profile in Firestore
+      await createUserProfile(user.uid, {
+        email: user.email,
+        firstName,
+        lastName,
+        phoneNumber,
+        displayName: `${firstName} ${lastName}`.trim(),
       });
 
-      if (authError) throw authError;
-
-      // Insert into users table
-      if (authData.user) {
-        const { error: insertError } = await supabase.from("users").insert({
-          id: authData.user.id,
-          email: authData.user.email,
-          first_name: firstName,
-          last_name: lastName,
-          phone_number: phoneNumber,
-          role: 'customer'
-        });
-
-        if (insertError) throw insertError;
-
-        setSuccess("Registration successful! Please check your email to verify your account.");
-        setTimeout(() => router.push("/user/signin"), 3000);
-      }
+      setSuccess("Registration successful! You can now sign in.");
+      setTimeout(() => router.push("/user/signin"), 3000);
     } catch (error: unknown) {
       if (error instanceof Error) {
         setError(error.message);
@@ -102,22 +100,26 @@ export default function SignUp() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
+      const provider = new GoogleAuthProvider();
+      const { user } = await signInWithPopup(auth, provider);
+      
+      // Create user profile in Firestore
+      await createUserProfile(user.uid, {
+        email: user.email,
+        firstName: user.displayName?.split(" ")[0] || "",
+        lastName: user.displayName?.split(" ").slice(1).join(" ") || "",
+        displayName: user.displayName || "",
+        photoURL: user.photoURL || null,
       });
 
-      if (error) throw error;
+      router.push("/user/dashboard");
     } catch (error: unknown) {
       if (error instanceof Error) {
         setError(error.message);
       } else {
         setError("Google sign-up failed. Please try again.");
       }
-    }
-    finally {
+    } finally {
       setIsGoogleLoading(false);
     }
   };
@@ -140,10 +142,9 @@ export default function SignUp() {
         </Link>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
+      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
         <h2 className="text-2xl font-bold mb-4 text-center">Sign Up</h2>
 
-        {/* Google Sign-Up Button */}
         <div className="mb-6">
           <Button
             variant="outline"
@@ -161,7 +162,6 @@ export default function SignUp() {
           </Button>
         </div>
 
-        {/* Divider */}
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -172,115 +172,94 @@ export default function SignUp() {
             </span>
           </div>
         </div>
+
         <form onSubmit={handleSignUp} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-              First Name
-            </label>
-            <Input
-              id="firstName"
-              type="text"
-              placeholder="First Name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>First Name</Label>
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label>Last Name</Label>
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-              Last Name
-            </label>
+          <div>
+            <Label>Email</Label>
             <Input
-              id="lastName"
-              type="text"
-              placeholder="Last Name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
-              Phone Number
-            </label>
-            <Input
-              id="phoneNumber"
-              type="tel"
-              placeholder="Phone Number"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <Input
-              id="email"
               type="email"
-              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
+          <div>
+            <Label>Phone Number</Label>
+            <Input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <Label>Password</Label>
             <div className="relative">
               <Input
-                id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
               />
               <button
                 type="button"
-                className="absolute right-2 top-2 text-gray-500"
+                className="absolute right-2 top-2"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-              Confirm Password
-            </label>
+          <div>
+            <Label>Confirm Password</Label>
             <div className="relative">
               <Input
-                id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                minLength={6}
               />
               <button
                 type="button"
-                className="absolute right-2 top-2 text-gray-500"
+                className="absolute right-2 top-2"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
               >
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing Up..." : "Sign Up"}
+            {isLoading ? (
+              <>
+                <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                Creating account...
+              </>
+            ) : (
+              "Sign Up"
+            )}
           </Button>
 
           {error && <p className="text-red-500 text-center">{error}</p>}

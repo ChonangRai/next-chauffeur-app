@@ -1,14 +1,13 @@
 "use client";
 import React from "react";
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "YOUR_SUPABASE_URL";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function AdminSignIn() {
   const [email, setEmail] = useState("");
@@ -20,25 +19,21 @@ export default function AdminSignIn() {
     e.preventDefault();
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setError(error.message);
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: admin } = await supabase
-        .from("admins")
-        .select("id")
-        .eq("id", user?.id)
-        .single();
-      if (admin) {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Check if user is an admin
+      const adminDoc = await getDoc(doc(db, "admins", user.uid));
+      
+      if (adminDoc.exists()) {
         router.push("/administrator/dashboard");
       } else {
-        await supabase.auth.signOut();
+        await auth.signOut();
         setError("Access denied. You are not an admin.");
       }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to sign in");
     }
   };
 
@@ -64,7 +59,7 @@ export default function AdminSignIn() {
           <Button type="submit" className="w-full">Sign In</Button>
           {error && <p className="text-red-500 text-center">{error}</p>}
           <p className="text-center">
-            Don’t have an account?{" "}
+            Don&apos;t have an account?{" "}
             <a href="/administrator/add-admin" className="text-blue-500 hover:underline">
               Sign Up
             </a>
