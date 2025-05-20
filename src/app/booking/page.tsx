@@ -16,6 +16,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { Icons } from "@/components/ui/icons";
 
 type BookingDetails = {
   pickupLocationId: string | null;
@@ -55,6 +59,7 @@ function BookingContent() {
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
     pickupLocationId: null,
@@ -79,6 +84,14 @@ function BookingContent() {
     flightNumberArrival: "",
     flightNumberDeparture: "",
   });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchLocations = async () => {
@@ -177,8 +190,8 @@ function BookingContent() {
             type: "error",
             message: "Date is required",
           });
-          return;
-        }
+      return;
+    }
 
         const dateTime = new Date(
           bookingDetails.date.getFullYear(),
@@ -208,8 +221,8 @@ function BookingContent() {
               additionalRequests: bookingDetails.additionalRequests,
               flightNumberArrival: bookingDetails.flightNumberArrival,
               flightNumberDeparture: bookingDetails.flightNumberDeparture,
-              passengers: bookingDetails.passengers,
-              bags: bookingDetails.bags,
+        passengers: bookingDetails.passengers,
+        bags: bookingDetails.bags,
               wantBuggy: bookingDetails.wantBuggy,
               wantPorter: bookingDetails.wantPorter,
               contactConsent: true, // Required for guest checkout
@@ -230,10 +243,10 @@ function BookingContent() {
 
         // Redirect to Stripe Checkout
         window.location.href = url;
-      } catch (err) {
+    } catch (err) {
         console.error("Payment error:", err);
-        setNotification({
-          type: "error",
+      setNotification({
+        type: "error",
           message: "Failed to process payment. Please try again.",
         });
       }
@@ -246,31 +259,31 @@ function BookingContent() {
     setStep("estimate");
     setBookingDetails((prev) => ({
       ...prev,
-      pickupLocationId: locations[0]?.id || null,
-      dropoffLocationId: null,
+        pickupLocationId: locations[0]?.id || null,
+        dropoffLocationId: null,
       date: new Date(new Date().setDate(new Date().getDate() + 1)),
       hour: "14",
       minute: "00",
       period: "pm",
-      fullName: "",
-      email: "",
-      phone: "",
-      additionalRequests: "",
-      passengers: 1,
-      additionalHours: 0,
-      bags: 0,
-      wantBuggy: false,
-      wantPorter: false,
-      contactConsent: false,
+        fullName: "",
+        email: "",
+        phone: "",
+        additionalRequests: "",
+        passengers: 1,
+        additionalHours: 0,
+        bags: 0,
+        wantBuggy: false,
+        wantPorter: false,
+        contactConsent: false,
       serviceType: "meetAndAssist",
-      calculatedAmount: null,
-      meetAndGreetType: "arrival",
-      flightNumberArrival: "",
-      flightNumberDeparture: "",
+        calculatedAmount: null,
+        meetAndGreetType: "arrival",
+        flightNumberArrival: "",
+        flightNumberDeparture: "",
     }));
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     // Validate date and time
     const errors: Record<string, string> = {};
@@ -280,6 +293,24 @@ function BookingContent() {
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
+    }
+
+    // Fetch user data before moving to step 2
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        const profileDoc = await getDoc(doc(db, "profiles", user.uid));
+        if (profileDoc.exists()) {
+          setBookingDetails((prev) => ({
+            ...prev,
+            fullName: `${profileDoc.data().firstName} ${profileDoc.data().lastName}`,
+            email: user.email || "",
+            phone: profileDoc.data().phone || "",
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch user data");
+      }
     }
 
     setStep("details");
@@ -312,7 +343,12 @@ function BookingContent() {
       return;
     }
 
-    setShowAuthModal(true);
+    if (user) {
+      // If user is logged in, proceed directly to checkout
+      handleAuthChoice("guest");
+    } else {
+      setShowAuthModal(true);
+    }
   };
 
   // Calculate estimated cost
@@ -338,6 +374,18 @@ function BookingContent() {
     const vatAmount = basePrice * 0.20;
     return basePrice + vatAmount;
   };
+
+  if (locationsLoading) {
+    return (
+      <div className="min-h-screen bg-muted p-6">
+        <div className="container mx-auto">
+          <div className="flex justify-center items-center h-64">
+            <Icons.spinner className="h-8 w-8 animate-spin" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="flex flex-col min-h-screen">
@@ -389,6 +437,7 @@ function BookingContent() {
                       wantPorter: bookingDetails.wantPorter,
                       bags: bookingDetails.bags,
                       additionalHours: bookingDetails.additionalHours,
+                      pickupLocationId: bookingDetails.pickupLocationId || "",
                     }}
                     setFormData={{
                       setDate: (date: Date | undefined) =>
@@ -409,6 +458,8 @@ function BookingContent() {
                         setBookingDetails((prev) => ({ ...prev, bags })),
                       setAdditionalHours: (hours: number) =>
                         setBookingDetails((prev) => ({ ...prev, additionalHours: hours })),
+                      setPickupLocationId: (id: string) =>
+                        setBookingDetails((prev) => ({ ...prev, pickupLocationId: id })),
                     }}
                   />
 
@@ -477,7 +528,7 @@ function BookingContent() {
                                 loc.id === bookingDetails.dropoffLocationId
                             )?.name || "Not selected"}
                           </p>
-                        )}
+                      )}
                       <p>
                         <strong>Date:</strong>{" "}
                         {bookingDetails.date
@@ -487,7 +538,7 @@ function BookingContent() {
                       <p>
                         <strong>Time:</strong>{" "}
                         {bookingDetails.hour &&
-                        bookingDetails.minute
+                              bookingDetails.minute
                           ? `${bookingDetails.hour}:${bookingDetails.minute}`
                           : "Not selected"}
                       </p>
@@ -549,8 +600,8 @@ function BookingContent() {
                               <Input
                                 value={bookingDetails.flightNumberArrival}
                                 onChange={(e) =>
-                                  setBookingDetails((prev) => ({
-                                    ...prev,
+                        setBookingDetails((prev) => ({
+                          ...prev,
                                     flightNumberArrival: e.target.value,
                                   }))
                                 }
@@ -572,8 +623,8 @@ function BookingContent() {
                               <Input
                                 value={bookingDetails.flightNumberDeparture}
                                 onChange={(e) =>
-                                  setBookingDetails((prev) => ({
-                                    ...prev,
+                        setBookingDetails((prev) => ({
+                          ...prev,
                                     flightNumberDeparture: e.target.value,
                                   }))
                                 }
@@ -595,8 +646,8 @@ function BookingContent() {
                         <Input
                           value={bookingDetails.fullName}
                           onChange={(e) =>
-                            setBookingDetails((prev) => ({
-                              ...prev,
+                        setBookingDetails((prev) => ({
+                          ...prev,
                               fullName: e.target.value,
                             }))
                           }
@@ -616,8 +667,8 @@ function BookingContent() {
                           type="email"
                           value={bookingDetails.email}
                           onChange={(e) =>
-                            setBookingDetails((prev) => ({
-                              ...prev,
+                        setBookingDetails((prev) => ({
+                          ...prev,
                               email: e.target.value,
                             }))
                           }
@@ -637,8 +688,8 @@ function BookingContent() {
                           type="tel"
                           value={bookingDetails.phone}
                           onChange={(e) =>
-                            setBookingDetails((prev) => ({
-                              ...prev,
+                        setBookingDetails((prev) => ({
+                          ...prev,
                               phone: e.target.value,
                             }))
                           }
@@ -654,8 +705,8 @@ function BookingContent() {
                         <Textarea
                           value={bookingDetails.additionalRequests}
                           onChange={(e) =>
-                            setBookingDetails((prev) => ({
-                              ...prev,
+                        setBookingDetails((prev) => ({
+                          ...prev,
                               additionalRequests: e.target.value,
                             }))
                           }
@@ -663,12 +714,12 @@ function BookingContent() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Button
-                          variant="outline"
-                          type="button"
+                      <Button
+                        variant="outline"
+                        type="button"
                           onClick={() => setStep("estimate")}
-                          className="w-full"
-                        >
+                        className="w-full"
+                      >
                           Back
                         </Button>
                         <Button 
@@ -677,8 +728,8 @@ function BookingContent() {
                           onClick={() => setShowAuthModal(true)}
                         >
                           Continue to Booking
-                        </Button>
-                      </div>
+                      </Button>
+                    </div>
                     </form>
                   </div>
                 </div>
@@ -693,15 +744,17 @@ function BookingContent() {
           <DialogHeader>
             <DialogTitle>Continue Your Booking</DialogTitle>
             <DialogDescription>
-              Would you like to sign up or sign in to save your booking history, track your booking status, receive updates, and make changes? Or would you prefer to continue as a guest?
+              Would you like to sign up or sign in to save your booking history, track your booking status, receive updates, and make changes?
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 mt-4">
             <Button onClick={() => handleAuthChoice("signup")}>Sign Up</Button>
             <Button onClick={() => handleAuthChoice("signin")}>Sign In</Button>
-            <Button variant="outline" onClick={() => handleAuthChoice("guest")}>
-              Continue as Guest
-            </Button>
+            {!user && (
+              <Button variant="outline" onClick={() => handleAuthChoice("guest")}>
+                Continue as Guest
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

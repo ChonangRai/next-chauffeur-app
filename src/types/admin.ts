@@ -19,31 +19,31 @@ export type Vehicle = {
   daily_rate: number;
 };
 
-export type Booking = {
+export interface Booking {
   id: string;
-  booking_ref: string;
-  created_at: string;
-  full_name: string;
   email: string;
-  phone: string | null;
+  date_time: string;
+  service_type: string;
   pickup_location: string;
   dropoff_location: string | null;
-  additional_requests: string | null;
-  date_time: string;
-  selected_vehicle: string;
-  amount: number;
-  status: string;
-  is_hire_by_hour: boolean;
-  contact_consent: boolean;
-  duration: number | null;
-  duration_unit: string | null;
-  driver_id: string | null;
-  driver_status: DriverStatus;
-  stripe_session_id?: string;
-  is_daily_hire: string | null;
-  service_type: string;
   passengers: number;
-};
+  luggage: number;
+  flight_number?: string;
+  terminal?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  amount: number;
+  full_name: string;
+  phone?: string;
+  driver_id?: string | null;
+  driver_status?: string;
+  selected_vehicle?: string;
+  is_hire_by_hour?: boolean;
+  duration?: number;
+  duration_unit?: string;
+  booking_ref: string;
+}
 
 export type Driver = {
   id: string;

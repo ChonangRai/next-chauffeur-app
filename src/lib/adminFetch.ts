@@ -1,6 +1,6 @@
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { Vehicle, Booking, Driver, DriverPayment, DriverStatus, Location, ServicePricing, ExtraCharge } from "@/types/admin";
+import { Vehicle, Booking, Driver, DriverPayment, Location, ServicePricing, ExtraCharge } from "@/types/admin";
 
 type FetchResult<T> = {
   data: T[] | null;
@@ -53,36 +53,32 @@ export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
     const q = query(bookingsRef, orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
     
-    const data = snapshot.docs.map(doc => {
-      const booking = doc.data();
-      const validDriverStatus: DriverStatus = ["unassigned", "assigned", "completed"].includes(booking.driverStatus)
-        ? booking.driverStatus as DriverStatus
-        : "unassigned";
-      return {
-        id: doc.id,
-        booking_ref: booking.bookingRef || new Date(booking.createdAt).toISOString().replace(/[-:T.Z]/g, "").slice(0, 14),
-        created_at: booking.createdAt,
-        full_name: booking.fullName || "",
-        email: booking.email || "",
-        phone: booking.phone || null,
-        pickup_location: booking.pickupLocation || "",
-        dropoff_location: booking.dropoffLocation || null,
-        additional_requests: booking.additionalRequests || null,
-        date_time: booking.dateTime || "",
-        selected_vehicle: booking.selectedVehicle || "",
-        amount: booking.amount || 0,
-        status: booking.status || "pending",
-        is_hire_by_hour: booking.isHireByHour ?? false,
-        duration: booking.duration || null,
-        duration_unit: booking.durationUnit || null,
-        driver_id: booking.driverId || null,
-        driver_status: validDriverStatus,
-        contact_consent: booking.contactConsent,
-        is_daily_hire: booking.isDailyHire ?? false,
-        service_type: booking.serviceType,
-        passengers: booking.passengers,
-      };
-    });
+    const data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      booking_ref: doc.data().booking_ref,
+      created_at: doc.data().created_at,
+      full_name: doc.data().full_name,
+      email: doc.data().email,
+      phone: doc.data().phone,
+      pickup_location: doc.data().pickup_location,
+      dropoff_location: doc.data().dropoff_location,
+      additional_requests: doc.data().additional_requests,
+      date_time: doc.data().date_time,
+      selected_vehicle: doc.data().selected_vehicle,
+      is_hire_by_hour: doc.data().is_hire_by_hour,
+      duration: doc.data().duration,
+      duration_unit: doc.data().duration_unit,
+      service_type: doc.data().service_type,
+      passengers: doc.data().passengers,
+      luggage: doc.data().luggage || 0,
+      status: doc.data().status || "pending",
+      updated_at: doc.data().updated_at || doc.data().created_at,
+      amount: doc.data().amount || 0,
+      driver_id: doc.data().driver_id,
+      driver_status: doc.data().driver_status,
+      flight_number: doc.data().flight_number,
+      terminal: doc.data().terminal
+    })) as Booking[];
     
     isLoading = false;
     return { data, error: null, isLoading };

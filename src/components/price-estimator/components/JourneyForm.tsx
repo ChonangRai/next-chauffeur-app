@@ -39,6 +39,7 @@ interface JourneyFormProps {
     flightNumberDeparture?: string;
     additionalHours: number;
     vehicle?: string;
+    pickupLocationId?: string;
   };
   setFormData: {
     setDate: (date: Date | undefined) => void;
@@ -53,6 +54,7 @@ interface JourneyFormProps {
     setFlightNumberDeparture?: (flight: string) => void;
     setAdditionalHours: (hours: number) => void;
     setVehicle?: (vehicle: string) => void;
+    setPickupLocationId?: (id: string) => void;
   };
 }
 
@@ -123,8 +125,10 @@ export default function JourneyForm({
           <div className="w-[240px] space-y-3">
             <Label>Pickup Location</Label>
             <Select
-              value={locations[0]?.id}
-              onValueChange={(value) => console.log(value)}
+              value={formData.pickupLocationId || ""}
+              onValueChange={(value) => {
+                setFormData.setPickupLocationId?.(value);
+              }}
               disabled={isLoading}
             >
               <SelectTrigger>
@@ -173,8 +177,10 @@ export default function JourneyForm({
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   selected={formData.date}
-                  onSelect={(date) => {
-                    setFormData.setDate(date);
+                  onSelect={(date: Date | undefined) => {
+                    if (date) {
+                      setFormData.setDate(date);
+                    }
                   }}
                 />
               </PopoverContent>
@@ -188,8 +194,8 @@ export default function JourneyForm({
               <PopoverTrigger asChild>
                 <TimePickerButton disabled={isLoading} />
               </PopoverTrigger>
-              <PopoverContent className="w-[240px]" align="start">
-                <div className="grid gap-4">
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="grid gap-4 p-4">
                   <div className="grid gap-2">
                     <div className="grid grid-cols-2 gap-2">
                       <Select 
@@ -204,9 +210,9 @@ export default function JourneyForm({
                           <SelectValue placeholder="Hour" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map((hour) => (
-                            <SelectItem key={hour} value={hour.toString()}>
-                              {hour} {hour < 12 ? 'AM' : 'PM'}
+                          {Array.from({ length: 24 }, (_, i) => i).map((hour) => (
+                            <SelectItem key={hour} value={hour.toString().padStart(2, "0")}>
+                              {hour.toString().padStart(2, "0")}
                             </SelectItem>
                           ))}
                         </SelectContent>

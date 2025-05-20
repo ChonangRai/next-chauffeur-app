@@ -47,6 +47,7 @@ export default function BookingDetails({
                   }
                   className="mt-1 bg-gray-50 border-gray-300"
                   aria-label="Full Name"
+                  disabled={!isEditing}
                 />
               </div>
               <div className="mb-4">
@@ -68,7 +69,7 @@ export default function BookingDetails({
                   value={editedBooking?.phone || ""}
                   onChange={(e) =>
                     setEditedBooking(
-                      editedBooking ? { ...editedBooking, phone: e.target.value || null } : null
+                      editedBooking ? { ...editedBooking, phone: e.target.value || undefined } : null
                     )
                   }
                   className="mt-1 bg-gray-50 border-gray-300"

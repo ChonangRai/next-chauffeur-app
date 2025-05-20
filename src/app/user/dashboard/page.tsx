@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { Booking } from "@/types/admin";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { signOut } from "firebase/auth";
+import { collection, query, where, orderBy, getDocs, doc, deleteDoc } from "firebase/firestore";
+import { format, isAfter, subHours } from "date-fns";
 
 export default function CustomerDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -15,22 +15,15 @@ export default function CustomerDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUserBookings = async () => {
+    const fetchUserData = async () => {
       const user = auth.currentUser;
       if (!user) {
         router.push("/user/signin");
         return;
       }
 
-      console.log("Current user:", {
-        uid: user.uid,
-        email: user.email
-      });
-
       try {
         const bookingsRef = collection(db, "bookings");
-        
-        // Query by email only for now
         const q = query(
           bookingsRef,
           where("email", "==", user.email),
@@ -38,12 +31,6 @@ export default function CustomerDashboard() {
         );
         
         const querySnapshot = await getDocs(q);
-        console.log("Bookings found:", querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          email: doc.data().email,
-          user_id: doc.data().user_id
-        })));
-
         const bookingsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -51,27 +38,32 @@ export default function CustomerDashboard() {
         
         setBookings(bookingsData);
       } catch (err) {
-        console.error("Error fetching bookings:", err);
-        if (err instanceof Error && err.message.includes("index")) {
-          setError("Please wait while we set up the database. This may take a few minutes.");
-        } else {
-          setError("Failed to fetch bookings. Please try again later.");
-        }
+        console.error("Error fetching data:", err);
+        setError("Failed to fetch data. Please try again later.");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUserBookings();
+    fetchUserData();
   }, [router]);
 
-  const handleSignOut = async () => {
+  const handleCancelBooking = async (bookingId: string) => {
+    if (!confirm("Are you sure you want to cancel this booking?")) return;
+
     try {
-      await signOut(auth);
-      router.push("/user/signin");
+      await deleteDoc(doc(db, "bookings", bookingId));
+      setBookings(bookings.filter(booking => booking.id !== bookingId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign out");
+      setError("Failed to cancel booking. Please try again.");
     }
+  };
+
+  const canModifyBooking = (bookingDate: string) => {
+    const bookingDateTime = new Date(bookingDate);
+    const now = new Date();
+    const twentyFourHoursBefore = subHours(bookingDateTime, 24);
+    return isAfter(now, twentyFourHoursBefore);
   };
 
   if (isLoading) return <p>Loading...</p>;
@@ -90,14 +82,8 @@ export default function CustomerDashboard() {
     <div className="min-h-screen bg-muted p-6">
       <div className="container mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-4xl font-bold">Customer Dashboard</h1>
-          <div className="flex gap-4">
-            <Button variant="outline" onClick={() => router.push("/user/profile")}>
-              Profile
-            </Button>
-            <Button variant="outline" onClick={handleSignOut}>
-              Sign Out
-            </Button>
+          <div>
+            <h1 className="text-4xl font-bold">Dashboard</h1>
           </div>
         </div>
 
@@ -109,17 +95,53 @@ export default function CustomerDashboard() {
             {currentBookings.length === 0 ? (
               <p>No current bookings.</p>
             ) : (
-              <ul className="space-y-4">
+              <div className="grid gap-4">
                 {currentBookings.map((booking) => (
-                  <li key={booking.id} className="border p-4 rounded">
-                    <p>Date & Time: {new Date(booking.date_time).toLocaleString()}</p>
-                    <p>Service: {booking.service_type}</p>
-                    <p>Pickup: {booking.pickup_location}</p>
-                    <p>Dropoff: {booking.dropoff_location}</p>
-                    <p>Passengers: {booking.passengers}</p>
-                  </li>
+                  <div key={booking.id} className="border rounded-lg p-6 bg-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Booking Details</h3>
+                        <div className="space-y-2">
+                          <p><span className="font-medium">Date & Time:</span> {format(new Date(booking.date_time), 'PPP p')}</p>
+                          <p><span className="font-medium">Service Type:</span> {booking.service_type}</p>
+                          <p><span className="font-medium">Status:</span> <span className="capitalize">{booking.status}</span></p>
+                          <p><span className="font-medium">Passengers:</span> {booking.passengers}</p>
+                          <p><span className="font-medium">Luggage:</span> {booking.luggage}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Location Details</h3>
+                        <div className="space-y-2">
+                          <p><span className="font-medium">Pickup:</span> {booking.pickup_location}</p>
+                          <p><span className="font-medium">Dropoff:</span> {booking.dropoff_location}</p>
+                          {booking.flight_number && (
+                            <p><span className="font-medium">Flight Number:</span> {booking.flight_number}</p>
+                          )}
+                          {booking.terminal && (
+                            <p><span className="font-medium">Terminal:</span> {booking.terminal}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {canModifyBooking(booking.date_time) && (
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => router.push(`/user/bookings/${booking.id}/edit`)}
+                        >
+                          Edit Booking
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleCancelBooking(booking.id)}
+                        >
+                          Cancel Booking
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -132,17 +154,37 @@ export default function CustomerDashboard() {
             {pastBookings.length === 0 ? (
               <p>No past bookings.</p>
             ) : (
-              <ul className="space-y-4">
+              <div className="grid gap-4">
                 {pastBookings.map((booking) => (
-                  <li key={booking.id} className="border p-4 rounded">
-                    <p>Date & Time: {new Date(booking.date_time).toLocaleString()}</p>
-                    <p>Service: {booking.service_type}</p>
-                    <p>Pickup: {booking.pickup_location}</p>
-                    <p>Dropoff: {booking.dropoff_location}</p>
-                    <p>Passengers: {booking.passengers}</p>
-                  </li>
+                  <div key={booking.id} className="border rounded-lg p-6 bg-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Booking Details</h3>
+                        <div className="space-y-2">
+                          <p><span className="font-medium">Date & Time:</span> {format(new Date(booking.date_time), 'PPP p')}</p>
+                          <p><span className="font-medium">Service Type:</span> {booking.service_type}</p>
+                          <p><span className="font-medium">Status:</span> <span className="capitalize">{booking.status}</span></p>
+                          <p><span className="font-medium">Passengers:</span> {booking.passengers}</p>
+                          <p><span className="font-medium">Luggage:</span> {booking.luggage}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Location Details</h3>
+                        <div className="space-y-2">
+                          <p><span className="font-medium">Pickup:</span> {booking.pickup_location}</p>
+                          <p><span className="font-medium">Dropoff:</span> {booking.dropoff_location}</p>
+                          {booking.flight_number && (
+                            <p><span className="font-medium">Flight Number:</span> {booking.flight_number}</p>
+                          )}
+                          {booking.terminal && (
+                            <p><span className="font-medium">Terminal:</span> {booking.terminal}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>

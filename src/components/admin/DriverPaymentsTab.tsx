@@ -43,9 +43,9 @@ export default function DriverPaymentsTab({
     payment_date: null,
     payment_method: "bank_transfer",
   });
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    message: string
+  const [notification, setNotification] = useState<{ 
+    type: "success" | "error"; 
+    message: string 
   } | null>(null);
   const [editPaymentForm, setEditPaymentForm] = useState<PaymentFormState | null>(null);
 
@@ -269,18 +269,18 @@ export default function DriverPaymentsTab({
             </thead>
             <tbody>
               {driverPayments.map((payment) => (
-                <tr key={payment.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4">
+                  <tr key={payment.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
                     {drivers.find((d) => d.id === payment.driver_id)?.full_name || "Unknown Driver"}
-                  </td>
+                    </td>
                   <td className="p-4">{payment.booking_id}</td>
-                  <td className="p-4">£{payment.amount.toFixed(2)}</td>
+                    <td className="p-4">£{payment.amount.toFixed(2)}</td>
                   <td className="p-4">{payment.status}</td>
-                  <td className="p-4">{payment.payment_method}</td>
+                    <td className="p-4">{payment.payment_method}</td>
                   <td className="p-4 flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
+                        <Button
+                          variant="outline"
+                          size="sm"
                       onClick={() => handleEditClick(payment)}
                     >
                       Edit
@@ -291,9 +291,9 @@ export default function DriverPaymentsTab({
                       onClick={() => handleDeletePayment(payment.id)}
                     >
                       Delete
-                    </Button>
-                  </td>
-                </tr>
+                        </Button>
+                    </td>
+                  </tr>
               ))}
             </tbody>
           </table>
