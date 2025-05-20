@@ -22,15 +22,28 @@ export default function CustomerDashboard() {
         return;
       }
 
+      console.log("Current user:", {
+        uid: user.uid,
+        email: user.email
+      });
+
       try {
         const bookingsRef = collection(db, "bookings");
+        
+        // Query by email only for now
         const q = query(
           bookingsRef,
-          where("user_id", "==", user.uid),
+          where("email", "==", user.email),
           orderBy("date_time", "desc")
         );
         
         const querySnapshot = await getDocs(q);
+        console.log("Bookings found:", querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          email: doc.data().email,
+          user_id: doc.data().user_id
+        })));
+
         const bookingsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()

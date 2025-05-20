@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -82,6 +83,9 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
       // Generate booking_ref
       const booking_ref = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
 
+      // Get current user if logged in
+      const user = auth.currentUser;
+
       // Save booking to Firebase
       const bookingData = {
         full_name: bookingDetails.fullName,
@@ -109,6 +113,7 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         want_porter: bookingDetails.wantPorter || false,
         created_at: serverTimestamp(),
         stripe_session_id: session.id,
+        user_id: user?.uid || null,
       };
 
       const bookingsRef = collection(db, "bookings");
