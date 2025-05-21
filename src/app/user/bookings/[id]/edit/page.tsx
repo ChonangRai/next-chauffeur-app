@@ -10,18 +10,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { format } from "date-fns";
 
-export default function EditBookingPage({ params }: { params: { id: string } }) {
+export default function EditBookingPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
 
   useEffect(() => {
     const fetchBooking = async () => {
       try {
         const bookingDoc = await getDoc(doc(db, "bookings", params.id));
         if (bookingDoc.exists()) {
-          setBooking(bookingDoc.data() as Booking);
+          const bookingData = bookingDoc.data() as Booking;
+          setBooking(bookingData);
+          const bookingDate = new Date(bookingData.date_time);
+          setDate(format(bookingDate, "yyyy-MM-dd"));
+          setTime(format(bookingDate, "HH:mm"));
         } else {
           toast.error("Booking not found");
           router.push("/user/dashboard");
@@ -42,8 +61,10 @@ export default function EditBookingPage({ params }: { params: { id: string } }) 
     if (!booking) return;
 
     try {
+      const dateTime = new Date(`${date}T${time}`);
       await updateDoc(doc(db, "bookings", params.id), {
         ...booking,
+        date_time: dateTime.toISOString(),
         updated_at: new Date().toISOString(),
       });
       toast.success("Booking updated successfully");
@@ -67,56 +88,154 @@ export default function EditBookingPage({ params }: { params: { id: string } }) 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name</Label>
+                <div className="mb-4">
+                  <p className="text-sm font-semibold text-gray-600">
+                    Service Type:
+                  </p>
+                  <Select
+                    value={booking.service_type}
+                    onValueChange={(value) =>
+                      setBooking({
+                        ...booking,
+                        service_type: value as
+                          | "hourlyHire"
+                          | "meetAndGreet"
+                          | "airportTransfer",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-full bg-gray-50 border-gray-300">
+                      <SelectValue placeholder="Meet and Assist Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="arrival">Arrival</SelectItem>
+                      <SelectItem value="departure">Departure</SelectItem>
+                      <SelectItem value="connection">Connection</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {booking.service_subtype === "connection" ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Departure Flight</Label>
+                    <Input
+                      value={booking.departure_flight || ""}
+                      onChange={(e) =>
+                        setBooking({
+                          ...booking,
+                          departure_flight: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Arrival Flight</Label>
+                    <Input
+                      value={booking.arrival_flight || ""}
+                      onChange={(e) =>
+                        setBooking({
+                          ...booking,
+                          arrival_flight: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Flight Number</Label>
+                  <Input
+                    value={booking.service_subtype === "arrival" ? booking.arrival_flight : booking.departure_flight || ""}
+                    onChange={(e) =>
+                      setBooking({
+                        ...booking,
+                        ...(booking.service_subtype === "arrival"
+                          ? { arrival_flight: e.target.value }
+                          : { departure_flight: e.target.value }),
+                      })
+                    }
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Date</Label>
                 <Input
-                  id="full_name"
-                  value={booking.full_name}
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Time</Label>
+                <Input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Passengers</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={booking.passengers}
                   onChange={(e) =>
-                    setBooking({ ...booking, full_name: e.target.value })
+                    setBooking({
+                      ...booking,
+                      passengers: parseInt(e.target.value),
+                    })
                   }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label>Additional Hours</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={booking.email}
+                  type="number"
+                  min="0"
+                  value={booking.additional_hours || 0}
                   onChange={(e) =>
-                    setBooking({ ...booking, email: e.target.value })
+                    setBooking({
+                      ...booking,
+                      additional_hours: parseInt(e.target.value),
+                    })
                   }
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={booking.phone || ""}
-                  onChange={(e) =>
-                    setBooking({ ...booking, phone: e.target.value })
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={booking.want_buggy || false}
+                  onCheckedChange={(checked: boolean) =>
+                    setBooking({ ...booking, want_buggy: checked })
                   }
                 />
+                <Label>Buggy Service</Label>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="pickup_location">Pickup Location</Label>
-                <Input
-                  id="pickup_location"
-                  value={booking.pickup_location}
-                  onChange={(e) =>
-                    setBooking({ ...booking, pickup_location: e.target.value })
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={booking.want_porter || false}
+                  onCheckedChange={(checked: boolean) =>
+                    setBooking({ ...booking, want_porter: checked })
                   }
                 />
+                <Label>Porter Service</Label>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="dropoff_location">Dropoff Location</Label>
-                <Input
-                  id="dropoff_location"
-                  value={booking.dropoff_location || ""}
-                  onChange={(e) =>
-                    setBooking({ ...booking, dropoff_location: e.target.value })
-                  }
-                />
-              </div>
+              {booking.want_porter && (
+                <div className="space-y-2">
+                  <Label>Number of Bags/Luggage</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={booking.luggage || 1}
+                    onChange={(e) =>
+                      setBooking({
+                        ...booking,
+                        luggage: parseInt(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              )}
             </div>
             <div className="flex justify-end space-x-4">
               <Button
@@ -133,4 +252,4 @@ export default function EditBookingPage({ params }: { params: { id: string } }) 
       </Card>
     </div>
   );
-} 
+}

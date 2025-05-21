@@ -7,20 +7,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { format } from "date-fns";
-import { CalendarIcon, Clock, Minus, Plus } from "lucide-react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { CalendarIcon, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Location, Vehicle } from "@/lib/types";
-import { forwardRef } from "react";
+import { getFestivePeriods } from "../festive-periods";
+import { isWithinInterval, startOfDay } from "date-fns";
+import { useState } from "react";
 
 interface JourneyFormProps {
-  type: "meetAndAssist" | "airportTransfer" | "hireByHour";
+  type: "meetAndGreet" | "airportTransfer" | "hourlyHire";
   locations: Location[];
   vehicles?: Vehicle[];
   onCalculate: (e?: React.FormEvent) => void;
@@ -30,7 +27,7 @@ interface JourneyFormProps {
     date: Date | undefined;
     hour: string;
     minute: string;
-    meetAndAssistType?: "arrival" | "departure" | "connection";
+    service_subtype?: "arrival" | "departure" | "connection" | null;
     passengers: number;
     wantBuggy?: boolean;
     wantPorter?: boolean;
@@ -45,7 +42,9 @@ interface JourneyFormProps {
     setDate: (date: Date | undefined) => void;
     setHour: (hour: string) => void;
     setMinute: (minute: string) => void;
-    setMeetAndAssistType?: (type: "arrival" | "departure" | "connection") => void;
+    setServiceSubType?: (
+      type: "arrival" | "departure" | "connection" 
+    ) => void;
     setPassengers: (passengers: number) => void;
     setWantBuggy?: (want: boolean) => void;
     setWantPorter?: (want: boolean) => void;
@@ -68,71 +67,57 @@ export default function JourneyForm({
   submitButtonText = "Calculate Estimate",
   isLoading = false,
 }: JourneyFormProps) {
-  const formatTime = (hour: string, minute: string) => {
-    const hourNum = parseInt(hour);
-    const ampm = hourNum >= 12 ? 'PM' : 'AM';
-    const hour12 = hourNum % 12 || 12;
-    return `${hour12}:${minute} ${ampm}`;
-  };
-
   const MAX_PASSENGERS = 8;
-  const MAX_BAGS = 16;
   const MAX_ADDITIONAL_HOURS = 12;
 
-  const DatePickerButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
-    ({ className, ...props }, ref) => (
-      <Button
-        ref={ref}
-        variant="outline"
-        className={cn(
-          "w-full justify-start text-left font-normal",
-          !formData.date && "text-muted-foreground",
-          className
-        )}
-        {...props}
-      >
-        <CalendarIcon className="mr-2 h-4 w-4" />
-        {formData.date ? format(formData.date, "MMM do, yyyy") : "Select date"}
-      </Button>
-    )
-  );
-  DatePickerButton.displayName = "DatePickerButton";
+  const currentYear = new Date().getFullYear();
+  const FESTIVE_PERIODS = getFestivePeriods(currentYear);
 
-  const TimePickerButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
-    ({ className, ...props }, ref) => (
-      <Button
-        ref={ref}
-        variant="outline"
-        className={cn(
-          "w-full justify-start text-left font-normal",
-          !formData.hour && "text-muted-foreground",
-          className
-        )}
-        {...props}
-      >
-        <Clock className="mr-2 h-4 w-4" />
-        {formData.hour ? formatTime(formData.hour, formData.minute) : "Select time"}
-      </Button>
-    )
-  );
-  TimePickerButton.displayName = "TimePickerButton";
+  const isFestivePeriod = (() => {
+    if (!formData.date) return false;
+    const selectedDate = new Date(formData.date);
+    return FESTIVE_PERIODS.some((period) =>
+      isWithinInterval(startOfDay(selectedDate), {
+        start: startOfDay(new Date(period.start)),
+        end: startOfDay(new Date(period.end)),
+      })
+    );
+  })();
+
+  const [locationError, setLocationError] = useState("");
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onCalculate(); }} className="space-y-8">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        setLocationError("");
+        if (!formData.pickupLocationId || formData.pickupLocationId === "") {
+          setLocationError("Please select a Meet up Location.");
+          return;
+        }
+        onCalculate();
+      }}
+      className="space-y-8"
+    >
       <div className="grid gap-8">
         <div className="grid grid-cols-2 gap-6">
           {/* Pickup Location */}
           <div className="w-[240px] space-y-3">
-            <Label>Pickup Location</Label>
+            <Label>Meet up Location</Label>
             <Select
               value={formData.pickupLocationId || ""}
               onValueChange={(value) => {
-                setFormData.setPickupLocationId?.(value);
+                if (setFormData.setPickupLocationId) {
+                  setFormData.setPickupLocationId(value);
+                }
+                if (value) {
+                  setLocationError("");
+                }
               }}
               disabled={isLoading}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select terminal" />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Location" />
               </SelectTrigger>
               <SelectContent>
                 {locations.map((location) => (
@@ -142,18 +127,21 @@ export default function JourneyForm({
                 ))}
               </SelectContent>
             </Select>
+            {locationError && (
+              <p className="text-xs text-red-500 mt-1">{locationError}</p>
+            )}
           </div>
 
           {/* Meet & Greet Type */}
-          {formData.meetAndAssistType && setFormData.setMeetAndAssistType && (
+          {formData.service_subtype && setFormData.setServiceSubType && (
             <div className="w-[240px] space-y-3">
               <Label>Meet & Greet Type</Label>
               <Select
-                value={formData.meetAndAssistType}
-                onValueChange={setFormData.setMeetAndAssistType}
+                value={formData.service_subtype}
+                onValueChange={value => setFormData.setServiceSubType?.(value as "arrival" | "departure" | "connection")}
                 disabled={isLoading}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -170,74 +158,70 @@ export default function JourneyForm({
           {/* Date */}
           <div className="w-[240px] space-y-3">
             <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <DatePickerButton disabled={isLoading} />
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  selected={formData.date}
-                  onSelect={(date: Date | undefined) => {
-                    if (date) {
-                      setFormData.setDate(date);
-                    }
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="relative">
+              <DatePicker
+                selected={formData.date}
+                onChange={(date: Date | null) =>
+                  setFormData.setDate(date || undefined)
+                }
+                dateFormat="PPP"
+                className="w-full pr-8 pl-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                minDate={new Date()}
+                disabled={isLoading}
+                placeholderText="Pick a date"
+                customInput={
+                  <input
+                    onClick={(e) => e.preventDefault()}
+                    className="w-full pr-8 pl-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                }
+              />
+              <CalendarIcon
+                className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const dateInput = e.currentTarget
+                    .previousElementSibling as HTMLInputElement;
+                  if (dateInput && !dateInput.disabled) {
+                    dateInput.focus();
+                  }
+                }}
+              />
+            </div>
+            {isFestivePeriod && (
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
+                <p className="text-xs">
+                  Price will be double during festive periods.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Time */}
           <div className="w-[240px] space-y-3">
             <Label>Time</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <TimePickerButton disabled={isLoading} />
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="grid gap-4 p-4">
-                  <div className="grid gap-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <Select 
-                        value={formData.hour} 
-                        onValueChange={(val) => {
-                          const hour24 = parseInt(val);
-                          setFormData.setHour(hour24.toString().padStart(2, "0"));
-                        }}
-                        disabled={isLoading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Hour" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 24 }, (_, i) => i).map((hour) => (
-                            <SelectItem key={hour} value={hour.toString().padStart(2, "0")}>
-                              {hour.toString().padStart(2, "0")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select 
-                        value={formData.minute} 
-                        onValueChange={setFormData.setMinute}
-                        disabled={isLoading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Minute" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["00", "15", "30", "45"].map((minute) => (
-                            <SelectItem key={minute} value={minute}>
-                              {minute}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+            <div className="relative">
+              <input
+                type="time"
+                value={`${formData.hour}:${formData.minute}`}
+                onChange={(e) => {
+                  const [hours, minutes] = e.target.value.split(":");
+                  setFormData.setHour(hours);
+                  setFormData.setMinute(minutes);
+                }}
+                disabled={isLoading}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            {formData.hour &&
+              (parseInt(formData.hour) >= 22 ||
+                parseInt(formData.hour) < 6) && (
+                <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
+                  <p className="text-xs">
+                    Extra charge of GBP 60 will be applied during 10 PM - 6 AM.
+                  </p>
                 </div>
-              </PopoverContent>
-            </Popover>
+              )}
           </div>
         </div>
 
@@ -250,9 +234,13 @@ export default function JourneyForm({
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => setFormData.setPassengers(Math.max(1, formData.passengers - 1))}
+                onClick={() =>
+                  setFormData.setPassengers(
+                    Math.max(1, formData.passengers - 1)
+                  )
+                }
                 disabled={isLoading || formData.passengers <= 1}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               >
                 <Minus className="h-4 w-4" />
               </Button>
@@ -261,9 +249,13 @@ export default function JourneyForm({
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => setFormData.setPassengers(Math.min(MAX_PASSENGERS, formData.passengers + 1))}
+                onClick={() =>
+                  setFormData.setPassengers(
+                    Math.min(MAX_PASSENGERS, formData.passengers + 1)
+                  )
+                }
                 disabled={isLoading || formData.passengers >= MAX_PASSENGERS}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -278,20 +270,32 @@ export default function JourneyForm({
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => setFormData.setAdditionalHours(Math.max(0, formData.additionalHours - 1))}
+                onClick={() =>
+                  setFormData.setAdditionalHours(
+                    Math.max(0, formData.additionalHours - 1)
+                  )
+                }
                 disabled={isLoading || formData.additionalHours <= 0}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <span className="w-8 text-center">{formData.additionalHours}</span>
+              <span className="w-8 text-center">
+                {formData.additionalHours}
+              </span>
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => setFormData.setAdditionalHours(Math.min(MAX_ADDITIONAL_HOURS, formData.additionalHours + 1))}
-                disabled={isLoading || formData.additionalHours >= MAX_ADDITIONAL_HOURS}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() =>
+                  setFormData.setAdditionalHours(
+                    Math.min(MAX_ADDITIONAL_HOURS, formData.additionalHours + 1)
+                  )
+                }
+                disabled={
+                  isLoading || formData.additionalHours >= MAX_ADDITIONAL_HOURS
+                }
+                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -299,8 +303,28 @@ export default function JourneyForm({
           </div>
         </div>
 
+        {/* Combined Warnings Row */}
+        {(formData.additionalHours > 0 || formData.passengers > 2) && (
+          <div className="flex gap-4 mt-2">
+            {formData.additionalHours > 0 && (
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-md flex-1">
+                <p className="text-xs">
+                  Additional hours will be charged at the hourly rate
+                </p>
+              </div>
+            )}
+            {formData.passengers > 2 && (
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-md flex-1">
+                <p className="text-xs">
+                  Additional charge per passenger will be applied for more than 2 passengers
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Vehicle Selection for Hire by Hour */}
-        {type === "hireByHour" && vehicles && setFormData.setVehicle && (
+        {type === "hourlyHire" && vehicles && setFormData.setVehicle && (
           <div className="space-y-3">
             <Label>Select Vehicle</Label>
             <Select
@@ -323,7 +347,7 @@ export default function JourneyForm({
         )}
 
         {/* Additional Services */}
-        {type === "meetAndAssist" && (
+        {type === "meetAndGreet" && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-6">
               {/* Buggy Service */}
@@ -337,7 +361,7 @@ export default function JourneyForm({
                     onClick={() => setFormData.setWantBuggy?.(true)}
                     disabled={isLoading}
                     className={cn(
-                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
                       !formData.wantBuggy && "bg-transparent text-foreground"
                     )}
                   >
@@ -350,13 +374,21 @@ export default function JourneyForm({
                     onClick={() => setFormData.setWantBuggy?.(false)}
                     disabled={isLoading}
                     className={cn(
-                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
                       formData.wantBuggy && "bg-transparent text-foreground"
                     )}
                   >
                     No
                   </Button>
                 </div>
+                {formData.wantBuggy && (
+                  <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
+                    <p className="text-xs">
+                      Buggy service is subject to availability and will be
+                      confirmed upon booking
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Porter Service */}
@@ -370,7 +402,7 @@ export default function JourneyForm({
                     onClick={() => setFormData.setWantPorter?.(true)}
                     disabled={isLoading}
                     className={cn(
-                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
                       !formData.wantPorter && "bg-transparent text-foreground"
                     )}
                   >
@@ -383,13 +415,21 @@ export default function JourneyForm({
                     onClick={() => setFormData.setWantPorter?.(false)}
                     disabled={isLoading}
                     className={cn(
-                      "bg-primary text-primary-foreground hover:bg-primary/90",
+                      "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
                       formData.wantPorter && "bg-transparent text-foreground"
                     )}
                   >
                     No
                   </Button>
                 </div>
+                {formData.wantPorter && (
+                  <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
+                    <p className="text-xs">
+                      Porter service is subject to availability and will be
+                      confirmed upon booking
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -403,30 +443,44 @@ export default function JourneyForm({
                     size="icon"
                     onClick={() => {
                       if (setFormData.setBags) {
-                        setFormData.setBags(Math.max(0, (formData.bags || 0) - 1));
+                        setFormData.setBags(
+                          Math.max(0, (formData.bags || 0) - 1)
+                        );
                       }
                     }}
                     disabled={isLoading || (formData.bags || 0) <= 0}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <span className="w-8 text-center">{formData.bags || 0}</span>
+                  <span className="w-8 text-center">
+                    {formData.bags !== undefined ? formData.bags : ""}
+                  </span>
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     onClick={() => {
                       if (setFormData.setBags) {
-                        setFormData.setBags(Math.min(MAX_BAGS, (formData.bags || 0) + 1));
+                        setFormData.setBags((formData.bags || 0) + 1);
                       }
                     }}
-                    disabled={isLoading || (formData.bags || 0) >= MAX_BAGS}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    disabled={isLoading}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                {formData.bags !== undefined && formData.bags > 8 && (
+                  <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
+                    <p className="text-xs">
+                      {Math.ceil(formData.bags / 8)} porter
+                      {Math.ceil(formData.bags / 8) > 1 ? "s" : ""} will be
+                      required. Additional charge of £65 per porter will be
+                      added.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

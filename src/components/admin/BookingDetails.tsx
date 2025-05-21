@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Booking, Driver } from "@/types/admin";
 
@@ -37,12 +43,16 @@ export default function BookingDetails({
           {isEditing ? (
             <>
               <div className="mb-4">
-                <p className="text-sm font-semibold text-gray-600">Full Name:</p>
+                <p className="text-sm font-semibold text-gray-600">
+                  Full Name:
+                </p>
                 <Input
                   value={editedBooking?.full_name}
                   onChange={(e) =>
                     setEditedBooking(
-                      editedBooking ? { ...editedBooking, full_name: e.target.value } : null
+                      editedBooking
+                        ? { ...editedBooking, full_name: e.target.value }
+                        : null
                     )
                   }
                   className="mt-1 bg-gray-50 border-gray-300"
@@ -56,7 +66,9 @@ export default function BookingDetails({
                   value={editedBooking?.email}
                   onChange={(e) =>
                     setEditedBooking(
-                      editedBooking ? { ...editedBooking, email: e.target.value } : null
+                      editedBooking
+                        ? { ...editedBooking, email: e.target.value }
+                        : null
                     )
                   }
                   className="mt-1 bg-gray-50 border-gray-300"
@@ -69,7 +81,12 @@ export default function BookingDetails({
                   value={editedBooking?.phone || ""}
                   onChange={(e) =>
                     setEditedBooking(
-                      editedBooking ? { ...editedBooking, phone: e.target.value || undefined } : null
+                      editedBooking
+                        ? {
+                            ...editedBooking,
+                            phone: e.target.value || undefined,
+                          }
+                        : null
                     )
                   }
                   className="mt-1 bg-gray-50 border-gray-300"
@@ -77,12 +94,16 @@ export default function BookingDetails({
                 />
               </div>
               <div className="mb-4">
-                <p className="text-sm font-semibold text-gray-600">Pickup Location:</p>
+                <p className="text-sm font-semibold text-gray-600">
+                  Pickup Location:
+                </p>
                 <Input
                   value={editedBooking?.pickup_location}
                   onChange={(e) =>
                     setEditedBooking(
-                      editedBooking ? { ...editedBooking, pickup_location: e.target.value } : null
+                      editedBooking
+                        ? { ...editedBooking, pickup_location: e.target.value }
+                        : null
                     )
                   }
                   className="mt-1 bg-gray-50 border-gray-300"
@@ -91,13 +112,18 @@ export default function BookingDetails({
               </div>
               {editedBooking?.dropoff_location && (
                 <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-600">Dropoff Location:</p>
+                  <p className="text-sm font-semibold text-gray-600">
+                    Dropoff Location:
+                  </p>
                   <Input
                     value={editedBooking?.dropoff_location || ""}
                     onChange={(e) =>
                       setEditedBooking(
                         editedBooking
-                          ? { ...editedBooking, dropoff_location: e.target.value || null }
+                          ? {
+                              ...editedBooking,
+                              dropoff_location: e.target.value || null,
+                            }
                           : null
                       )
                     }
@@ -113,11 +139,35 @@ export default function BookingDetails({
                 <span className="font-semibold">Email:</span> {booking.email}
               </p>
               <p className="text-sm text-gray-600 mb-4">
-                <span className="font-semibold">Phone:</span> {booking.phone || "N/A"}
+                <span className="font-semibold">Phone:</span>{" "}
+                {booking.phone || "N/A"}
               </p>
+              <p className="text-sm text-gray-600 mb-4">
+                <span className="font-semibold">Service Type:</span>{" "}
+                {booking.service_type.charAt(0).toUpperCase() +
+                  booking.service_type.slice(1)}
+              </p>
+              {booking.service_subtype === "connection" ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    <span className="font-semibold">Departure Flight:</span>{" "}
+                    {booking.departure_flight || "N/A"}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    <span className="font-semibold">Arrival Flight:</span>{" "}
+                    {booking.arrival_flight || "N/A"}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600 mb-4">
+                  <span className="font-semibold">Flight Number:</span>{" "}
+                  {booking.arrival_flight || "N/A"}
+                </p>
+              )}
               {booking.dropoff_location && (
                 <p className="text-sm text-gray-600 mb-4">
-                  <span className="font-semibold">Dropoff:</span> {booking.dropoff_location}
+                  <span className="font-semibold">Dropoff:</span>{" "}
+                  {booking.dropoff_location}
                 </p>
               )}
               <p className="text-sm text-gray-600 mb-4">
@@ -125,33 +175,48 @@ export default function BookingDetails({
                 {new Date(booking.date_time).toLocaleString()}
               </p>
               <p className="text-sm text-gray-600 mb-4">
-                <span className="font-semibold">Vehicle Selected:</span> {booking.selected_vehicle}
+                <span className="font-semibold">Passengers:</span>{" "}
+                {booking.passengers}
+              </p>
+              {booking.additional_hours && booking.additional_hours > 0 && (
+                <p className="text-sm text-gray-600 mb-4">
+                  <span className="font-semibold">Additional Hours:</span>{" "}
+                  {booking.additional_hours}
+                </p>
+              )}
+              {booking.want_porter && (
+                <p className="text-sm text-gray-600 mb-4">
+                  <span className="font-semibold">Porter Service:</span> Yes
+                  {booking.luggage && ` (${booking.luggage} bags)`}
+                </p>
+              )}
+              {booking.want_buggy && (
+                <p className="text-sm text-gray-600 mb-4">
+                  <span className="font-semibold">Buggy Service:</span> Yes
+                </p>
+              )}
+              <p className="text-sm text-gray-600 mb-4">
+                <span className="font-semibold">Vehicle Selected:</span>{" "}
+                {booking.selected_vehicle}
               </p>
             </>
           )}
         </div>
         <div>
-          {booking.is_hire_by_hour && (
-            <>
-              <p className="text-sm text-gray-600 mb-4">
-                <span className="font-semibold">Hire By Hour:</span>{" "}
-                {booking.is_hire_by_hour ? "Yes" : "No"}
-              </p>
-              <p className="text-sm text-gray-600 mb-4">
-                <span className="font-semibold">Travel Duration:</span>{" "}
-                {booking.is_hire_by_hour ? `${booking.duration} ${booking.duration_unit}` : "N/A"}
-              </p>
-            </>
-          )}
           <div className="flex items-center space-x-2 mb-4">
-            <span className="text-sm font-semibold text-gray-600">Assigned Driver:</span>
+            <span className="text-sm font-semibold text-gray-600">
+              Assigned Driver:
+            </span>
             {isEditing ? (
               <Select
                 value={editedBooking?.driver_id || "unassign"}
                 onValueChange={(value) =>
                   setEditedBooking(
                     editedBooking
-                      ? { ...editedBooking, driver_id: value === "unassign" ? null : value }
+                      ? {
+                          ...editedBooking,
+                          driver_id: value === "unassign" ? null : value,
+                        }
                       : null
                   )
                 }
@@ -188,7 +253,8 @@ export default function BookingDetails({
             )}
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            <span className="font-semibold">Driver Status:</span> {booking.driver_status || "N/A"}
+            <span className="font-semibold">Driver Status:</span>{" "}
+            {booking.driver_status || "N/A"}
           </p>
           {!isEditing && booking.driver_status === "assigned" && (
             <Button

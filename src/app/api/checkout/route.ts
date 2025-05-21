@@ -36,7 +36,7 @@ export async function POST(req: Request) {
             price_data: {
               currency: "gbp",
               product_data: {
-                name: `${bookingDetails.selectedVehicle} - ${
+                name: `${bookingDetails.serviceType} - ${
                   bookingDetails.isHireByHour ? "By the Hour" : "One Way"
                 }`,
                 description: `Booking for ${bookingDetails.fullName}`,
@@ -54,10 +54,13 @@ export async function POST(req: Request) {
           dropoff: String(bookingDetails.dropoffLocation || "N/A"),
           additionalRequests: String(bookingDetails.additionalRequests || "None"),
           dateTime: String(bookingDetails.dateTime),
-          selectedVehicle: String(bookingDetails.selectedVehicle),
-          isHireByHour: String(bookingDetails.isHireByHour || false),
-          duration: bookingDetails.isHireByHour ? String(bookingDetails.duration) : null,
-          durationUnit: bookingDetails.isHireByHour ? String(bookingDetails.durationUnit) : null,
+          serviceType: String(bookingDetails.serviceType),
+          meetAndGreetType: String(bookingDetails.meetAndGreetType || "N/A"),
+          isHourlyHire: String(bookingDetails.serviceType === "hourlyHire"),
+          duration: bookingDetails.serviceType === "hourlyHire" ? String(bookingDetails.duration) : null,
+          durationUnit: bookingDetails.serviceType === "hourlyHire" ? String(bookingDetails.durationUnit) : null,
+          flightNumberArrival: String(bookingDetails.flightNumberArrival || "N/A"),
+          flightNumberDeparture: String(bookingDetails.flightNumberDeparture || "N/A"),
         },
         customer_email: bookingDetails.email,
         success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -65,7 +68,7 @@ export async function POST(req: Request) {
         custom_text: {
           submit: {
             message: `Booking Summary:
-Service: ${bookingDetails.selectedVehicle}
+Service: ${bookingDetails.serviceType}
 Date: ${new Date(bookingDetails.dateTime).toLocaleDateString()}
 Time: ${new Date(bookingDetails.dateTime).toLocaleTimeString()}
 Pickup: ${bookingDetails.pickupLocation}
@@ -95,14 +98,14 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         dropoff_location: bookingDetails.dropoffLocation || null,
         additional_requests: bookingDetails.additionalRequests || null,
         date_time: bookingDetails.dateTime,
-        selected_vehicle: bookingDetails.selectedVehicle,
+        service_type: bookingDetails.serviceType,
+        service_subtype: bookingDetails.serviceSubtype || null,
         amount: amount,
         status: "pending",
         payment_status: "pending",
-        is_hire_by_hour: bookingDetails.isHireByHour || false,
         contact_consent: bookingDetails.contactConsent || false,
-        duration: bookingDetails.isHireByHour ? bookingDetails.duration : null,
-        duration_unit: bookingDetails.isHireByHour ? bookingDetails.durationUnit : null,
+        duration: bookingDetails.serviceType === "hourlyHire" ? bookingDetails.duration : null,
+        duration_unit: bookingDetails.serviceType === "hourlyHire" ? bookingDetails.durationUnit : null,
         driver_status: "unassigned",
         booking_ref,
         flight_number_arrival: bookingDetails.flightNumberArrival || null,

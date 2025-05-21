@@ -15,11 +15,14 @@ import PriceModal from "./components/PriceModal";
 import { AlertCircle } from "lucide-react";
 import type { Location, Vehicle } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export interface BookingData {
   serviceType: string;
   dateTime: string;
   passengers: number;
+  locationId: string;
   additionalServices: {
     buggy?: boolean;
     porter?: boolean;
@@ -38,8 +41,8 @@ export function PriceEstimator() {
   const [isLocationsLoading, setIsLocationsLoading] = useState(true);
   const [isVehiclesLoading, setIsVehiclesLoading] = useState(true);
   const [serviceType, setServiceType] = useState<
-    "meetAndAssist" | "airportTransfer" | "hireByHour"
-  >("meetAndAssist");
+    "meetAndGreet" | "airportTransfer" | "hourlyHire"
+  >("meetAndGreet");
   const [date, setDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [hour, setHour] = useState("14"); // 24-hour format
   const [minute, setMinute] = useState("00");
@@ -48,7 +51,7 @@ export function PriceEstimator() {
   const [wantPorter, setWantPorter] = useState(false);
   const [bags, setBags] = useState(0);
   const [additionalHours, setAdditionalHours] = useState(0);
-  const [meetAndAssistType, setMeetAndAssistType] = useState<
+  const [serviceSubType, setServiceSubType] = useState<
     "arrival" | "departure" | "connection"
   >("arrival");
   const [locations, setLocations] = useState<Location[]>([]);
@@ -62,21 +65,28 @@ export function PriceEstimator() {
   const [flightNumberArrival, setFlightNumberArrival] = useState("");
   const [flightNumberDeparture, setFlightNumberDeparture] = useState("");
   const [vehicle, setVehicle] = useState<string>("");
+  const [pickupLocationId, setPickupLocationId] = useState<string>("");
+  const [extraCharges, setExtraCharges] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
-
       try {
         // Fetch locations and vehicles in parallel
-        const [locationsResponse, vehiclesResponse] = await Promise.all([
+        const [locationsResponse, vehiclesResponse, extraChargesSnap] = await Promise.all([
           fetch('/api/locations').then(res => res.json()),
-          fetch('/api/vehicles').then(res => res.json())
+          fetch('/api/vehicles').then(res => res.json()),
+          getDocs(collection(db, "extra_charges")),
         ]);
-
         setLocations(locationsResponse);
         setVehicles(vehiclesResponse);
+        // Map extra charges by id
+        const charges: Record<string, any> = {};
+        extraChargesSnap.forEach(doc => {
+          charges[doc.id] = doc.data();
+        });
+        setExtraCharges(charges);
       } catch (err) {
         console.error("Error fetching data:", err);
         setError("Failed to load data. Please try again later.");
@@ -86,7 +96,6 @@ export function PriceEstimator() {
         setIsVehiclesLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
@@ -96,15 +105,6 @@ export function PriceEstimator() {
     [currentYear]
   );
 
-  // Constants from environment variables
-  const VAT_RATE = Number(process.env.NEXT_PUBLIC_VAT_RATE) || 0.20;
-  const UNSOCIAL_HOURS_CHARGE = Number(process.env.NEXT_PUBLIC_UNSOCIAL_HOURS_CHARGE) || 60;
-  const FESTIVE_MULTIPLIER = Number(process.env.NEXT_PUBLIC_FESTIVE_MULTIPLIER) || 2;
-  const PORTER_RATE = Number(process.env.NEXT_PUBLIC_PORTER_RATE_PER_8_BAGS) || 65;
-  const BUGGY_SERVICE_RATE = Number(process.env.NEXT_PUBLIC_BUGGY_SERVICE_RATE) || 80;
-  const MEET_GREET_BASE_RATE = Number(process.env.NEXT_PUBLIC_MEET_GREET_BASE_RATE) || 140;
-  const MEET_GREET_CONNECTION_RATE = Number(process.env.NEXT_PUBLIC_MEET_GREET_CONNECTION_RATE) || 280;
-  const AIRPORT_TRANSFER_BASE_RATE = Number(process.env.NEXT_PUBLIC_AIRPORT_TRANSFER_BASE_RATE) || 100;
 
   const calculatePrice = () => {
     let basePrice = 0;
@@ -130,32 +130,47 @@ export function PriceEstimator() {
     );
 
     switch (serviceType) {
-      case "meetAndAssist":
-        basePrice = meetAndAssistType === "connection" 
-          ? MEET_GREET_CONNECTION_RATE 
-          : MEET_GREET_BASE_RATE;
-        
-        breakdown.push({ description: "Base Rate", amount: basePrice });
-
-        if (wantBuggy) {
-          breakdown.push({ description: "Buggy Service", amount: BUGGY_SERVICE_RATE });
-          basePrice += BUGGY_SERVICE_RATE;
+      case "meetAndGreet":
+        basePrice = 140; // fallback
+        if (extraCharges["meet-greet-base-rate"]?.amount) basePrice = extraCharges["meet-greet-base-rate"].amount;
+        breakdown.push({ description: "Base Rate (2 hours, up to 2 passengers)", amount: basePrice });
+        // Additional hours charge
+        const rate = extraCharges["additional-hour"]?.amount || 0;
+        const additionalHoursCharge = additionalHours * rate;
+        if (additionalHours > 0) {
+          breakdown.push({ description: `Additional Hours (${additionalHours} hours)`, amount: additionalHoursCharge });
+          basePrice += additionalHoursCharge;
         }
-
-        if (wantPorter) {
+        // Additional passengers charge
+        if (passengers > 2) {
+          const rate = extraCharges["additional-passenger"]?.amount || 0;
+          const additionalPassengers = passengers - 2;
+          const additionalPassengersCharge = additionalPassengers * rate;
+          breakdown.push({ description: `Additional Passengers (${additionalPassengers})`, amount: additionalPassengersCharge });
+          basePrice += additionalPassengersCharge;
+        }
+        // Buggy service
+        if (wantBuggy) {
+          const rate = extraCharges["buggy-service"]?.amount || 0;
+          breakdown.push({ description: "Buggy Service", amount: rate });
+          basePrice += rate;
+        }
+        // Porter service
+        if (wantPorter && bags) {
+          const rate = extraCharges["porter-service"]?.amount || 0;
           const porterCount = Math.ceil(bags / 8);
-          const porterCost = PORTER_RATE * porterCount;
+          const porterCost = porterCount * rate;
           breakdown.push({ description: `Porter Service (${porterCount} porter${porterCount > 1 ? 's' : ''})`, amount: porterCost });
           basePrice += porterCost;
         }
         break;
 
       case "airportTransfer":
-        basePrice = AIRPORT_TRANSFER_BASE_RATE;
+        basePrice = extraCharges["airport-transfer-base-rate"]?.amount || 100;
         breakdown.push({ description: "Base Rate", amount: basePrice });
         break;
 
-      case "hireByHour":
+      case "hourlyHire":
         const selectedVehicle = vehicles.find(v => v.id === vehicle);
         if (selectedVehicle) {
           basePrice = selectedVehicle.basePrice;
@@ -164,31 +179,33 @@ export function PriceEstimator() {
         break;
     }
 
-    // Add unsocial hours charge if applicable
+    // Unsocial hours
     if (isUnsocialHours) {
-      breakdown.push({ description: "Unsocial Hours Charge", amount: UNSOCIAL_HOURS_CHARGE });
-      basePrice += UNSOCIAL_HOURS_CHARGE;
+      const rate = extraCharges["unsocial-hours"]?.amount || 0;
+      breakdown.push({ description: "Unsocial Hours Charge", amount: rate });
+      basePrice += rate;
     }
 
-    // Apply festive period multiplier if applicable
+    // Festive period
     if (isFestivePeriod) {
-      const festiveCharge = basePrice * (FESTIVE_MULTIPLIER - 1);
-      breakdown.push({ description: "Festive Period Charge", amount: festiveCharge });
-      basePrice += festiveCharge;
+      const multiplier = extraCharges["festive-multiplier"]?.amount || 2;
+      const festiveCharge = basePrice;
+      breakdown.push({ description: `Festive Period Charge (x${multiplier})`, amount: festiveCharge });
+      basePrice *= multiplier;
     }
 
-    // Calculate VAT
-    const vatAmount = basePrice * VAT_RATE;
+    // VAT
+    const vatRate = extraCharges["vat-rate"]?.amount || 0.2;
+    const vatAmount = basePrice * vatRate;
     breakdown.push({ description: "VAT", amount: vatAmount });
     const totalPrice = basePrice + vatAmount;
-
     setEstimatedPrice(totalPrice);
     setPriceBreakdown(breakdown);
     setShowModal(true);
   };
 
   const handleContinueToBooking = () => {
-    const bookingData: BookingData = {
+    const serviceDetails = {
       serviceType,
       dateTime: date ? new Date(
         date.getFullYear(),
@@ -198,6 +215,7 @@ export function PriceEstimator() {
         parseInt(minute)
       ).toISOString() : new Date().toISOString(),
       passengers,
+      locationId: pickupLocationId,
       additionalServices: {
         buggy: wantBuggy,
         porter: wantPorter,
@@ -208,10 +226,18 @@ export function PriceEstimator() {
         departure: flightNumberDeparture,
       },
       estimatedPrice,
+      priceBreakdown,
+      // Add all other relevant details
+      serviceSubType,
+      additionalHours,
+      vehicle,
+      hour,
+      minute,
+      date: date?.toISOString(),
     };
 
-    // Store booking data in localStorage for the booking page
-    localStorage.setItem('bookingData', JSON.stringify(bookingData));
+    // Store service details in localStorage
+    localStorage.setItem('serviceDetails', JSON.stringify(serviceDetails));
     
     // Navigate to booking page
     router.push('/booking');
@@ -246,24 +272,24 @@ export function PriceEstimator() {
           </div>
         )}
         <Tabs 
-          defaultValue="meetAndAssist" 
-          onValueChange={(value) => setServiceType(value as "meetAndAssist" | "airportTransfer" | "hireByHour")}
+          defaultValue="meetAndGreet" 
+          onValueChange={(value) => setServiceType(value as "meetAndGreet" | "airportTransfer" | "hourlyHire")}
         >
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="meetAndAssist">Meet & Assist</TabsTrigger>
+            <TabsTrigger value="meetAndGreet">Meet & Greet</TabsTrigger>
             <TabsTrigger value="airportTransfer">Airport Transfer</TabsTrigger>
-            <TabsTrigger value="hireByHour">Hire by Hour</TabsTrigger>
+            <TabsTrigger value="hourlyHire">Hire by Hour</TabsTrigger>
           </TabsList>
-          <TabsContent value="meetAndAssist">
+          <TabsContent value="meetAndGreet">
             <JourneyForm
-              type="meetAndAssist"
+              type="meetAndGreet"
               locations={locations}
               onCalculate={calculatePrice}
               formData={{
                 date,
                 hour,
                 minute,
-                meetAndAssistType,
+                service_subtype: serviceSubType,
                 passengers,
                 wantBuggy,
                 wantPorter,
@@ -271,12 +297,13 @@ export function PriceEstimator() {
                 flightNumberArrival,
                 flightNumberDeparture,
                 additionalHours,
+                pickupLocationId,
               }}
               setFormData={{
                 setDate,
                 setHour,
                 setMinute,
-                setMeetAndAssistType,
+                setServiceSubType,
                 setPassengers,
                 setWantBuggy,
                 setWantPorter,
@@ -284,6 +311,7 @@ export function PriceEstimator() {
                 setFlightNumberArrival,
                 setFlightNumberDeparture,
                 setAdditionalHours,
+                setPickupLocationId,
               }}
               isLoading={isLocationsLoading}
             />
@@ -299,6 +327,7 @@ export function PriceEstimator() {
                 minute,
                 passengers,
                 additionalHours,
+                pickupLocationId,
               }}
               setFormData={{
                 setDate,
@@ -306,13 +335,14 @@ export function PriceEstimator() {
                 setMinute,
                 setPassengers,
                 setAdditionalHours,
+                setPickupLocationId,
               }}
               isLoading={isLocationsLoading}
             />
           </TabsContent>
-          <TabsContent value="hireByHour">
+          <TabsContent value="hourlyHire">
             <JourneyForm
-              type="hireByHour"
+              type="hourlyHire"
               locations={locations}
               vehicles={vehicles}
               onCalculate={calculatePrice}
@@ -323,6 +353,7 @@ export function PriceEstimator() {
                 passengers,
                 additionalHours,
                 vehicle,
+                pickupLocationId,
               }}
               setFormData={{
                 setDate,
@@ -331,6 +362,7 @@ export function PriceEstimator() {
                 setPassengers,
                 setAdditionalHours,
                 setVehicle,
+                setPickupLocationId,
               }}
               isLoading={isLocationsLoading || isVehiclesLoading}
             />

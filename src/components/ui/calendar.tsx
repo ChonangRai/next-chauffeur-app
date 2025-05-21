@@ -10,7 +10,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 interface CalendarProps {
   selected?: Date;
-  onSelect?: (date: Date) => void;
+  onSelect?: (date: Date | undefined) => void;
   className?: string;
 }
 

@@ -1,9 +1,8 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import JourneyForm from "@/components/price-estimator/components/JourneyForm";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getLocations } from "@/lib/firebase-admin";
 import type { Location } from "@/lib/types";
 import {
@@ -38,9 +37,9 @@ type BookingDetails = {
   wantBuggy: boolean;
   wantPorter: boolean;
   contactConsent: boolean;
-  serviceType: "meetAndAssist" | "airportTransfer" | "hireByHour";
+  service_type: "meetAndGreet" | "airportTransfer" | "hourlyHire";
+  service_subtype: "arrival" | "departure" | "connection" | null;
   calculatedAmount: number | null;
-  meetAndGreetType: "arrival" | "departure" | "connection";
   flightNumberArrival: string;
   flightNumberDeparture: string;
   airportTransferType?: "one_way" | "round_trip";
@@ -48,9 +47,7 @@ type BookingDetails = {
 };
 
 function BookingContent() {
-  const searchParams = useSearchParams();
-  const [step, setStep] = useState<"estimate" | "details">("estimate");
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const router = useRouter();
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
@@ -78,9 +75,9 @@ function BookingContent() {
     wantBuggy: false,
     wantPorter: false,
     contactConsent: false,
-    serviceType: "meetAndAssist",
+    service_type: "meetAndGreet",
+    service_subtype: null,
     calculatedAmount: null,
-    meetAndGreetType: "arrival",
     flightNumberArrival: "",
     flightNumberDeparture: "",
   });
@@ -98,17 +95,6 @@ function BookingContent() {
       try {
         const locationsData = await getLocations();
         setLocations(locationsData);
-        if (
-          locationsData.length > 0 &&
-          !bookingDetails.pickupLocationId &&
-          !searchParams.get("pickupLocationId")
-        ) {
-          setBookingDetails((prev) => ({
-            ...prev,
-            pickupLocationId: locationsData[0].id,
-            calculatedAmount: null,
-          }));
-        }
       } catch (err) {
         console.error("Error fetching locations:", err);
         setLocationsError("Failed to load locations. Please try again.");
@@ -119,51 +105,33 @@ function BookingContent() {
 
     fetchLocations();
 
-    const serviceType = searchParams.get("serviceType") as
-      | "meetAndAssist"
-      | "airportTransfer"
-      | "hireByHour"
-      | null;
-    if (serviceType && searchParams.get("fromEstimator") === "true") {
-      const dateTime = searchParams.get("dateTime")
-        ? new Date(searchParams.get("dateTime")!)
-        : undefined;
-      const hour = dateTime
-        ? (dateTime.getHours() % 12 || 12).toString().padStart(2, "0")
-        : "";
-      const minute = dateTime
-        ? dateTime.getMinutes().toString().padStart(2, "0")
-        : "";
-      const period = dateTime ? (dateTime.getHours() >= 12 ? "pm" : "am") : "";
-
+    // Check for service details in localStorage
+    const serviceDetails = localStorage.getItem('serviceDetails');
+    if (serviceDetails) {
+      const details = JSON.parse(serviceDetails);
       setBookingDetails((prev) => ({
         ...prev,
-        serviceType,
-        pickupLocationId: searchParams.get("pickupLocationId") || null,
-        dropoffLocationId: searchParams.get("dropoffLocationId") || null,
-        date: dateTime,
-        hour,
-        minute,
-        period,
-        passengers: parseInt(searchParams.get("passengers") || "1"),
-        additionalHours: parseInt(searchParams.get("additionalHours") || "0"),
-        bags: parseInt(searchParams.get("bags") || "0"),
-        wantBuggy: searchParams.get("wantBuggy") === "true",
-        wantPorter: searchParams.get("wantPorter") === "true",
-        calculatedAmount: parseFloat(
-          searchParams.get("estimatedPrice")?.replace("£", "") || "0"
-        ),
-        meetAndGreetType:
-          (searchParams.get("meetAndGreetType") as
-            | "arrival"
-            | "departure"
-            | "connection") || "arrival",
-        flightNumberArrival: searchParams.get("flightNumberArrival") || "",
-        flightNumberDeparture: searchParams.get("flightNumberDeparture") || "",
+        service_type: details.service_type,
+        pickupLocationId: details.locationId,
+        date: details.date ? new Date(details.date) : undefined,
+        hour: details.hour,
+        minute: details.minute,
+        passengers: details.passengers,
+        additionalHours: details.additionalHours,
+        bags: details.additionalServices.bags || 0,
+        wantBuggy: details.additionalServices.buggy || false,
+        wantPorter: details.additionalServices.porter || false,
+        calculatedAmount: details.estimatedPrice,
+        service_subtype: details.service_subtype,
+        flightNumberArrival: details.flightDetails?.arrival || "",
+        flightNumberDeparture: details.flightDetails?.departure || "",
       }));
-      setStep("details");
+    } else {
+      // No service details found, redirect to price estimator
+      router.replace("/#estimate");
+      return;
     }
-  }, [bookingDetails.pickupLocationId, searchParams]);
+  }, [router]);
 
   const handleAuthChoice = async (choice: "signup" | "signin" | "guest") => {
     setShowAuthModal(false);
@@ -214,15 +182,16 @@ function BookingContent() {
               pickupLocation: pickupLocation.name,
               dropoffLocation: dropoffLocation?.name,
               dateTime,
-              selectedVehicle: bookingDetails.serviceType,
-              isHireByHour: bookingDetails.serviceType === "hireByHour",
+              service_type: bookingDetails.service_type,
+              service_subtype: bookingDetails.service_subtype,
+              isHireByHour: bookingDetails.service_type === "hourlyHire",
               duration: bookingDetails.additionalHours,
               durationUnit: "hours",
               additionalRequests: bookingDetails.additionalRequests,
               flightNumberArrival: bookingDetails.flightNumberArrival,
               flightNumberDeparture: bookingDetails.flightNumberDeparture,
-        passengers: bookingDetails.passengers,
-        bags: bookingDetails.bags,
+              passengers: bookingDetails.passengers,
+              bags: bookingDetails.bags,
               wantBuggy: bookingDetails.wantBuggy,
               wantPorter: bookingDetails.wantPorter,
               contactConsent: true, // Required for guest checkout
@@ -253,35 +222,6 @@ function BookingContent() {
     }
   };
 
-  const handleReset = () => {
-    setFormErrors({});
-    setNotification(null);
-    setStep("estimate");
-    setBookingDetails((prev) => ({
-      ...prev,
-        pickupLocationId: locations[0]?.id || null,
-        dropoffLocationId: null,
-      date: new Date(new Date().setDate(new Date().getDate() + 1)),
-      hour: "14",
-      minute: "00",
-      period: "pm",
-        fullName: "",
-        email: "",
-        phone: "",
-        additionalRequests: "",
-        passengers: 1,
-        additionalHours: 0,
-        bags: 0,
-        wantBuggy: false,
-        wantPorter: false,
-        contactConsent: false,
-      serviceType: "meetAndAssist",
-        calculatedAmount: null,
-        meetAndGreetType: "arrival",
-        flightNumberArrival: "",
-        flightNumberDeparture: "",
-    }));
-  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -291,7 +231,10 @@ function BookingContent() {
     if (!bookingDetails.hour || !bookingDetails.minute) errors.time = "Time is required";
     
     if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
+      setNotification({
+        type: "error",
+        message: Object.values(errors).join("\n"),
+      });
       return;
     }
 
@@ -313,55 +256,20 @@ function BookingContent() {
       }
     }
 
-    setStep("details");
-  };
-
-  const handleFinalSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    // Validate required fields
-    const errors: Record<string, string> = {};
-    if (!bookingDetails.fullName) errors.fullName = "Full name is required";
-    if (!bookingDetails.email) errors.email = "Email is required";
-    if (!bookingDetails.phone) errors.phone = "Phone number is required";
-    
-    // Validate flight numbers based on service type
-    if (bookingDetails.serviceType === "meetAndAssist") {
-      if ((bookingDetails.meetAndGreetType === "arrival" || 
-           bookingDetails.meetAndGreetType === "connection") && 
-          !bookingDetails.flightNumberArrival) {
-        errors.flightNumberArrival = "Arrival flight number is required";
-      }
-      if ((bookingDetails.meetAndGreetType === "departure" || 
-           bookingDetails.meetAndGreetType === "connection") && 
-          !bookingDetails.flightNumberDeparture) {
-        errors.flightNumberDeparture = "Departure flight number is required";
-      }
-    }
-    
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
-    if (user) {
-      // If user is logged in, proceed directly to checkout
-      handleAuthChoice("guest");
-    } else {
-      setShowAuthModal(true);
-    }
+    setShowAuthModal(true);
   };
 
   // Calculate estimated cost
   const calculateEstimatedCost = () => {
     let basePrice = 0;
-    switch (bookingDetails.serviceType) {
-      case "meetAndAssist":
-        basePrice = bookingDetails.meetAndGreetType === "connection" ? 280 : 140;
+    switch (bookingDetails.service_type) {
+      case "meetAndGreet":
+        basePrice = bookingDetails.service_subtype === "connection" ? 280 : 140;
         break;
       case "airportTransfer":
         basePrice = 100;
         break;
-      case "hireByHour":
+      case "hourlyHire":
         basePrice = bookingDetails.additionalHours * 180;
         break;
     }
@@ -419,321 +327,227 @@ function BookingContent() {
             <p className="text-red-500 text-center">{locationsError}</p>
           ) : (
             <div className="max-w-4xl mx-auto">
-              {step === "estimate" ? (
-                <div className="bg-muted p-4 md:p-8 rounded-lg shadow-lg">
-                  <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Enter Your Journey Details</h2>
-                  <JourneyForm
-                    type={bookingDetails.serviceType}
-                    locations={locations}
-                    onCalculate={handleSubmit}
-                    submitButtonText="Continue to Booking"
-                    formData={{
-                      date: bookingDetails.date,
-                      hour: bookingDetails.hour,
-                      minute: bookingDetails.minute,
-                      meetAndAssistType: bookingDetails.meetAndGreetType,
-                      passengers: bookingDetails.passengers,
-                      wantBuggy: bookingDetails.wantBuggy,
-                      wantPorter: bookingDetails.wantPorter,
-                      bags: bookingDetails.bags,
-                      additionalHours: bookingDetails.additionalHours,
-                      pickupLocationId: bookingDetails.pickupLocationId || "",
-                    }}
-                    setFormData={{
-                      setDate: (date: Date | undefined) =>
-                        setBookingDetails((prev) => ({ ...prev, date })),
-                      setHour: (hour: string) =>
-                        setBookingDetails((prev) => ({ ...prev, hour })),
-                      setMinute: (minute: string) =>
-                        setBookingDetails((prev) => ({ ...prev, minute })),
-                      setMeetAndAssistType: (type: "arrival" | "departure" | "connection") =>
-                        setBookingDetails((prev) => ({ ...prev, meetAndGreetType: type })),
-                      setPassengers: (passengers: number) =>
-                        setBookingDetails((prev) => ({ ...prev, passengers })),
-                      setWantBuggy: (want: boolean) =>
-                        setBookingDetails((prev) => ({ ...prev, wantBuggy: want })),
-                      setWantPorter: (want: boolean) =>
-                        setBookingDetails((prev) => ({ ...prev, wantPorter: want })),
-                      setBags: (bags: number) =>
-                        setBookingDetails((prev) => ({ ...prev, bags })),
-                      setAdditionalHours: (hours: number) =>
-                        setBookingDetails((prev) => ({ ...prev, additionalHours: hours })),
-                      setPickupLocationId: (id: string) =>
-                        setBookingDetails((prev) => ({ ...prev, pickupLocationId: id })),
-                    }}
-                  />
-
-                  {Object.entries(formErrors).map(([field, message]) => (
-                    <p
-                      key={field}
-                      className="text-red-500 text-xs flex items-center mt-2"
-                    >
-                      <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
-                      {message}
-                    </p>
-                  ))}
-
-                  <div className="space-y-2 mt-4">
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="lg:w-1/2 bg-gray-200 p-4 md:p-6 rounded-lg">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-semibold">Booking Summary</h3>
                     <Button
                       variant="outline"
-                      type="button"
-                      onClick={handleReset}
-                      className="w-full"
+                      size="sm"
+                      onClick={() => router.push('/#estimate')}
+                      className="flex items-center gap-2"
                     >
-                      Reset
+                      <ArrowLeft className="h-4 w-4" />
+                      Go Back
                     </Button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-col lg:flex-row gap-6">
-                  <div className="lg:w-1/2 bg-gray-200 p-4 md:p-6 rounded-lg">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-lg font-semibold">Booking Summary</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setStep("estimate")}
-                        className="flex items-center gap-2"
-                      >
-                        <ArrowLeft className="h-4 w-4" />
-                        Go Back
-                      </Button>
-                    </div>
-                    <div className="space-y-2 text-sm md:text-base">
-                      <p>
-                        <strong>Service Type:</strong>{" "}
-                        {bookingDetails.serviceType === "meetAndAssist"
-                          ? `Meet and Greet (${bookingDetails.meetAndGreetType})`
-                          : bookingDetails.serviceType === "airportTransfer"
-                          ? "Airport Transfer"
-                          : "Daily Hire"}
-                      </p>
-                      <p>
-                        <strong>
-                          {bookingDetails.meetAndGreetType === "connection"
-                            ? "Arrival Terminal"
-                            : "Pickup Location"}
-                          :
-                        </strong>{" "}
-                        {locations.find(
-                          (loc) => loc.id === bookingDetails.pickupLocationId
-                        )?.name || "Not selected"}
-                      </p>
-                      {bookingDetails.serviceType === "meetAndAssist" &&
-                        bookingDetails.meetAndGreetType === "connection" && (
-                          <p>
-                            <strong>Departure Terminal:</strong>{" "}
-                            {locations.find(
-                              (loc) =>
-                                loc.id === bookingDetails.dropoffLocationId
-                            )?.name || "Not selected"}
-                          </p>
-                      )}
-                      <p>
-                        <strong>Date:</strong>{" "}
-                        {bookingDetails.date
-                          ? new Date(bookingDetails.date).toLocaleDateString()
-                          : "Not selected"}
-                      </p>
-                      <p>
-                        <strong>Time:</strong>{" "}
-                        {bookingDetails.hour &&
-                              bookingDetails.minute
-                          ? `${bookingDetails.hour}:${bookingDetails.minute}`
-                          : "Not selected"}
-                      </p>
-                      {bookingDetails.serviceType === "meetAndAssist" && (
-                        <>
-                          <p>
-                            <strong>Passengers:</strong>{" "}
-                            {bookingDetails.passengers}
-                          </p>
-                          <p>
-                            <strong>Additional Hours:</strong>{" "}
-                            {bookingDetails.additionalHours}
-                          </p>
-                          <p>
-                            <strong>Bags:</strong> {bookingDetails.bags}
-                          </p>
-                          <p>
-                            <strong>Buggy:</strong>{" "}
-                            {bookingDetails.wantBuggy ? "Yes" : "No"}
-                          </p>
-                          <p>
-                            <strong>Porter:</strong>{" "}
-                            {bookingDetails.wantPorter ? "Yes" : "No"}
-                          </p>
-                        </>
-                      )}
-                      {(bookingDetails.serviceType === "airportTransfer" ||
-                        bookingDetails.serviceType === "hireByHour") && (
-                        <>
-                          <p>
-                            <strong>Passengers:</strong>{" "}
-                            {bookingDetails.passengers}
-                          </p>
-                          <p>
-                            <strong>Additional Hours:</strong>{" "}
-                            {bookingDetails.additionalHours}
-                          </p>
-                        </>
-                      )}
-                      <div className="border-t pt-4 mt-4">
-                        <p className="text-lg font-semibold">
-                          <strong>Estimated Cost:</strong> £{calculateEstimatedCost().toFixed(2)}
+                  <div className="space-y-2 text-sm md:text-base">
+                    <p>
+                      <strong>Service Type:</strong>{" "}
+                      {bookingDetails.service_type === "meetAndGreet"
+                        ? `Meet and Greet (${bookingDetails.service_subtype})`
+                        : bookingDetails.service_type === "airportTransfer"
+                        ? "Airport Transfer"
+                        : "Daily Hire"}
+                    </p>
+                    <p>
+                      <strong>
+                        {bookingDetails.service_subtype === "connection"
+                          ? "Arrival Terminal"
+                          : "Pickup Location"}
+                        :
+                      </strong>{" "}
+                      {locations.find(
+                        (loc) => loc.id === bookingDetails.pickupLocationId
+                      )?.name || "Not selected"}
+                    </p>
+                    {bookingDetails.service_type === "meetAndGreet" &&
+                      bookingDetails.service_subtype === "connection" && (
+                        <p>
+                          <strong>Departure Terminal:</strong>{" "}
+                          {locations.find(
+                            (loc) =>
+                              loc.id === bookingDetails.dropoffLocationId
+                          )?.name || "Not selected"}
                         </p>
-                      </div>
+                    )}
+                    <p>
+                      <strong>Date:</strong>{" "}
+                      {bookingDetails.date
+                        ? new Date(bookingDetails.date).toLocaleDateString()
+                        : "Not selected"}
+                    </p>
+                    <p>
+                      <strong>Time:</strong>{" "}
+                      {bookingDetails.hour &&
+                            bookingDetails.minute
+                        ? `${bookingDetails.hour}:${bookingDetails.minute}`
+                        : "Not selected"}
+                    </p>
+                    {bookingDetails.service_type === "meetAndGreet" && (
+                      <>
+                        <p>
+                          <strong>Passengers:</strong>{" "}
+                          {bookingDetails.passengers}
+                        </p>
+                        <p>
+                          <strong>Additional Hours:</strong>{" "}
+                          {bookingDetails.additionalHours}
+                        </p>
+                        <p>
+                          <strong>Bags:</strong> {bookingDetails.bags}
+                        </p>
+                        <p>
+                          <strong>Buggy:</strong>{" "}
+                          {bookingDetails.wantBuggy ? "Yes" : "No"}
+                        </p>
+                        <p>
+                          <strong>Porter:</strong>{" "}
+                          {bookingDetails.wantPorter ? "Yes" : "No"}
+                        </p>
+                      </>
+                    )}
+                    {(bookingDetails.service_type === "airportTransfer" ||
+                      bookingDetails.service_type === "hourlyHire") && (
+                      <>
+                        <p>
+                          <strong>Passengers:</strong>{" "}
+                          {bookingDetails.passengers}
+                        </p>
+                        <p>
+                          <strong>Additional Hours:</strong>{" "}
+                          {bookingDetails.additionalHours}
+                        </p>
+                      </>
+                    )}
+                    <div className="border-t pt-4 mt-4">
+                      <p className="text-lg font-semibold">
+                        <strong>Estimated Cost:</strong> £{calculateEstimatedCost().toFixed(2)}
+                      </p>
                     </div>
                   </div>
-                  <div className="lg:w-1/2 bg-gray-50 p-4 md:p-6 rounded-lg">
-                    <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Enter Your Details</h2>
-                    <form onSubmit={handleFinalSubmit} className="space-y-4">
-                      {bookingDetails.serviceType === "meetAndAssist" && (
-                        <>
-                          {(bookingDetails.meetAndGreetType === "arrival" || 
-                            bookingDetails.meetAndGreetType === "connection") && (
-                            <div>
-                              <Label>
-                                Arrival Flight Number
-                                <span className="text-red-500 ml-1">*</span>
-                              </Label>
-                              <Input
-                                value={bookingDetails.flightNumberArrival}
-                                onChange={(e) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                                    flightNumberArrival: e.target.value,
-                                  }))
-                                }
-                                placeholder="Enter arrival flight number"
-                                className={formErrors.flightNumberArrival ? "border-red-500" : ""}
-                              />
-                              {formErrors.flightNumberArrival && (
-                                <p className="text-red-500 text-sm mt-1">{formErrors.flightNumberArrival}</p>
-                              )}
-                            </div>
-                          )}
-                          {(bookingDetails.meetAndGreetType === "departure" || 
-                            bookingDetails.meetAndGreetType === "connection") && (
-                            <div>
-                              <Label>
-                                Departure Flight Number
-                                <span className="text-red-500 ml-1">*</span>
-                              </Label>
-                              <Input
-                                value={bookingDetails.flightNumberDeparture}
-                                onChange={(e) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                                    flightNumberDeparture: e.target.value,
-                                  }))
-                                }
-                                placeholder="Enter departure flight number"
-                                className={formErrors.flightNumberDeparture ? "border-red-500" : ""}
-                              />
-                              {formErrors.flightNumberDeparture && (
-                                <p className="text-red-500 text-sm mt-1">{formErrors.flightNumberDeparture}</p>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                      <div>
-                        <Label>
-                          Full Name
-                          <span className="text-red-500 ml-1">*</span>
-                        </Label>
-                        <Input
-                          value={bookingDetails.fullName}
-                          onChange={(e) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                              fullName: e.target.value,
-                            }))
-                          }
-                          placeholder="Enter your full name"
-                          className={formErrors.fullName ? "border-red-500" : ""}
-                        />
-                        {formErrors.fullName && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
+                </div>
+                <div className="lg:w-1/2 bg-gray-50 p-4 md:p-6 rounded-lg">
+                  <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Enter Your Details</h2>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {bookingDetails.service_type === "meetAndGreet" && (
+                      <>
+                        {(bookingDetails.service_subtype === "arrival" || 
+                          bookingDetails.service_subtype === "connection") && (
+                          <div>
+                            <Label>
+                              Arrival Flight Number
+                              <span className="text-red-500 ml-1">*</span>
+                            </Label>
+                            <Input
+                              value={bookingDetails.flightNumberArrival}
+                              onChange={(e) =>
+                                setBookingDetails((prev) => ({
+                                  ...prev,
+                                  flightNumberArrival: e.target.value,
+                                }))
+                              }
+                              placeholder="Enter arrival flight number"
+                            />
+                          </div>
                         )}
-                      </div>
-                      <div>
-                        <Label>
-                          Email
-                          <span className="text-red-500 ml-1">*</span>
-                        </Label>
-                        <Input
-                          type="email"
-                          value={bookingDetails.email}
-                          onChange={(e) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                              email: e.target.value,
-                            }))
-                          }
-                          placeholder="Enter your email"
-                          className={formErrors.email ? "border-red-500" : ""}
-                        />
-                        {formErrors.email && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
+                        {(bookingDetails.service_subtype === "departure" || 
+                          bookingDetails.service_subtype === "connection") && (
+                          <div>
+                            <Label>
+                              Departure Flight Number
+                              <span className="text-red-500 ml-1">*</span>
+                            </Label>
+                            <Input
+                              value={bookingDetails.flightNumberDeparture}
+                              onChange={(e) =>
+                                setBookingDetails((prev) => ({
+                                  ...prev,
+                                  flightNumberDeparture: e.target.value,
+                                }))
+                              }
+                              placeholder="Enter departure flight number"
+                            />
+                          </div>
                         )}
-                      </div>
-                      <div>
-                        <Label>
-                          Phone Number
-                          <span className="text-red-500 ml-1">*</span>
-                        </Label>
-                        <Input
-                          type="tel"
-                          value={bookingDetails.phone}
-                          onChange={(e) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                              phone: e.target.value,
-                            }))
-                          }
-                          placeholder="Enter your phone number"
-                          className={formErrors.phone ? "border-red-500" : ""}
-                        />
-                        {formErrors.phone && (
-                          <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Additional Notes</Label>
-                        <Textarea
-                          value={bookingDetails.additionalRequests}
-                          onChange={(e) =>
-                        setBookingDetails((prev) => ({
-                          ...prev,
-                              additionalRequests: e.target.value,
-                            }))
-                          }
-                          placeholder="Any additional requests or information"
-                        />
-                      </div>
-                      <div className="space-y-2">
+                      </>
+                    )}
+                    <div>
+                      <Label>
+                        Full Name
+                        <span className="text-red-500 ml-1">*</span>
+                      </Label>
+                      <Input
+                        value={bookingDetails.fullName}
+                        onChange={(e) =>
+                          setBookingDetails((prev) => ({
+                            ...prev,
+                            fullName: e.target.value,
+                          }))
+                        }
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+                    <div>
+                      <Label>
+                        Email
+                        <span className="text-red-500 ml-1">*</span>
+                      </Label>
+                      <Input
+                        type="email"
+                        value={bookingDetails.email}
+                        onChange={(e) =>
+                          setBookingDetails((prev) => ({
+                            ...prev,
+                            email: e.target.value,
+                          }))
+                        }
+                        placeholder="Enter your email"
+                      />
+                    </div>
+                    <div>
+                      <Label>
+                        Phone Number
+                        <span className="text-red-500 ml-1">*</span>
+                      </Label>
+                      <Input
+                        type="tel"
+                        value={bookingDetails.phone}
+                        onChange={(e) =>
+                          setBookingDetails((prev) => ({
+                            ...prev,
+                            phone: e.target.value,
+                          }))
+                        }
+                        placeholder="Enter your phone number"
+                      />
+                    </div>
+                    <div>
+                      <Label>Additional Notes</Label>
+                      <Textarea
+                        value={bookingDetails.additionalRequests}
+                        onChange={(e) =>
+                          setBookingDetails((prev) => ({
+                            ...prev,
+                            additionalRequests: e.target.value,
+                          }))
+                        }
+                        placeholder="Any additional requests or information"
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Button
                         variant="outline"
                         type="button"
-                          onClick={() => setStep("estimate")}
+                        onClick={() => setShowAuthModal(true)}
                         className="w-full"
                       >
-                          Back
-                        </Button>
-                        <Button 
-                          type="submit" 
-                          className="w-full"
-                          onClick={() => setShowAuthModal(true)}
-                        >
-                          Continue to Booking
+                        Continue to Booking
                       </Button>
                     </div>
-                    </form>
-                  </div>
+                  </form>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>

@@ -5,7 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { Booking } from "@/types/admin";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, orderBy, getDocs, doc, deleteDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  doc,
+  deleteDoc,
+} from "firebase/firestore";
 import { format, isAfter, subHours } from "date-fns";
 
 export default function CustomerDashboard() {
@@ -29,13 +37,13 @@ export default function CustomerDashboard() {
           where("email", "==", user.email),
           orderBy("date_time", "desc")
         );
-        
+
         const querySnapshot = await getDocs(q);
-        const bookingsData = querySnapshot.docs.map(doc => ({
+        const bookingsData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         })) as Booking[];
-        
+
         setBookings(bookingsData);
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -53,7 +61,7 @@ export default function CustomerDashboard() {
 
     try {
       await deleteDoc(doc(db, "bookings", bookingId));
-      setBookings(bookings.filter(booking => booking.id !== bookingId));
+      setBookings(bookings.filter((booking) => booking.id !== bookingId));
     } catch (err) {
       setError("Failed to cancel booking. Please try again.");
     }
@@ -97,28 +105,86 @@ export default function CustomerDashboard() {
             ) : (
               <div className="grid gap-4">
                 {currentBookings.map((booking) => (
-                  <div key={booking.id} className="border rounded-lg p-6 bg-white">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div
+                    key={booking.id}
+                    className="border rounded-lg p-6 bg-white"
+                  >
+                    <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="font-semibold text-lg mb-2">Booking Details</h3>
-                        <div className="space-y-2">
-                          <p><span className="font-medium">Date & Time:</span> {format(new Date(booking.date_time), 'PPP p')}</p>
-                          <p><span className="font-medium">Service Type:</span> {booking.service_type}</p>
-                          <p><span className="font-medium">Status:</span> <span className="capitalize">{booking.status}</span></p>
-                          <p><span className="font-medium">Passengers:</span> {booking.passengers}</p>
-                          <p><span className="font-medium">Luggage:</span> {booking.luggage}</p>
-                        </div>
+                        <h3 className="font-semibold text-lg mb-2">
+                          Booking Details
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Booking Reference: {booking.booking_ref}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Date: {new Date(booking.date_time).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Service Type: {booking.service_type}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Status: {booking.status}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Total Amount: £{booking.amount.toFixed(2)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Payment Status: {booking.payment_status || "Unpaid"}
+                        </p>
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg mb-2">Location Details</h3>
+                        <h3 className="font-semibold text-lg mb-2">
+                          Location Details
+                        </h3>
                         <div className="space-y-2">
-                          <p><span className="font-medium">Pickup:</span> {booking.pickup_location}</p>
-                          <p><span className="font-medium">Dropoff:</span> {booking.dropoff_location}</p>
-                          {booking.flight_number && (
-                            <p><span className="font-medium">Flight Number:</span> {booking.flight_number}</p>
+                          <p>
+                            <span className="font-medium">Pickup:</span>{" "}
+                            {booking.pickup_location}
+                          </p>
+                          {booking.dropoff_location && (
+                            <p>
+                              <span className="font-medium">Dropoff:</span>{" "}
+                              {booking.dropoff_location}
+                            </p>
                           )}
-                          {booking.terminal && (
-                            <p><span className="font-medium">Terminal:</span> {booking.terminal}</p>
+                          {booking.service_subtype === "arrival" &&
+                            booking.arrival_flight && (
+                              <p>
+                                <span className="font-medium">
+                                  Arrival Flight:
+                                </span>{" "}
+                                {booking.arrival_flight}
+                              </p>
+                            )}
+                          {booking.service_subtype === "departure" &&
+                            booking.departure_flight && (
+                              <p>
+                                <span className="font-medium">
+                                  Departure Flight:
+                                </span>{" "}
+                                {booking.departure_flight}
+                              </p>
+                            )}
+                          {booking.service_subtype === "connection" && (
+                            <>
+                              {booking.arrival_flight && (
+                                <p>
+                                  <span className="font-medium">
+                                    Arrival Flight:
+                                  </span>{" "}
+                                  {booking.arrival_flight}
+                                </p>
+                              )}
+                              {booking.departure_flight && (
+                                <p>
+                                  <span className="font-medium">
+                                    Departure Flight:
+                                  </span>{" "}
+                                  {booking.departure_flight}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -127,10 +193,24 @@ export default function CustomerDashboard() {
                       <div className="mt-4 flex gap-2">
                         <Button
                           variant="outline"
-                          onClick={() => router.push(`/user/bookings/${booking.id}/edit`)}
+                          onClick={() =>
+                            router.push(`/user/bookings/${booking.id}/edit`)
+                          }
                         >
                           Edit Booking
                         </Button>
+                        {booking.payment_status !== "Paid" && (
+                          <Button
+                            variant="default"
+                            onClick={() =>
+                              router.push(
+                                `/user/bookings/${booking.id}/payment`
+                              )
+                            }
+                          >
+                            Make Payment
+                          </Button>
+                        )}
                         <Button
                           variant="destructive"
                           onClick={() => handleCancelBooking(booking.id)}
@@ -156,28 +236,90 @@ export default function CustomerDashboard() {
             ) : (
               <div className="grid gap-4">
                 {pastBookings.map((booking) => (
-                  <div key={booking.id} className="border rounded-lg p-6 bg-white">
+                  <div
+                    key={booking.id}
+                    className="border rounded-lg p-6 bg-white"
+                  >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <h3 className="font-semibold text-lg mb-2">Booking Details</h3>
+                        <h3 className="font-semibold text-lg mb-2">
+                          Booking Details
+                        </h3>
                         <div className="space-y-2">
-                          <p><span className="font-medium">Date & Time:</span> {format(new Date(booking.date_time), 'PPP p')}</p>
-                          <p><span className="font-medium">Service Type:</span> {booking.service_type}</p>
-                          <p><span className="font-medium">Status:</span> <span className="capitalize">{booking.status}</span></p>
-                          <p><span className="font-medium">Passengers:</span> {booking.passengers}</p>
-                          <p><span className="font-medium">Luggage:</span> {booking.luggage}</p>
+                          <p>
+                            <span className="font-medium">Date & Time:</span>{" "}
+                            {format(new Date(booking.date_time), "PPP p")}
+                          </p>
+                          <p>
+                            <span className="font-medium">Service Type:</span>{" "}
+                            {booking.service_type}
+                          </p>
+                          <p>
+                            <span className="font-medium">Status:</span>{" "}
+                            <span className="capitalize">{booking.status}</span>
+                          </p>
+                          <p>
+                            <span className="font-medium">Passengers:</span>{" "}
+                            {booking.passengers}
+                          </p>
+                          <p>
+                            <span className="font-medium">Luggage:</span>{" "}
+                            {booking.luggage}
+                          </p>
                         </div>
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg mb-2">Location Details</h3>
+                        <h3 className="font-semibold text-lg mb-2">
+                          Location Details
+                        </h3>
                         <div className="space-y-2">
-                          <p><span className="font-medium">Pickup:</span> {booking.pickup_location}</p>
-                          <p><span className="font-medium">Dropoff:</span> {booking.dropoff_location}</p>
-                          {booking.flight_number && (
-                            <p><span className="font-medium">Flight Number:</span> {booking.flight_number}</p>
+                          <p>
+                            <span className="font-medium">Pickup:</span>{" "}
+                            {booking.pickup_location}
+                          </p>
+                          {booking.dropoff_location && (
+                            <p>
+                              <span className="font-medium">Dropoff:</span>{" "}
+                              {booking.dropoff_location}
+                            </p>
                           )}
-                          {booking.terminal && (
-                            <p><span className="font-medium">Terminal:</span> {booking.terminal}</p>
+                          {booking.service_subtype === "arrival" &&
+                            booking.arrival_flight && (
+                              <p>
+                                <span className="font-medium">
+                                  Arrival Flight:
+                                </span>{" "}
+                                {booking.arrival_flight}
+                              </p>
+                            )}
+                          {booking.service_subtype === "departure" &&
+                            booking.departure_flight && (
+                              <p>
+                                <span className="font-medium">
+                                  Departure Flight:
+                                </span>{" "}
+                                {booking.departure_flight}
+                              </p>
+                            )}
+                          {booking.service_subtype === "connection" && (
+                            <>
+                              {booking.arrival_flight && (
+                                <p>
+                                  <span className="font-medium">
+                                    Arrival Flight:
+                                  </span>{" "}
+                                  {booking.arrival_flight}
+                                </p>
+                              )}
+                              {booking.departure_flight && (
+                                <p>
+                                  <span className="font-medium">
+                                    Departure Flight:
+                                  </span>{" "}
+                                  {booking.departure_flight}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>

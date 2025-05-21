@@ -46,16 +46,12 @@ export default function InvoicesTab({ bookings, isLoadingBookings, bookingError 
       doc.setFontSize(12);
       doc.text("Booking Details:", 20, 140);
       doc.setFontSize(10);
-      doc.text(`Service Type: ${booking.is_hire_by_hour ? "Hire By Hour" : "One Way"}`, 20, 150);
       doc.text(`Pickup: ${booking.pickup_location}`, 20, 160);
       doc.text(`Dropoff: ${booking.dropoff_location || "N/A"}`, 20, 170);
       doc.text(`Date/Time: ${new Date(booking.date_time).toLocaleString()}`, 20, 180);
       doc.text(`Car: ${booking.selected_vehicle}`, 20, 190);
       doc.text(`Amount: £${booking.amount.toFixed(2)}`, 20, 200);
       doc.text(`Status: ${booking.status}`, 20, 210);
-      if (booking.is_hire_by_hour) {
-        doc.text(`Duration: ${booking.duration} ${booking.duration_unit}`, 20, 220);
-      }
 
       // Footer
       doc.setFontSize(10);

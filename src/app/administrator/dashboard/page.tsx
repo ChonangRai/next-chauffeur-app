@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import VehiclesTab from "../../../components/admin/VehiclesTab";
-import DriverPaymentsTab from "../../../components/admin/DriverPaymentsTab";
-import InvoicesTab from "../../../components/admin/InvoicesTab";
-import PriceSettingsTab from "../../../components/admin/PriceSettingsTab";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import VehiclesTab from "@/components/admin/VehiclesTab";
+import DriverPaymentsTab from "@/components/admin/DriverPaymentsTab";
+import InvoicesTab from "@/components/admin/InvoicesTab";
+import PriceSettingsTab from "@/components/admin/PriceSettingsTab";
 import {
   fetchVehicles,
   fetchBookings,
@@ -15,8 +15,8 @@ import {
   fetchLocations,
   fetchServicePricing,
   fetchExtraCharges,
-} from "../../../lib/adminFetch";
-import { Vehicle, Booking, Driver, DriverPayment } from "../../../types/admin";
+} from "@/lib/adminFetch";
+import { Vehicle, Booking, Driver, DriverPayment } from "@/types/admin";
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ChevronLeft, ChevronRight, Car, Calendar, DollarSign, FileText, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 
 export default function AdminDashboard() {
   const [password, setPassword] = useState("");
@@ -106,8 +107,9 @@ export default function AdminDashboard() {
   // Calculate stats
   const totalBookings = bookings.length;
   const websiteVisitors = 1500; // Placeholder, replace with real data
-  const meetAndGreetBookings = bookings.filter((b) => b.service_type === "Meet and Greet").length;
-  const airportTransferBookings = bookings.filter((b) => b.service_type === "Airport Transfer").length;
+  const meetAndGreetBookings = bookings.filter((b) => b.service_type === "meetAndGreet").length;
+  const airportTransferBookings = bookings.filter((b) => b.service_type === "airportTransfer").length;
+  const hourlyHireBookings = bookings.filter((b) => b.service_type === "hourlyHire").length;
   const totalRevenue = bookings.reduce((sum, b) => sum + (b.amount || 0), 0);
   const activeDrivers = drivers.filter((d) => d.status === "active").length;
 
@@ -215,6 +217,10 @@ export default function AdminDashboard() {
                 <div className="bg-white p-4 rounded-lg shadow-md">
                   <h3 className="text-sm font-medium text-gray-500">Airport Transfer Bookings</h3>
                   <p className="text-2xl font-bold text-gray-900">{airportTransferBookings}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-md">
+                  <h3 className="text-sm font-medium text-gray-500">Hourly Hire Bookings</h3>
+                  <p className="text-2xl font-bold text-gray-900">{hourlyHireBookings}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-md">
                   <h3 className="text-sm font-medium text-gray-500">Total Revenue (£)</h3>
