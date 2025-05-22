@@ -23,6 +23,8 @@ import { Icons } from "@/components/ui/icons";
 type BookingDetails = {
   pickupLocationId: string | null;
   dropoffLocationId: string | null;
+  customPickupAddress: string;
+  customDropoffAddress: string;
   date: Date | undefined;
   hour: string;
   minute: string;
@@ -61,6 +63,8 @@ function BookingContent() {
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
     pickupLocationId: null,
     dropoffLocationId: null,
+    customPickupAddress: "",
+    customDropoffAddress: "",
     date: new Date(new Date().setDate(new Date().getDate() + 1)),
     hour: "14",
     minute: "00",
@@ -176,8 +180,12 @@ function BookingContent() {
               fullName: bookingDetails.fullName,
               email: bookingDetails.email,
               phone: bookingDetails.phone,
-              pickupLocation: pickupLocation.name,
-              dropoffLocation: dropoffLocation?.name,
+              pickupLocation: bookingDetails.pickupLocationId === "other" 
+                ? bookingDetails.customPickupAddress 
+                : pickupLocation?.name,
+              dropoffLocation: bookingDetails.dropoffLocationId === "other"
+                ? bookingDetails.customDropoffAddress
+                : dropoffLocation?.name,
               dateTime,
               service_type: bookingDetails.service_type,
               service_subtype: bookingDetails.service_subtype,
@@ -231,12 +239,40 @@ function BookingContent() {
     if (!bookingDetails.email) errors.email = "Email is required";
     if (!bookingDetails.phone) errors.phone = "Phone number is required";
     
+    // Validate pickup location
+    if (!bookingDetails.pickupLocationId) {
+      errors.pickupLocation = "Pickup location is required";
+    } else if (bookingDetails.pickupLocationId === "other" && !bookingDetails.customPickupAddress) {
+      errors.pickupLocation = "Custom pickup address is required";
+    }
+
+    // Validate dropoff location for airport transfer
+    if (bookingDetails.service_type === "airportTransfer") {
+      if (!bookingDetails.dropoffLocationId) {
+        errors.dropoffLocation = "Dropoff location is required";
+      } else if (bookingDetails.dropoffLocationId === "other" && !bookingDetails.customDropoffAddress) {
+        errors.dropoffLocation = "Custom dropoff address is required";
+      }
+    }
+    
     if (bookingDetails.service_type === "meetAndGreet") {
       if ((bookingDetails.service_subtype === "arrival" || bookingDetails.service_subtype === "connection") && !bookingDetails.flightNumberArrival) {
         errors.flightNumberArrival = "Arrival flight number is required";
       }
       if ((bookingDetails.service_subtype === "departure" || bookingDetails.service_subtype === "connection") && !bookingDetails.flightNumberDeparture) {
         errors.flightNumberDeparture = "Departure flight number is required";
+      }
+    }
+
+    if (bookingDetails.service_type === "airportTransfer") {
+      const pickupLocation = locations.find(loc => loc.id === bookingDetails.pickupLocationId);
+      const dropoffLocation = locations.find(loc => loc.id === bookingDetails.dropoffLocationId);
+
+      if (pickupLocation && pickupLocation.id !== "other" && !bookingDetails.flightNumberArrival) {
+        errors.flightNumberArrival = "Pickup flight number is required";
+      }
+      if (dropoffLocation && dropoffLocation.id !== "other" && !bookingDetails.flightNumberDeparture) {
+        errors.flightNumberDeparture = "Dropoff flight number is required";
       }
     }
     
@@ -254,14 +290,6 @@ function BookingContent() {
         const pickupLocation = locations.find(loc => loc.id === bookingDetails.pickupLocationId);
         const dropoffLocation = locations.find(loc => loc.id === bookingDetails.dropoffLocationId);
         
-        if (!pickupLocation) {
-          setNotification({
-            type: "error",
-            message: "Pickup location is required",
-          });
-          return;
-        }
-
         if (!bookingDetails.date) {
           setNotification({
             type: "error",
@@ -294,8 +322,12 @@ function BookingContent() {
               fullName: bookingDetails.fullName,
               email: bookingDetails.email,
               phone: bookingDetails.phone,
-              pickupLocation: pickupLocation.name,
-              dropoffLocation: dropoffLocation?.name,
+              pickupLocation: bookingDetails.pickupLocationId === "other" 
+                ? bookingDetails.customPickupAddress 
+                : pickupLocation?.name,
+              dropoffLocation: bookingDetails.dropoffLocationId === "other"
+                ? bookingDetails.customDropoffAddress
+                : dropoffLocation?.name,
               dateTime,
               service_type: bookingDetails.service_type,
               service_subtype: bookingDetails.service_subtype,
@@ -440,10 +472,27 @@ function BookingContent() {
                     ) : (
                       <>
                         <p>
-                          <strong>Service Type:</strong> {bookingDetails.service_type === "airportTransfer" ? "Airport Transfer" : "Daily Hire"}
+                          <strong>Service Type:</strong> {bookingDetails.service_type === "airportTransfer" ? "Airport Transfer" : "Hire by Hour"}
                         </p>
                         <p>
-                          <strong>Pickup Location:</strong> {locations.find((loc) => loc.id === bookingDetails.pickupLocationId)?.name || "Not selected"}
+                          <strong>Pickup Location:</strong>{" "}
+                          {bookingDetails.pickupLocationId === "other"
+                            ? bookingDetails.customPickupAddress
+                            : locations.find((loc) => loc.id === bookingDetails.pickupLocationId)?.name || "Not selected"}
+                        </p>
+                        {bookingDetails.service_type === "airportTransfer" && (
+                          <p>
+                            <strong>Dropoff Location:</strong>{" "}
+                            {bookingDetails.dropoffLocationId === "other"
+                              ? bookingDetails.customDropoffAddress
+                              : locations.find((loc) => loc.id === bookingDetails.dropoffLocationId)?.name || "Not selected"}
+                          </p>
+                        )}
+                        <p>
+                          <strong>Passengers:</strong> {bookingDetails.passengers}
+                        </p>
+                        <p>
+                          <strong>Additional Hours:</strong> {bookingDetails.additionalHours}
                         </p>
                       </>
                     )}
@@ -463,14 +512,6 @@ function BookingContent() {
                     {bookingDetails.service_type === "meetAndGreet" && (
                       <>
                         <p>
-                          <strong>Passengers:</strong>{" "}
-                          {bookingDetails.passengers}
-                        </p>
-                        <p>
-                          <strong>Additional Hours:</strong>{" "}
-                          {bookingDetails.additionalHours}
-                        </p>
-                        <p>
                           <strong>Bags:</strong> {bookingDetails.bags}
                         </p>
                         <p>
@@ -487,12 +528,7 @@ function BookingContent() {
                       bookingDetails.service_type === "hourlyHire") && (
                       <>
                         <p>
-                          <strong>Passengers:</strong>{" "}
-                          {bookingDetails.passengers}
-                        </p>
-                        <p>
-                          <strong>Additional Hours:</strong>{" "}
-                          {bookingDetails.additionalHours}
+                          <strong>Bags:</strong> {bookingDetails.bags}
                         </p>
                       </>
                     )}
@@ -582,6 +618,48 @@ function BookingContent() {
                         )}
                       </>
                     )}
+
+                    {bookingDetails.service_type === "airportTransfer" && (
+                      <>
+                        {bookingDetails.pickupLocationId && bookingDetails.pickupLocationId !== "other" && (
+                          <div>
+                            <Label>
+                              Pickup Flight Number
+                              <span className="text-red-500 ml-1">*</span>
+                            </Label>
+                            <Input
+                              value={bookingDetails.flightNumberArrival}
+                              onChange={(e) =>
+                                setBookingDetails((prev) => ({
+                                  ...prev,
+                                  flightNumberArrival: e.target.value,
+                                }))
+                              }
+                              placeholder="Enter pickup flight number"
+                            />
+                          </div>
+                        )}
+                        {bookingDetails.dropoffLocationId && bookingDetails.dropoffLocationId !== "other" && (
+                          <div>
+                            <Label>
+                              Dropoff Flight Number
+                              <span className="text-red-500 ml-1">*</span>
+                            </Label>
+                            <Input
+                              value={bookingDetails.flightNumberDeparture}
+                              onChange={(e) =>
+                                setBookingDetails((prev) => ({
+                                  ...prev,
+                                  flightNumberDeparture: e.target.value,
+                                }))
+                              }
+                              placeholder="Enter dropoff flight number"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     <div>
                       <Label>
                         Full Name

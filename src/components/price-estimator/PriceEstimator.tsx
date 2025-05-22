@@ -17,6 +17,7 @@ import type { Location, Vehicle } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import VehicleSelection from "./components/VehicleSelection";
 
 export interface BookingData {
   serviceType: string;
@@ -69,6 +70,11 @@ export function PriceEstimator() {
   const [dropoffLocationId, setDropoffLocationId] = useState<string>("");
   const [extraCharges, setExtraCharges] = useState<Record<string, any>>({});
   const [serviceRates, setServiceRates] = useState<Record<string, any>>({});
+  const [customPickupAddress, setCustomPickupAddress] = useState("");
+  const [customDropoffAddress, setCustomDropoffAddress] = useState("");
+  const [isPriceEstimationDisabled, setIsPriceEstimationDisabled] = useState(false);
+  const [priceEstimationMessage, setPriceEstimationMessage] = useState("");
+  const [showVehicleSelection, setShowVehicleSelection] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -76,14 +82,23 @@ export function PriceEstimator() {
       setError(null);
       try {
         // Fetch locations, vehicles, and service rates in parallel
-        const [locationsResponse, vehiclesResponse, serviceRatesSnap, extraChargesSnap] = await Promise.all([
+        const [locationsResponse, vehiclesSnap, serviceRatesSnap, extraChargesSnap] = await Promise.all([
           fetch('/api/locations').then(res => res.json()),
-          fetch('/api/vehicles').then(res => res.json()),
+          getDocs(collection(db, "vehicles")),
           getDocs(collection(db, "service_rates")),
           getDocs(collection(db, "extra_charges")),
         ]);
         setLocations(locationsResponse);
-        setVehicles(vehiclesResponse);
+        
+        // Map vehicles from Firebase
+        const vehiclesData: Vehicle[] = [];
+        vehiclesSnap.forEach(doc => {
+          vehiclesData.push({
+            id: doc.id,
+            ...doc.data()
+          } as Vehicle);
+        });
+        setVehicles(vehiclesData);
         
         // Map service rates by id
         const rates: Record<string, any> = {};
@@ -110,6 +125,33 @@ export function PriceEstimator() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    // Check if price estimation should be disabled
+    if (serviceType === "airportTransfer" && pickupLocationId && dropoffLocationId) {
+      const pickup = locations.find(l => l.id === pickupLocationId);
+      const dropoff = locations.find(l => l.id === dropoffLocationId);
+      
+      if (pickupLocationId === "other" && dropoffLocationId === "other") {
+        setIsPriceEstimationDisabled(true);
+        setPriceEstimationMessage("Please choose 'Hire by hour' service for custom address to custom address transfers.");
+        return;
+      }
+
+      if (serviceType === "airportTransfer" && serviceSubType === "connection") {
+        const pickupAirport = pickup?.name.split(" ")[0].toLowerCase();
+        const dropoffAirport = dropoff?.name.split(" ")[0].toLowerCase();
+        if (pickupAirport !== dropoffAirport) {
+          setIsPriceEstimationDisabled(true);
+          setPriceEstimationMessage("For connections between different airports, please select 'Airport Transfer' as the service type.");
+          return;
+        }
+      }
+    }
+    
+    setIsPriceEstimationDisabled(false);
+    setPriceEstimationMessage("");
+  }, [serviceType, serviceSubType, pickupLocationId, dropoffLocationId, locations]);
+
   const currentYear = new Date().getFullYear();
   const FESTIVE_PERIODS = useMemo(
     () => getFestivePeriods(currentYear),
@@ -117,10 +159,13 @@ export function PriceEstimator() {
   );
 
 
-  const calculatePrice = () => {
+  const calculatePrice = (formData?: any) => {
     let basePrice = 0;
     let surcharges = 0;
     const breakdown: { description: string; amount: number }[] = [];
+
+    // Always get additionalHours from the correct source and ensure it's a number
+    const additionalHoursValue = Number(formData?.additionalHours || additionalHours) || 0;
 
     const selectedDateTime = date ? new Date(
       date.getFullYear(),
@@ -174,12 +219,11 @@ export function PriceEstimator() {
           basePrice = basePrice * multiplier;
         }
 
-        // Calculate additional charges
         // Additional hours charge
         const additionalHourRate = extraCharges["additional-hour"]?.amount || 0;
-        const additionalHoursCharge = additionalHours * additionalHourRate;
-        if (additionalHours > 0) {
-          breakdown.push({ description: `Additional Hours (${additionalHours} hours)`, amount: additionalHoursCharge });
+        const additionalHoursCharge = additionalHoursValue * additionalHourRate;
+        if (additionalHoursValue > 0) {
+          breakdown.push({ description: `Additional Hours (${additionalHoursValue} hours)`, amount: additionalHoursCharge });
           surcharges += additionalHoursCharge;
         }
 
@@ -210,29 +254,93 @@ export function PriceEstimator() {
         break;
 
       case "airportTransfer":
-        basePrice = serviceRates["airport-transfer-base-rate"]?.amount || 100;
-        breakdown.push({ description: "Base Rate", amount: basePrice });
-
-        // Apply festive period multiplier to base price if applicable
-        if (isFestivePeriod) {
-          const multiplier = extraCharges["festive-multiplier"]?.amount || 2;
-          const festiveCharge = basePrice * (multiplier - 1);
-          breakdown.push({ description: `Festive Period Surcharge (${multiplier}x base rate)`, amount: festiveCharge });
-          basePrice = basePrice * multiplier;
-        }
-        break;
-
-      case "hourlyHire":
-        const selectedVehicle = vehicles.find(v => v.id === vehicle);
-        if (selectedVehicle) {
-          basePrice = selectedVehicle.basePrice;
-          breakdown.push({ description: "Base Rate", amount: basePrice });
+        if (pickupLocationId && dropoffLocationId) {
+          const pickup = locations.find(l => l.id === pickupLocationId);
+          const dropoff = locations.find(l => l.id === dropoffLocationId);
+          
+          if (pickup && dropoff) {
+            const pickupAirport = pickup.name.split(" ")[0].toLowerCase();
+            const dropoffAirport = dropoff.name.split(" ")[0].toLowerCase();
+            
+            // Both locations are in the same airport
+            if (pickupAirport === dropoffAirport) {
+              basePrice = serviceRates["airport-transfer-base"]?.baseRate || 100;
+              breakdown.push({ description: "Base Rate (Same Airport)", amount: basePrice });
+            }
+            // Different airports
+            else {
+              basePrice = serviceRates["airport-transfer-connection"]?.baseRate || 150;
+              breakdown.push({ description: "Base Rate (Different Airports)", amount: basePrice });
+            }
+          }
+          // One location is Heathrow and other is custom
+          else if ((pickup?.name.toLowerCase().includes("heathrow") || dropoff?.name.toLowerCase().includes("heathrow")) && 
+                   (pickupLocationId === "other" || dropoffLocationId === "other")) {
+            basePrice = serviceRates["airport-transfer-lhr"]?.baseRate || 120;
+            breakdown.push({ description: "Base Rate (Heathrow to Custom Location)", amount: basePrice });
+          }
+          // One location is other airport and other is custom
+          else if (pickupLocationId === "other" || dropoffLocationId === "other") {
+            basePrice = serviceRates["airport-transfer-other"]?.baseRate || 130;
+            breakdown.push({ description: "Base Rate (Airport to Custom Location)", amount: basePrice });
+          }
 
           // Apply festive period multiplier to base price if applicable
           if (isFestivePeriod) {
             const multiplier = extraCharges["festive-multiplier"]?.amount || 2;
             const festiveCharge = basePrice * (multiplier - 1);
             breakdown.push({ description: `Festive Period Surcharge (${multiplier}x base rate)`, amount: festiveCharge });
+            basePrice = basePrice * multiplier;
+          }
+
+          // Additional passengers charge
+          if (passengers > 2) {
+            const additionalPassengerRate = extraCharges["additional-passenger"]?.amount || 0;
+            const additionalPassengers = passengers - 2;
+            const additionalPassengersCharge = additionalPassengers * additionalPassengerRate;
+            breakdown.push({ description: `Additional Passengers (${additionalPassengers})`, amount: additionalPassengersCharge });
+            surcharges += additionalPassengersCharge;
+          }
+
+          // Additional hours charge
+          const additionalHourRateAT = extraCharges["additional-hour"]?.amount || 0;
+          const additionalHoursChargeAT = additionalHoursValue * additionalHourRateAT;
+          if (additionalHoursValue > 0) {
+            breakdown.push({ description: `Additional Hours (${additionalHoursValue} hours)`, amount: additionalHoursChargeAT });
+            surcharges += additionalHoursChargeAT;
+          }
+        }
+        break;
+
+      case "hourlyHire":
+        const selectedVehicle = vehicles.find(v => v.id === (formData?.vehicle || vehicle));
+        if (selectedVehicle) {
+          
+          // Base price is always applied
+          basePrice = selectedVehicle.basePrice;
+          breakdown.push({ 
+            description:selectedVehicle.name + " - Base Rate", 
+            amount: basePrice 
+          });
+
+          // Additional hours charge
+          if (additionalHoursValue > 0) {
+            const additionalHoursCharge = additionalHoursValue * selectedVehicle.additionalHourlyRate;
+            breakdown.push({ 
+              description: `Additional Hours (${additionalHoursValue} hours)`, 
+              amount: additionalHoursCharge 
+            });
+            surcharges += additionalHoursCharge;
+          }
+
+          // Apply festive period multiplier to base price if applicable
+          if (isFestivePeriod) {
+            const multiplier = extraCharges["festive-multiplier"]?.amount || 2;
+            const festiveCharge = basePrice * (multiplier - 1);
+            breakdown.push({ 
+              description: `Festive Period Surcharge (${multiplier}x base rate)`, 
+              amount: festiveCharge 
+            });
             basePrice = basePrice * multiplier;
           }
         }
@@ -272,6 +380,8 @@ export function PriceEstimator() {
       service_subtype: serviceSubType,
       pickupLocationId,
       dropoffLocationId,
+      customPickupAddress,
+      customDropoffAddress,
       date: date?.toISOString(),
       hour,
       minute,
@@ -285,7 +395,6 @@ export function PriceEstimator() {
       vehicle,
       estimatedPrice,
       priceBreakdown,
-      // Add all other relevant details
     };
 
     // Store service details in localStorage
@@ -293,6 +402,34 @@ export function PriceEstimator() {
     
     // Navigate to booking page
     router.push('/booking');
+  };
+
+  const handleFindVehicles = () => {
+    if (serviceType === "hourlyHire") {
+      setShowVehicleSelection(true);
+    } else {
+      calculatePrice();
+    }
+  };
+
+  const handleVehicleSelect = (selectedVehicle: Vehicle) => {
+    setVehicle(selectedVehicle.id);
+    setShowVehicleSelection(false);
+    // Ensure we have all the necessary data before calculating price
+    if (date && hour && minute && pickupLocationId) {
+      // Update form data with the selected vehicle
+      const updatedFormData = {
+        date,
+        hour,
+        minute,
+        passengers,
+        additionalHours,
+        pickupLocationId,
+        customPickupAddress,
+        vehicle: selectedVehicle.id
+      };
+      calculatePrice(updatedFormData);
+    }
   };
 
   if (isLoading) {
@@ -321,6 +458,12 @@ export function PriceEstimator() {
           <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             <span>{error}</span>
+          </div>
+        )}
+        {isPriceEstimationDisabled && (
+          <div className="mb-4 p-4 bg-amber-100 text-amber-800 rounded-lg flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>{priceEstimationMessage}</span>
           </div>
         )}
         <Tabs 
@@ -382,6 +525,9 @@ export function PriceEstimator() {
                 passengers,
                 additionalHours,
                 pickupLocationId,
+                dropoffLocationId,
+                customPickupAddress,
+                customDropoffAddress,
               }}
               setFormData={{
                 setDate,
@@ -390,36 +536,71 @@ export function PriceEstimator() {
                 setPassengers,
                 setAdditionalHours,
                 setPickupLocationId,
+                setDropoffLocationId,
+                setCustomPickupAddress,
+                setCustomDropoffAddress,
               }}
               isLoading={isLocationsLoading}
             />
           </TabsContent>
           <TabsContent value="hourlyHire">
-            <JourneyForm
-              type="hourlyHire"
-              locations={locations}
-              vehicles={vehicles}
-              onCalculate={calculatePrice}
-              formData={{
-                date,
-                hour,
-                minute,
-                passengers,
-                additionalHours,
-                vehicle,
-                pickupLocationId,
-              }}
-              setFormData={{
-                setDate,
-                setHour,
-                setMinute,
-                setPassengers,
-                setAdditionalHours,
-                setVehicle,
-                setPickupLocationId,
-              }}
-              isLoading={isLocationsLoading || isVehiclesLoading}
-            />
+            {showVehicleSelection ? (
+              <VehicleSelection
+                vehicles={vehicles}
+                onVehicleSelect={handleVehicleSelect}
+                onBack={() => setShowVehicleSelection(false)}
+                formData={{
+                  date,
+                  hour,
+                  minute,
+                  passengers,
+                  additionalHours,
+                  wantBuggy,
+                  wantPorter,
+                  bags,
+                  pickupLocationId,
+                  customPickupAddress,
+                }}
+                setFormData={{
+                  setDate,
+                  setHour,
+                  setMinute,
+                  setPassengers,
+                  setAdditionalHours,
+                  setWantBuggy,
+                  setWantPorter,
+                  setBags,
+                  setPickupLocationId,
+                  setCustomPickupAddress,
+                }}
+                isLoading={isLocationsLoading || isVehiclesLoading}
+              />
+            ) : (
+              <JourneyForm
+                type="hourlyHire"
+                locations={locations}
+                onCalculate={handleFindVehicles}
+                formData={{
+                  date,
+                  hour,
+                  minute,
+                  passengers,
+                  additionalHours,
+                  pickupLocationId,
+                  customPickupAddress,
+                }}
+                setFormData={{
+                  setDate,
+                  setHour,
+                  setMinute,
+                  setPassengers,
+                  setAdditionalHours,
+                  setPickupLocationId,
+                  setCustomPickupAddress,
+                }}
+                isLoading={isLocationsLoading}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

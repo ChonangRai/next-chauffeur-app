@@ -85,7 +85,7 @@ const VehicleServiceCard = ({
           )}
           <div className="flex items-center">
             <FaClock className="mr-2 text-gray-700" size={18} />
-            <span className="text-gray-700">{waitingTime} free waiting</span>
+            <span className="text-gray-700">{waitingTime} minutes free waiting time</span>
           </div>
           {drinks && (
             <div className="flex items-center">

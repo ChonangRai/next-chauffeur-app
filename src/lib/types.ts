@@ -18,12 +18,17 @@ export interface ServiceRate {
 export interface Vehicle {
   id: string;
   name: string;
+  title: string;
   type: string;
   basePrice: number;
-  standardHours: number;
-  additionalHourRate: number;
-  maxPassengers: number;
+  additionalHourlyRate: number;
   description?: string;
+  maxPassengers: number;
+  maxBags: number;
+  complimentaryDrinks: boolean;
+  hasWifi: boolean;
+  meetAndGreet: boolean;
+  waitingTime: string;
   image?: string;
 }
 

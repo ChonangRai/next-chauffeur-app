@@ -68,9 +68,9 @@ export default function CustomerDashboard() {
   };
 
   const canModifyBooking = (bookingDate: string) => {
-    const bookingDateTime = new Date(bookingDate);
+    const serviceDateTime = new Date(bookingDate);
     const now = new Date();
-    const twentyFourHoursBefore = subHours(bookingDateTime, 24);
+    const twentyFourHoursBefore = subHours(serviceDateTime, 24);
     return isAfter(now, twentyFourHoursBefore);
   };
 
@@ -79,11 +79,23 @@ export default function CustomerDashboard() {
 
   const currentBookings = bookings.filter((booking) => {
     const bookingDate = new Date(booking.date_time);
-    return bookingDate > new Date();
+    const isFutureBooking = bookingDate > new Date();
+    const isPendingPayment = booking.payment_status !== "Paid";
+    const isExpired = !canModifyBooking(booking.date_time);
+    
+    if (isExpired && isPendingPayment) {
+      return false;
+    }
+    
+    return isFutureBooking;
   });
   const pastBookings = bookings.filter((booking) => {
     const bookingDate = new Date(booking.date_time);
-    return bookingDate <= new Date();
+    const isPastBooking = bookingDate <= new Date();
+    const isExpired = !canModifyBooking(booking.date_time);
+    const isPendingPayment = booking.payment_status !== "Paid";
+    
+    return isPastBooking || (isExpired && isPendingPayment);
   });
 
   return (
@@ -189,36 +201,38 @@ export default function CustomerDashboard() {
                         </div>
                       </div>
                     </div>
-                    {canModifyBooking(booking.date_time) && (
-                      <div className="mt-4 flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() =>
-                            router.push(`/user/bookings/${booking.id}/edit`)
-                          }
-                        >
-                          Edit Booking
-                        </Button>
-                        {booking.payment_status !== "Paid" && (
+                    <div className="mt-4 flex gap-2">
+                      {canModifyBooking(booking.date_time) && (
+                        <>
                           <Button
-                            variant="default"
+                            variant="outline"
                             onClick={() =>
-                              router.push(
-                                `/user/bookings/${booking.id}/payment`
-                              )
+                              router.push(`/user/bookings/${booking.id}/edit`)
                             }
                           >
-                            Make Payment
+                            Edit Booking
                           </Button>
-                        )}
-                        <Button
-                          variant="destructive"
-                          onClick={() => handleCancelBooking(booking.id)}
-                        >
-                          Cancel Booking
-                        </Button>
-                      </div>
-                    )}
+                          {booking.payment_status !== "Paid" && (
+                            <Button
+                              variant="default"
+                              onClick={() =>
+                                router.push(
+                                  `/user/bookings/${booking.id}/payment`
+                                )
+                              }
+                            >
+                              Make Payment
+                            </Button>
+                          )}
+                          <Button
+                            variant="destructive"
+                            onClick={() => handleCancelBooking(booking.id)}
+                          >
+                            Cancel Booking
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

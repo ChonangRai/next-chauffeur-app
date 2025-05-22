@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc } from "firebase/firestore";
 import { auth } from "@/lib/firebase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -96,8 +96,6 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         },
       });
 
-      // Generate booking_ref
-      const booking_ref = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
 
       // Get current user if logged in
       const user = auth.currentUser;
@@ -106,28 +104,27 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
       const bookingData = {
         full_name: bookingDetails.fullName,
         email: bookingDetails.email,
-        phone: bookingDetails.phone || null,
+        phone: bookingDetails.phone,
         pickup_location: bookingDetails.pickupLocation,
-        dropoff_location: bookingDetails.dropoffLocation || null,
-        additional_requests: bookingDetails.additionalRequests || null,
+        dropoff_location: bookingDetails.dropoffLocation,
         date_time: bookingDetails.dateTime,
-        service_type: bookingDetails.service_type || bookingDetails.serviceType,
-        service_subtype: bookingDetails.service_subtype || bookingDetails.serviceSubtype || null,
+        service_type: bookingDetails.service_type,
+        service_subtype: bookingDetails.service_subtype,
+        is_hire_by_hour: bookingDetails.isHireByHour,
+        duration: bookingDetails.duration,
+        duration_unit: bookingDetails.durationUnit,
+        additional_requests: bookingDetails.additionalRequests,
+        flight_number_arrival: bookingDetails.flightNumberArrival,
+        flight_number_departure: bookingDetails.flightNumberDeparture,
+        passengers: bookingDetails.passengers,
+        bags: bookingDetails.bags,
+        want_buggy: bookingDetails.wantBuggy,
+        want_porter: bookingDetails.wantPorter,
+        contact_consent: bookingDetails.contactConsent,
         amount: amount,
         status: "pending",
-        payment_status: "pending",
-        contact_consent: bookingDetails.contactConsent || false,
-        duration: (bookingDetails.service_type === "hourlyHire" || bookingDetails.serviceType === "hourlyHire") ? bookingDetails.duration : null,
-        duration_unit: (bookingDetails.service_type === "hourlyHire" || bookingDetails.serviceType === "hourlyHire") ? bookingDetails.durationUnit : null,
-        driver_status: "unassigned",
-        booking_ref,
-        flight_number_arrival: bookingDetails.flightNumberArrival || null,
-        flight_number_departure: bookingDetails.flightNumberDeparture || null,
-        passengers: bookingDetails.passengers || 1,
-        bags: bookingDetails.bags || 0,
-        want_buggy: bookingDetails.wantBuggy || false,
-        want_porter: bookingDetails.wantPorter || false,
-        created_at: serverTimestamp(),
+        created_at: new Date(),
+        updated_at: new Date(),
         stripe_session_id: session.id,
         user_id: user?.uid || null,
       };

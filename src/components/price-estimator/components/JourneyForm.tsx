@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 import type { Location, Vehicle } from "@/lib/types";
 import { getFestivePeriods } from "../festive-periods";
 import { isWithinInterval, startOfDay } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
 
 interface JourneyFormProps {
   type: "meetAndGreet" | "airportTransfer" | "hourlyHire";
@@ -38,6 +39,8 @@ interface JourneyFormProps {
     vehicle?: string;
     pickupLocationId?: string;
     dropoffLocationId?: string;
+    customPickupAddress?: string;
+    customDropoffAddress?: string;
   };
   setFormData: {
     setDate: (date: Date | undefined) => void;
@@ -56,6 +59,8 @@ interface JourneyFormProps {
     setVehicle?: (vehicle: string) => void;
     setPickupLocationId?: (id: string) => void;
     setDropoffLocationId?: (id: string) => void;
+    setCustomPickupAddress?: (address: string) => void;
+    setCustomDropoffAddress?: (address: string) => void;
   };
 }
 
@@ -87,6 +92,47 @@ export default function JourneyForm({
   })();
 
   const [locationError, setLocationError] = useState("");
+  const [isPriceEstimationDisabled, setIsPriceEstimationDisabled] = useState(false);
+  const [priceEstimationMessage, setPriceEstimationMessage] = useState("");
+
+  // Add useEffect to handle price estimation disable logic
+  useEffect(() => {
+    if (type === "meetAndGreet" && formData.service_subtype === "connection" && formData.pickupLocationId && formData.dropoffLocationId) {
+      const pickup = locations.find(l => l.id === formData.pickupLocationId);
+      const dropoff = locations.find(l => l.id === formData.dropoffLocationId);
+      
+      if (pickup && dropoff) {
+        const pickupAirport = pickup.name.split(" ")[0].toLowerCase();
+        const dropoffAirport = dropoff.name.split(" ")[0].toLowerCase();
+
+        // If different airports
+        if (pickupAirport !== dropoffAirport) {
+          setIsPriceEstimationDisabled(true);
+          setPriceEstimationMessage("For connections between different airports, please select 'Airport Transfer' as the service type.");
+          return;
+        }
+
+        // If same airport but different terminals at non-Heathrow
+        const isHeathrow = (name: string) => name.toLowerCase().includes("heathrow");
+        if (!isHeathrow(pickup.name) && pickup.name !== dropoff.name) {
+          setIsPriceEstimationDisabled(true);
+          setPriceEstimationMessage("Connection service between different terminals is only available at Heathrow airport.");
+          return;
+        }
+      }
+    }
+
+    // Check for both locations being "Other" in airport transfer
+    if (type === "airportTransfer" && formData.pickupLocationId === "other" && formData.dropoffLocationId === "other") {
+      setIsPriceEstimationDisabled(true);
+      setPriceEstimationMessage("Please choose 'Hire by hour' service for custom address to custom address transfers.");
+      return;
+    }
+
+    // Reset states if no conditions are met
+    setIsPriceEstimationDisabled(false);
+    setPriceEstimationMessage("");
+  }, [type, formData.service_subtype, formData.pickupLocationId, formData.dropoffLocationId, locations]);
 
   return (
     <form
@@ -94,7 +140,15 @@ export default function JourneyForm({
         e.preventDefault();
         setLocationError("");
         if (!formData.pickupLocationId || formData.pickupLocationId === "") {
-          setLocationError("Please select a Meet up Location.");
+          setLocationError("Please select a pickup location.");
+          return;
+        }
+        if (type === "airportTransfer" && (!formData.dropoffLocationId || formData.dropoffLocationId === "")) {
+          setLocationError("Please select a dropoff location.");
+          return;
+        }
+        if (isPriceEstimationDisabled) {
+          setLocationError(priceEstimationMessage);
           return;
         }
         onCalculate();
@@ -105,7 +159,7 @@ export default function JourneyForm({
         <div className="grid grid-cols-2 gap-6">
           {/* Pickup Location */}
           <div className="w-[240px] space-y-3">
-            <Label>Meet up Location</Label>
+            <Label>Pickup Location</Label>
             <Select
               value={formData.pickupLocationId || ""}
               onValueChange={(value) => {
@@ -114,6 +168,10 @@ export default function JourneyForm({
                 }
                 if (value) {
                   setLocationError("");
+                }
+                // Reset custom address when location changes
+                if (setFormData.setCustomPickupAddress) {
+                  setFormData.setCustomPickupAddress("");
                 }
               }}
               disabled={isLoading}
@@ -127,12 +185,67 @@ export default function JourneyForm({
                     {location.name}
                   </SelectItem>
                 ))}
+                {type !== "meetAndGreet" && <SelectItem value="other">Other</SelectItem>}
               </SelectContent>
             </Select>
+            {formData.pickupLocationId === "other" && setFormData.setCustomPickupAddress && (
+              <Input
+                className="mt-2"
+                placeholder="Enter custom pickup address"
+                value={formData.customPickupAddress}
+                onChange={(e) => setFormData.setCustomPickupAddress?.(e.target.value)}
+              />
+            )}
             {locationError && (
               <p className="text-xs text-red-500 mt-1">{locationError}</p>
             )}
           </div>
+
+          {/* Dropoff Location for Airport Transfer */}
+          {type === "airportTransfer" && (
+            <div className="w-[240px] space-y-3">
+              <Label>Dropoff Location</Label>
+              <Select
+                value={formData.dropoffLocationId || ""}
+                onValueChange={(value) => {
+                  if (setFormData.setDropoffLocationId) {
+                    setFormData.setDropoffLocationId(value);
+                  }
+                  if (value) {
+                    setLocationError("");
+                  }
+                  // Reset custom address when location changes
+                  if (setFormData.setCustomDropoffAddress) {
+                    setFormData.setCustomDropoffAddress("");
+                  }
+                }}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {formData.dropoffLocationId === "other" && setFormData.setCustomDropoffAddress && (
+                <Input
+                  className="mt-2"
+                  placeholder="Enter custom dropoff address"
+                  value={formData.customDropoffAddress}
+                  onChange={(e) => setFormData.setCustomDropoffAddress?.(e.target.value)}
+                />
+              )}
+              {locationError && type === "airportTransfer" && !formData.dropoffLocationId && (
+                <p className="text-xs text-red-500 mt-1">{locationError}</p>
+              )}
+            </div>
+          )}
 
           {/* Meet & Greet Type */}
           {formData.service_subtype && setFormData.setServiceSubType && (
@@ -208,6 +321,13 @@ export default function JourneyForm({
 
             return null;
           })()
+        )}
+
+        {/* Check for both locations being "Other" in airport transfer */}
+        {type === "airportTransfer" && formData.pickupLocationId === "other" && formData.dropoffLocationId === "other" && (
+          <div className="p-3 bg-amber-100 text-amber-800 rounded-md mt-2">
+            <p className="text-xs">Please choose 'Hire by hour' service for custom address to custom address transfers.</p>
+          </div>
         )}
 
         <div className="grid grid-cols-2 gap-6">
@@ -362,20 +482,29 @@ export default function JourneyForm({
         {/* Combined Warnings Row */}
         {(formData.additionalHours > 0 || formData.passengers > 2) && (
           <div className="flex gap-4 mt-2">
-            {formData.additionalHours > 0 && (
+            {formData.additionalHours > 0 && type !== "hourlyHire" && (
               <div className="p-3 bg-amber-100 text-amber-800 rounded-md flex-1">
                 <p className="text-xs">
-                  Additional hours will be charged at the hourly rate
+                  Additional hours (over 2) will be charged at the hourly rate
                 </p>
               </div>
             )}
-            {formData.passengers > 2 && (
+            {formData.passengers > 2 && type !== "hourlyHire" && (
               <div className="p-3 bg-amber-100 text-amber-800 rounded-md flex-1">
                 <p className="text-xs">
                   Additional charge per passenger will be applied for more than 2 passengers
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Update the warning message for additional hours based on service type */}
+        {type === "hourlyHire" && formData.additionalHours > 0 && (
+          <div className="p-3 bg-amber-100 text-amber-800 rounded-md mt-2">
+            <p className="text-xs">
+              Standard hire duration is 10 hours. Additional hours will be charged at the hourly rate.
+            </p>
           </div>
         )}
 
@@ -545,9 +674,9 @@ export default function JourneyForm({
         <Button
           type="submit"
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-          disabled={isLoading}
+          disabled={isLoading || isPriceEstimationDisabled}
         >
-          {submitButtonText}
+          {type === "hourlyHire" ? "Find Available Vehicles" : submitButtonText}
         </Button>
       </div>
     </form>
