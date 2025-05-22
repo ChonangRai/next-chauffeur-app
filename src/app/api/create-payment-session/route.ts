@@ -27,13 +27,13 @@ export async function POST(request: Request) {
       ],
       mode: "payment",
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/user/bookings/${bookingId}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/user/bookings/${bookingId}/payment`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/user/dashboard`,
       metadata: {
         bookingId,
       },
     });
 
-    return NextResponse.json({ sessionId: session.id });
+    return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Error creating payment session:", error);
     return NextResponse.json(

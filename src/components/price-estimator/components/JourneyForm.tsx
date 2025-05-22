@@ -201,6 +201,27 @@ export default function JourneyForm({
             )}
           </div>
 
+          {/* Meet & Greet Type */}
+          {formData.service_subtype && setFormData.setServiceSubType && (
+            <div className="w-full sm:w-[240px] space-y-3">
+              <Label>Meet & Greet Type</Label>
+              <Select
+                value={formData.service_subtype}
+                onValueChange={value => setFormData.setServiceSubType?.(value as "arrival" | "departure" | "connection")}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="arrival">Arrival</SelectItem>
+                  <SelectItem value="departure">Departure</SelectItem>
+                  <SelectItem value="connection">Connection</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Dropoff Location for Airport Transfer */}
           {type === "airportTransfer" && setFormData.setDropoffLocationId && (
             <div className="w-full sm:w-[240px] space-y-3">
@@ -244,27 +265,6 @@ export default function JourneyForm({
               {locationError && type === "airportTransfer" && !formData.dropoffLocationId && (
                 <p className="text-xs text-red-500 mt-1">{locationError}</p>
               )}
-            </div>
-          )}
-
-          {/* Meet & Greet Type */}
-          {formData.service_subtype && setFormData.setServiceSubType && (
-            <div className="w-full sm:w-[240px] space-y-3">
-              <Label>Meet & Greet Type</Label>
-              <Select
-                value={formData.service_subtype}
-                onValueChange={value => setFormData.setServiceSubType?.(value as "arrival" | "departure" | "connection")}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="arrival">Arrival</SelectItem>
-                  <SelectItem value="departure">Departure</SelectItem>
-                  <SelectItem value="connection">Connection</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           )}
 
@@ -674,7 +674,7 @@ export default function JourneyForm({
 
       <Button
         type="submit"
-        className="w-full sm:w-auto"
+        className="w-full float-end sm:w-auto"
         disabled={isLoading || isPriceEstimationDisabled}
       >
         {submitButtonText}

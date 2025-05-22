@@ -58,6 +58,7 @@ function BookingContent() {
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
@@ -143,6 +144,7 @@ function BookingContent() {
     } else {
       // Handle guest checkout with Stripe
       try {
+        setIsProcessingPayment(true);
         const pickupLocation = locations.find(loc => loc.id === bookingDetails.pickupLocationId);
         const dropoffLocation = locations.find(loc => loc.id === bookingDetails.dropoffLocationId);
         
@@ -151,6 +153,7 @@ function BookingContent() {
             type: "error",
             message: "Pickup location is required",
           });
+          setIsProcessingPayment(false);
           return;
         }
 
@@ -159,13 +162,20 @@ function BookingContent() {
             type: "error",
             message: "Date is required",
           });
+          setIsProcessingPayment(false);
           return;
         }
 
+        // Convert date string to Date object if needed
+        let bookingDate = bookingDetails.date;
+        if (typeof bookingDate === "string") {
+          bookingDate = new Date(bookingDate);
+        }
+
         const dateTime = new Date(
-          bookingDetails.date.getFullYear(),
-          bookingDetails.date.getMonth(),
-          bookingDetails.date.getDate(),
+          bookingDate.getFullYear(),
+          bookingDate.getMonth(),
+          bookingDate.getDate(),
           parseInt(bookingDetails.hour),
           parseInt(bookingDetails.minute)
         ).toISOString();
@@ -183,9 +193,11 @@ function BookingContent() {
               pickupLocation: bookingDetails.pickupLocationId === "other" 
                 ? bookingDetails.customPickupAddress 
                 : pickupLocation?.name,
-              dropoffLocation: bookingDetails.dropoffLocationId === "other"
-                ? bookingDetails.customDropoffAddress
-                : dropoffLocation?.name,
+              dropoffLocation: bookingDetails.service_type === "airportTransfer" 
+                ? (bookingDetails.dropoffLocationId === "other"
+                  ? bookingDetails.customDropoffAddress
+                  : dropoffLocation?.name)
+                : null,
               dateTime,
               service_type: bookingDetails.service_type,
               service_subtype: bookingDetails.service_subtype,
@@ -202,6 +214,7 @@ function BookingContent() {
               contactConsent: true, // Required for guest checkout
             },
             amount: calculateEstimatedCost(),
+            userId: user?.uid || null,
           }),
         });
 
@@ -212,21 +225,22 @@ function BookingContent() {
             type: "error",
             message: error,
           });
+          setIsProcessingPayment(false);
           return;
         }
 
         // Redirect to Stripe Checkout
         window.location.href = url;
-    } catch (err) {
+      } catch (err) {
         console.error("Payment error:", err);
-      setNotification({
-        type: "error",
+        setNotification({
+          type: "error",
           message: "Failed to process payment. Please try again.",
         });
+        setIsProcessingPayment(false);
       }
     }
   };
-
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -287,6 +301,7 @@ function BookingContent() {
     // If user is logged in, proceed to payment
     if (user) {
       try {
+        setIsProcessingPayment(true);
         const pickupLocation = locations.find(loc => loc.id === bookingDetails.pickupLocationId);
         const dropoffLocation = locations.find(loc => loc.id === bookingDetails.dropoffLocationId);
         
@@ -295,6 +310,7 @@ function BookingContent() {
             type: "error",
             message: "Date is required",
           });
+          setIsProcessingPayment(false);
           return;
         }
 
@@ -325,9 +341,11 @@ function BookingContent() {
               pickupLocation: bookingDetails.pickupLocationId === "other" 
                 ? bookingDetails.customPickupAddress 
                 : pickupLocation?.name,
-              dropoffLocation: bookingDetails.dropoffLocationId === "other"
-                ? bookingDetails.customDropoffAddress
-                : dropoffLocation?.name,
+              dropoffLocation: bookingDetails.service_type === "airportTransfer" 
+                ? (bookingDetails.dropoffLocationId === "other"
+                  ? bookingDetails.customDropoffAddress
+                  : dropoffLocation?.name)
+                : null,
               dateTime,
               service_type: bookingDetails.service_type,
               service_subtype: bookingDetails.service_subtype,
@@ -344,6 +362,7 @@ function BookingContent() {
               contactConsent: true,
             },
             amount: bookingDetails.calculatedAmount || calculateEstimatedCost(),
+            userId: user?.uid || null,
           }),
         });
 
@@ -354,6 +373,7 @@ function BookingContent() {
             type: "error",
             message: error,
           });
+          setIsProcessingPayment(false);
           return;
         }
 
@@ -365,6 +385,7 @@ function BookingContent() {
           type: "error",
           message: "Failed to process payment. Please try again.",
         });
+        setIsProcessingPayment(false);
       }
     } else {
       // Show auth modal for non-logged in users
@@ -374,6 +395,14 @@ function BookingContent() {
 
   // Calculate estimated cost
   const calculateEstimatedCost = () => {
+    // Get the stored service details from localStorage
+    const storedServiceDetails = localStorage.getItem('serviceDetails');
+    if (storedServiceDetails) {
+      const { estimatedPrice } = JSON.parse(storedServiceDetails);
+      return estimatedPrice;
+    }
+
+    // Fallback calculation if no stored price
     let basePrice = 0;
     switch (bookingDetails.service_type) {
       case "meetAndGreet":
@@ -756,6 +785,20 @@ function BookingContent() {
                 Continue as Guest
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isProcessingPayment} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Processing Payment</DialogTitle>
+            <DialogDescription>
+              Please wait while we process your payment...
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center items-center py-4">
+            <Icons.spinner className="h-8 w-8 animate-spin" />
           </div>
         </DialogContent>
       </Dialog>

@@ -87,77 +87,85 @@ export default function EditBookingPage({
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-600">
-                    Service Type:
-                  </p>
-                  <Select
-                    value={booking.service_type}
-                    onValueChange={(value) =>
-                      setBooking({
-                        ...booking,
-                        service_type: value as
-                          | "hourlyHire"
-                          | "meetAndGreet"
-                          | "airportTransfer",
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full bg-gray-50 border-gray-300">
-                      <SelectValue placeholder="Meet and Assist Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="arrival">Arrival</SelectItem>
-                      <SelectItem value="departure">Departure</SelectItem>
-                      <SelectItem value="connection">Connection</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {booking.service_subtype === "connection" ? (
-                <>
-                  <div className="space-y-2">
-                    <Label>Departure Flight</Label>
-                    <Input
-                      value={booking.departure_flight || ""}
-                      onChange={(e) =>
-                        setBooking({
-                          ...booking,
-                          departure_flight: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Arrival Flight</Label>
-                    <Input
-                      value={booking.arrival_flight || ""}
-                      onChange={(e) =>
-                        setBooking({
-                          ...booking,
-                          arrival_flight: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </>
-              ) : (
+              {booking.service_type !== "hourlyHire" && (
                 <div className="space-y-2">
-                  <Label>Flight Number</Label>
-                  <Input
-                    value={booking.service_subtype === "arrival" ? booking.arrival_flight : booking.departure_flight || ""}
-                    onChange={(e) =>
-                      setBooking({
-                        ...booking,
-                        ...(booking.service_subtype === "arrival"
-                          ? { arrival_flight: e.target.value }
-                          : { departure_flight: e.target.value }),
-                      })
-                    }
-                  />
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-gray-600">
+                      Service Type:
+                    </p>
+                    <Select
+                      value={booking.service_type}
+                      onValueChange={(value) =>
+                        setBooking({
+                          ...booking,
+                          service_type: value as
+                            | "hourlyHire"
+                            | "meetAndGreet"
+                            | "airportTransfer",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full bg-gray-50 border-gray-300">
+                        <SelectValue placeholder="Meet and Assist Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="arrival">Arrival</SelectItem>
+                        <SelectItem value="departure">Departure</SelectItem>
+                        <SelectItem value="connection">Connection</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
+
+              {booking.service_type !== "hourlyHire" && (
+                <>
+                  {booking.service_subtype === "connection" ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Departure Flight</Label>
+                        <Input
+                          value={booking.departure_flight || ""}
+                          onChange={(e) =>
+                            setBooking({
+                              ...booking,
+                              departure_flight: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Arrival Flight</Label>
+                        <Input
+                          value={booking.arrival_flight || ""}
+                          onChange={(e) =>
+                            setBooking({
+                              ...booking,
+                              arrival_flight: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Flight Number</Label>
+                      <Input
+                        value={booking.service_subtype === "arrival" ? booking.arrival_flight : booking.departure_flight || ""}
+                        onChange={(e) =>
+                          setBooking({
+                            ...booking,
+                            ...(booking.service_subtype === "arrival"
+                              ? { arrival_flight: e.target.value }
+                              : { departure_flight: e.target.value }),
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
               <div className="space-y-2">
                 <Label>Date</Label>
                 <Input
@@ -188,53 +196,57 @@ export default function EditBookingPage({
                   }
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Additional Hours</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={booking.additional_hours || 0}
-                  onChange={(e) =>
-                    setBooking({
-                      ...booking,
-                      additional_hours: parseInt(e.target.value),
-                    })
-                  }
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={booking.want_buggy || false}
-                  onCheckedChange={(checked: boolean) =>
-                    setBooking({ ...booking, want_buggy: checked })
-                  }
-                />
-                <Label>Buggy Service</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={booking.want_porter || false}
-                  onCheckedChange={(checked: boolean) =>
-                    setBooking({ ...booking, want_porter: checked })
-                  }
-                />
-                <Label>Porter Service</Label>
-              </div>
-              {booking.want_porter && (
+              {booking.service_type === "hourlyHire" && (
                 <div className="space-y-2">
-                  <Label>Number of Bags/Luggage</Label>
+                  <Label>Additional Hours</Label>
                   <Input
                     type="number"
-                    min="1"
-                    value={booking.luggage || 1}
+                    min="0"
+                    value={booking.additional_hours || 0}
                     onChange={(e) =>
                       setBooking({
                         ...booking,
-                        luggage: parseInt(e.target.value),
+                        additional_hours: parseInt(e.target.value),
                       })
                     }
                   />
                 </div>
+              )}
+              {booking.service_type !== "hourlyHire" && (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={booking.want_buggy || false}
+                      onCheckedChange={(checked: boolean) =>
+                        setBooking({ ...booking, want_buggy: checked })
+                      }
+                    />
+                    <Label>Buggy Service</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={booking.want_porter || false}
+                      onCheckedChange={(checked: boolean) =>
+                        setBooking({ ...booking, want_porter: checked })
+                      }
+                    />
+                    <Label>Porter Service</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Number of Bags/Luggage</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={booking.luggage || 1}
+                      onChange={(e) =>
+                        setBooking({
+                          ...booking,
+                          luggage: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </>
               )}
             </div>
             <div className="flex justify-end space-x-4">

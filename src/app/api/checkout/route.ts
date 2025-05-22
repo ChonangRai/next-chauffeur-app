@@ -2,7 +2,6 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
-import { auth } from "@/lib/firebase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -21,7 +20,7 @@ function formatServiceType(serviceType: string): string {
 
 export async function POST(req: Request) {
   try {
-    const { bookingDetails, amount } = await req.json();
+    const { bookingDetails, amount, userId } = await req.json();
 
     // Validate environment variables
     if (!process.env.STRIPE_SECRET_KEY || !process.env.NEXT_PUBLIC_BASE_URL) {
@@ -77,7 +76,7 @@ export async function POST(req: Request) {
         },
         customer_email: bookingDetails.email,
         success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/booking`,
+        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/`,
         custom_text: {
           submit: {
             message: `Booking Summary:
@@ -95,10 +94,6 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
           },
         },
       });
-
-
-      // Get current user if logged in
-      const user = auth.currentUser;
 
       // Save booking to Firebase
       const bookingData = {
@@ -126,7 +121,7 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         created_at: new Date(),
         updated_at: new Date(),
         stripe_session_id: session.id,
-        user_id: user?.uid || null,
+        user_id: userId || null,
       };
 
       const bookingsRef = collection(db, "bookings");
