@@ -33,7 +33,7 @@ export default function PriceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="w-[95vw] max-w-md sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Price Estimate</DialogTitle>
           <DialogDescription>
@@ -41,13 +41,13 @@ export default function PriceModal({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="border rounded-lg p-4">
-            <table className="w-full">
+          <div className="border rounded-lg p-4 overflow-x-auto">
+            <table className="w-full min-w-[300px]">
               <tbody>
                 {priceBreakdown.map((item, index) => (
                   <tr key={index} className="border-b last:border-0">
-                    <td className="py-2">{item.description}</td>
-                    <td className="py-2 text-right">
+                    <td className="py-2 pr-4">{item.description}</td>
+                    <td className="py-2 text-right whitespace-nowrap">
                       {formatPrice(item.amount)}
                     </td>
                   </tr>
@@ -62,11 +62,13 @@ export default function PriceModal({
             </table>
           </div>
         </div>
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>
-          <Button onClick={onContinue}>Continue to Booking</Button>
+          <Button onClick={onContinue} className="w-full sm:w-auto">
+            Continue to Booking
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

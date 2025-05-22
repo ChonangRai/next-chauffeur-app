@@ -156,9 +156,9 @@ export default function JourneyForm({
       className="space-y-8"
     >
       <div className="grid gap-8">
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Pickup Location */}
-          <div className="w-[240px] space-y-3">
+          <div className="w-full sm:w-[240px] space-y-3">
             <Label>Pickup Location</Label>
             <Select
               value={formData.pickupLocationId || ""}
@@ -196,14 +196,14 @@ export default function JourneyForm({
                 onChange={(e) => setFormData.setCustomPickupAddress?.(e.target.value)}
               />
             )}
-            {locationError && (
+            {locationError && !formData.pickupLocationId && (
               <p className="text-xs text-red-500 mt-1">{locationError}</p>
             )}
           </div>
 
           {/* Dropoff Location for Airport Transfer */}
-          {type === "airportTransfer" && (
-            <div className="w-[240px] space-y-3">
+          {type === "airportTransfer" && setFormData.setDropoffLocationId && (
+            <div className="w-full sm:w-[240px] space-y-3">
               <Label>Dropoff Location</Label>
               <Select
                 value={formData.dropoffLocationId || ""}
@@ -249,7 +249,7 @@ export default function JourneyForm({
 
           {/* Meet & Greet Type */}
           {formData.service_subtype && setFormData.setServiceSubType && (
-            <div className="w-[240px] space-y-3">
+            <div className="w-full sm:w-[240px] space-y-3">
               <Label>Meet & Greet Type</Label>
               <Select
                 value={formData.service_subtype}
@@ -269,7 +269,7 @@ export default function JourneyForm({
           )}
 
           {formData.service_subtype === "connection" && setFormData.setDropoffLocationId && (
-            <div className="w-[240px] space-y-3">
+            <div className="w-full sm:w-[240px] space-y-3">
               <Label>Dropoff Location</Label>
               <Select
                 value={formData.dropoffLocationId || ""}
@@ -330,9 +330,9 @@ export default function JourneyForm({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Date */}
-          <div className="w-[240px] space-y-3">
+          <div className="w-full sm:w-[240px] space-y-3">
             <Label>Date</Label>
             <div className="relative">
               <DatePicker
@@ -374,7 +374,7 @@ export default function JourneyForm({
           </div>
 
           {/* Time */}
-          <div className="w-[240px] space-y-3">
+          <div className="w-full sm:w-[240px] space-y-3">
             <Label>Time</Label>
             <div className="relative">
               <input
@@ -401,7 +401,7 @@ export default function JourneyForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Passengers */}
           <div className="space-y-3">
             <Label>Number of Passengers</Label>
@@ -534,7 +534,7 @@ export default function JourneyForm({
         {/* Additional Services */}
         {type === "meetAndGreet" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Buggy Service */}
               <div className="space-y-3">
                 <Label>Want Buggy Service?</Label>
@@ -670,15 +670,15 @@ export default function JourneyForm({
             )}
           </div>
         )}
-
-        <Button
-          type="submit"
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-          disabled={isLoading || isPriceEstimationDisabled}
-        >
-          {type === "hourlyHire" ? "Find Available Vehicles" : submitButtonText}
-        </Button>
       </div>
+
+      <Button
+        type="submit"
+        className="w-full sm:w-auto"
+        disabled={isLoading || isPriceEstimationDisabled}
+      >
+        {submitButtonText}
+      </Button>
     </form>
   );
 }

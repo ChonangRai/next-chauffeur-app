@@ -469,11 +469,12 @@ export function PriceEstimator() {
         <Tabs 
           defaultValue="meetAndGreet" 
           onValueChange={(value) => setServiceType(value as "meetAndGreet" | "airportTransfer" | "hourlyHire")}
+          className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="meetAndGreet">Meet & Greet</TabsTrigger>
-            <TabsTrigger value="airportTransfer">Airport Transfer</TabsTrigger>
-            <TabsTrigger value="hourlyHire">Hire by Hour</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3">
+            <TabsTrigger value="meetAndGreet" className="text-xs sm:text-sm">Meet & Greet</TabsTrigger>
+            <TabsTrigger value="airportTransfer" className="text-xs sm:text-sm">Airport Transfer</TabsTrigger>
+            <TabsTrigger value="hourlyHire" className="text-xs sm:text-sm">Hire by Hour</TabsTrigger>
           </TabsList>
           <TabsContent value="meetAndGreet">
             <JourneyForm
