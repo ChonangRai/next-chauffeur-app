@@ -219,7 +219,7 @@ export default function AdminDashboard() {
                   <p className="text-2xl font-bold text-gray-900">{airportTransferBookings}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Hourly Hire Bookings</h3>
+                  <h3 className="text-sm font-medium text-gray-500">Hire By Hour Bookings</h3>
                   <p className="text-2xl font-bold text-gray-900">{hourlyHireBookings}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-md">

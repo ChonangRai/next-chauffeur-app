@@ -21,7 +21,7 @@ export default function ServiceTypeSelector({ serviceType, setServiceType }: Ser
       <SelectContent>
         <SelectItem value="meetAndGreet">Meet and Greet</SelectItem>
         <SelectItem value="airportTransfer">Airport Transfer</SelectItem>
-        <SelectItem value="hourlyHire">Hourly Hire</SelectItem>
+        <SelectItem value="hourlyHire">Hire By Hour</SelectItem>
       </SelectContent>
     </Select>
   );

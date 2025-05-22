@@ -6,6 +6,19 @@ import { auth } from "@/lib/firebase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+function formatServiceType(serviceType: string): string {
+  switch (serviceType) {
+    case "meetAndGreet":
+      return "Meet and Greet";
+    case "airportTransfer":
+      return "Airport Transfer";
+    case "hourlyHire":
+      return "Hourly Hire";
+    default:
+      return serviceType;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { bookingDetails, amount } = await req.json();
@@ -36,8 +49,8 @@ export async function POST(req: Request) {
             price_data: {
               currency: "gbp",
               product_data: {
-                name: `${bookingDetails.serviceType} - ${
-                  bookingDetails.isHireByHour ? "By the Hour" : "One Way"
+                name: `${formatServiceType(bookingDetails.service_type || bookingDetails.serviceType)} - ${
+                  (bookingDetails.service_type === "hourlyHire" || bookingDetails.serviceType === "hourlyHire") ? "By the Hour" : bookingDetails.service_subtype
                 }`,
                 description: `Booking for ${bookingDetails.fullName}`,
               },
@@ -98,14 +111,14 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         dropoff_location: bookingDetails.dropoffLocation || null,
         additional_requests: bookingDetails.additionalRequests || null,
         date_time: bookingDetails.dateTime,
-        service_type: bookingDetails.serviceType,
-        service_subtype: bookingDetails.serviceSubtype || null,
+        service_type: bookingDetails.service_type || bookingDetails.serviceType,
+        service_subtype: bookingDetails.service_subtype || bookingDetails.serviceSubtype || null,
         amount: amount,
         status: "pending",
         payment_status: "pending",
         contact_consent: bookingDetails.contactConsent || false,
-        duration: bookingDetails.serviceType === "hourlyHire" ? bookingDetails.duration : null,
-        duration_unit: bookingDetails.serviceType === "hourlyHire" ? bookingDetails.durationUnit : null,
+        duration: (bookingDetails.service_type === "hourlyHire" || bookingDetails.serviceType === "hourlyHire") ? bookingDetails.duration : null,
+        duration_unit: (bookingDetails.service_type === "hourlyHire" || bookingDetails.serviceType === "hourlyHire") ? bookingDetails.durationUnit : null,
         driver_status: "unassigned",
         booking_ref,
         flight_number_arrival: bookingDetails.flightNumberArrival || null,

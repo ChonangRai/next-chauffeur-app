@@ -85,7 +85,31 @@ function BookingContent() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      if (user) {
+        // Fetch user profile data
+        getDoc(doc(db, "profiles", user.uid)).then((profileDoc) => {
+          if (profileDoc.exists()) {
+            setBookingDetails((prev) => ({
+              ...prev,
+              fullName: `${profileDoc.data().firstName} ${profileDoc.data().lastName}`,
+              email: user.email || "",
+              phone: profileDoc.data().phone || "",
+            }));
+          }
+        });
+      }
     });
+
+    // Load service details from localStorage
+    const serviceDetails = localStorage.getItem('serviceDetails');
+    if (serviceDetails) {
+      const details = JSON.parse(serviceDetails);
+      setBookingDetails(prev => ({
+        ...prev,
+        ...details,
+        calculatedAmount: details.estimatedPrice || 0,
+      }));
+    }
 
     return () => unsubscribe();
   }, []);
@@ -104,34 +128,7 @@ function BookingContent() {
     };
 
     fetchLocations();
-
-    // Check for service details in localStorage
-    const serviceDetails = localStorage.getItem('serviceDetails');
-    if (serviceDetails) {
-      const details = JSON.parse(serviceDetails);
-      setBookingDetails((prev) => ({
-        ...prev,
-        service_type: details.service_type,
-        pickupLocationId: details.locationId,
-        date: details.date ? new Date(details.date) : undefined,
-        hour: details.hour,
-        minute: details.minute,
-        passengers: details.passengers,
-        additionalHours: details.additionalHours,
-        bags: details.additionalServices.bags || 0,
-        wantBuggy: details.additionalServices.buggy || false,
-        wantPorter: details.additionalServices.porter || false,
-        calculatedAmount: details.estimatedPrice,
-        service_subtype: details.service_subtype,
-        flightNumberArrival: details.flightDetails?.arrival || "",
-        flightNumberDeparture: details.flightDetails?.departure || "",
-      }));
-    } else {
-      // No service details found, redirect to price estimator
-      router.replace("/#estimate");
-      return;
-    }
-  }, [router]);
+  }, []);
 
   const handleAuthChoice = async (choice: "signup" | "signin" | "guest") => {
     setShowAuthModal(false);
@@ -158,8 +155,8 @@ function BookingContent() {
             type: "error",
             message: "Date is required",
           });
-      return;
-    }
+          return;
+        }
 
         const dateTime = new Date(
           bookingDetails.date.getFullYear(),
@@ -225,10 +222,23 @@ function BookingContent() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    // Validate date and time
+    
+    // Validate required fields
     const errors: Record<string, string> = {};
     if (!bookingDetails.date) errors.date = "Date is required";
     if (!bookingDetails.hour || !bookingDetails.minute) errors.time = "Time is required";
+    if (!bookingDetails.fullName) errors.fullName = "Full name is required";
+    if (!bookingDetails.email) errors.email = "Email is required";
+    if (!bookingDetails.phone) errors.phone = "Phone number is required";
+    
+    if (bookingDetails.service_type === "meetAndGreet") {
+      if ((bookingDetails.service_subtype === "arrival" || bookingDetails.service_subtype === "connection") && !bookingDetails.flightNumberArrival) {
+        errors.flightNumberArrival = "Arrival flight number is required";
+      }
+      if ((bookingDetails.service_subtype === "departure" || bookingDetails.service_subtype === "connection") && !bookingDetails.flightNumberDeparture) {
+        errors.flightNumberDeparture = "Departure flight number is required";
+      }
+    }
     
     if (Object.keys(errors).length > 0) {
       setNotification({
@@ -238,25 +248,96 @@ function BookingContent() {
       return;
     }
 
-    // Fetch user data before moving to step 2
-    const user = auth.currentUser;
+    // If user is logged in, proceed to payment
     if (user) {
       try {
-        const profileDoc = await getDoc(doc(db, "profiles", user.uid));
-        if (profileDoc.exists()) {
-          setBookingDetails((prev) => ({
-            ...prev,
-            fullName: `${profileDoc.data().firstName} ${profileDoc.data().lastName}`,
-            email: user.email || "",
-            phone: profileDoc.data().phone || "",
-          }));
+        const pickupLocation = locations.find(loc => loc.id === bookingDetails.pickupLocationId);
+        const dropoffLocation = locations.find(loc => loc.id === bookingDetails.dropoffLocationId);
+        
+        if (!pickupLocation) {
+          setNotification({
+            type: "error",
+            message: "Pickup location is required",
+          });
+          return;
         }
-      } catch (err) {
-        console.error("Failed to fetch user data");
-      }
-    }
 
-    setShowAuthModal(true);
+        if (!bookingDetails.date) {
+          setNotification({
+            type: "error",
+            message: "Date is required",
+          });
+          return;
+        }
+
+        // Convert date string to Date object if needed
+        let bookingDate = bookingDetails.date;
+        if (typeof bookingDate === "string") {
+          bookingDate = new Date(bookingDate);
+        }
+
+        const dateTime = new Date(
+          bookingDate.getFullYear(),
+          bookingDate.getMonth(),
+          bookingDate.getDate(),
+          parseInt(bookingDetails.hour),
+          parseInt(bookingDetails.minute)
+        ).toISOString();
+
+        const response = await fetch("/api/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bookingDetails: {
+              fullName: bookingDetails.fullName,
+              email: bookingDetails.email,
+              phone: bookingDetails.phone,
+              pickupLocation: pickupLocation.name,
+              dropoffLocation: dropoffLocation?.name,
+              dateTime,
+              service_type: bookingDetails.service_type,
+              service_subtype: bookingDetails.service_subtype,
+              isHireByHour: bookingDetails.service_type === "hourlyHire",
+              duration: bookingDetails.additionalHours,
+              durationUnit: "hours",
+              additionalRequests: bookingDetails.additionalRequests,
+              flightNumberArrival: bookingDetails.flightNumberArrival,
+              flightNumberDeparture: bookingDetails.flightNumberDeparture,
+              passengers: bookingDetails.passengers,
+              bags: bookingDetails.bags,
+              wantBuggy: bookingDetails.wantBuggy,
+              wantPorter: bookingDetails.wantPorter,
+              contactConsent: true,
+            },
+            amount: bookingDetails.calculatedAmount || calculateEstimatedCost(),
+          }),
+        });
+
+        const { url, error } = await response.json();
+
+        if (error) {
+          setNotification({
+            type: "error",
+            message: error,
+          });
+          return;
+        }
+
+        // Redirect to Stripe Checkout
+        window.location.href = url;
+      } catch (err) {
+        console.error("Payment error:", err);
+        setNotification({
+          type: "error",
+          message: "Failed to process payment. Please try again.",
+        });
+      }
+    } else {
+      // Show auth modal for non-logged in users
+      setShowAuthModal(true);
+    }
   };
 
   // Calculate estimated cost
@@ -342,34 +423,29 @@ function BookingContent() {
                     </Button>
                   </div>
                   <div className="space-y-2 text-sm md:text-base">
-                    <p>
-                      <strong>Service Type:</strong>{" "}
-                      {bookingDetails.service_type === "meetAndGreet"
-                        ? `Meet and Greet (${bookingDetails.service_subtype})`
-                        : bookingDetails.service_type === "airportTransfer"
-                        ? "Airport Transfer"
-                        : "Daily Hire"}
-                    </p>
-                    <p>
-                      <strong>
-                        {bookingDetails.service_subtype === "connection"
-                          ? "Arrival Terminal"
-                          : "Pickup Location"}
-                        :
-                      </strong>{" "}
-                      {locations.find(
-                        (loc) => loc.id === bookingDetails.pickupLocationId
-                      )?.name || "Not selected"}
-                    </p>
-                    {bookingDetails.service_type === "meetAndGreet" &&
-                      bookingDetails.service_subtype === "connection" && (
+                    {bookingDetails.service_type === "meetAndGreet" ? (
+                      <>
                         <p>
-                          <strong>Departure Terminal:</strong>{" "}
-                          {locations.find(
-                            (loc) =>
-                              loc.id === bookingDetails.dropoffLocationId
-                          )?.name || "Not selected"}
+                          <strong>Service Type:</strong> Meet and Greet{bookingDetails.service_subtype ? ` (${bookingDetails.service_subtype.charAt(0).toUpperCase() + bookingDetails.service_subtype.slice(1)})` : ""}
                         </p>
+                        <p>
+                          <strong>Meet up Location:</strong> {locations.find((loc) => loc.id === bookingDetails.pickupLocationId)?.name || "Not selected"}
+                        </p>
+                        {bookingDetails.service_subtype === "connection" && (
+                          <p>
+                            <strong>Drop off Location:</strong> {locations.find((loc) => loc.id === bookingDetails.dropoffLocationId)?.name || "Not selected"}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          <strong>Service Type:</strong> {bookingDetails.service_type === "airportTransfer" ? "Airport Transfer" : "Daily Hire"}
+                        </p>
+                        <p>
+                          <strong>Pickup Location:</strong> {locations.find((loc) => loc.id === bookingDetails.pickupLocationId)?.name || "Not selected"}
+                        </p>
+                      </>
                     )}
                     <p>
                       <strong>Date:</strong>{" "}
@@ -432,8 +508,7 @@ function BookingContent() {
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {bookingDetails.service_type === "meetAndGreet" && (
                       <>
-                        {(bookingDetails.service_subtype === "arrival" || 
-                          bookingDetails.service_subtype === "connection") && (
+                        {bookingDetails.service_subtype === "arrival" && (
                           <div>
                             <Label>
                               Arrival Flight Number
@@ -451,8 +526,7 @@ function BookingContent() {
                             />
                           </div>
                         )}
-                        {(bookingDetails.service_subtype === "departure" || 
-                          bookingDetails.service_subtype === "connection") && (
+                        {bookingDetails.service_subtype === "departure" && (
                           <div>
                             <Label>
                               Departure Flight Number
@@ -469,6 +543,42 @@ function BookingContent() {
                               placeholder="Enter departure flight number"
                             />
                           </div>
+                        )}
+                        {bookingDetails.service_subtype === "connection" && (
+                          <>
+                            <div>
+                              <Label>
+                                Arrival Flight Number
+                                <span className="text-red-500 ml-1">*</span>
+                              </Label>
+                              <Input
+                                value={bookingDetails.flightNumberArrival}
+                                onChange={(e) =>
+                                  setBookingDetails((prev) => ({
+                                    ...prev,
+                                    flightNumberArrival: e.target.value,
+                                  }))
+                                }
+                                placeholder="Enter arrival flight number"
+                              />
+                            </div>
+                            <div>
+                              <Label>
+                                Departure Flight Number
+                                <span className="text-red-500 ml-1">*</span>
+                              </Label>
+                              <Input
+                                value={bookingDetails.flightNumberDeparture}
+                                onChange={(e) =>
+                                  setBookingDetails((prev) => ({
+                                    ...prev,
+                                    flightNumberDeparture: e.target.value,
+                                  }))
+                                }
+                                placeholder="Enter departure flight number"
+                              />
+                            </div>
+                          </>
                         )}
                       </>
                     )}
@@ -538,8 +648,7 @@ function BookingContent() {
                     <div className="space-y-2">
                       <Button
                         variant="outline"
-                        type="button"
-                        onClick={() => setShowAuthModal(true)}
+                        type="submit"
                         className="w-full"
                       >
                         Continue to Booking
@@ -553,7 +662,7 @@ function BookingContent() {
         </div>
       </section>
 
-      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+      <Dialog open={showAuthModal && !user} onOpenChange={setShowAuthModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Continue Your Booking</DialogTitle>

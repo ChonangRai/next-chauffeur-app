@@ -37,6 +37,7 @@ interface JourneyFormProps {
     additionalHours: number;
     vehicle?: string;
     pickupLocationId?: string;
+    dropoffLocationId?: string;
   };
   setFormData: {
     setDate: (date: Date | undefined) => void;
@@ -54,6 +55,7 @@ interface JourneyFormProps {
     setAdditionalHours: (hours: number) => void;
     setVehicle?: (vehicle: string) => void;
     setPickupLocationId?: (id: string) => void;
+    setDropoffLocationId?: (id: string) => void;
   };
 }
 
@@ -152,7 +154,61 @@ export default function JourneyForm({
               </Select>
             </div>
           )}
+
+          {formData.service_subtype === "connection" && setFormData.setDropoffLocationId && (
+            <div className="w-[240px] space-y-3">
+              <Label>Dropoff Location</Label>
+              <Select
+                value={formData.dropoffLocationId || ""}
+                onValueChange={setFormData.setDropoffLocationId}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Dropoff Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
+
+        {formData.service_subtype === "connection" && formData.pickupLocationId && formData.dropoffLocationId && (
+          (() => {
+            const pickup = locations.find(l => l.id === formData.pickupLocationId);
+            const dropoff = locations.find(l => l.id === formData.dropoffLocationId);
+            if (!pickup || !dropoff) return null;
+
+            const pickupAirport = pickup.name.split(" ")[0].toLowerCase();
+            const dropoffAirport = dropoff.name.split(" ")[0].toLowerCase();
+
+            // If different airports, suggest airport transfer
+            if (pickupAirport !== dropoffAirport) {
+              return (
+                <div className="p-3 bg-amber-100 text-amber-800 rounded-md mt-2">
+                  <p className="text-xs">For connections between different airports, please select 'Airport Transfer' as the service type.</p>
+                </div>
+              );
+            }
+
+            // If same airport but different terminals at non-Heathrow
+            const isHeathrow = (name: string) => name.toLowerCase().includes("heathrow");
+            if (!isHeathrow(pickup.name) && pickup.name !== dropoff.name) {
+              return (
+                <div className="p-3 bg-amber-100 text-amber-800 rounded-md mt-2">
+                  <p className="text-xs">Connection service between different terminals is only available at Heathrow airport.</p>
+                </div>
+              );
+            }
+
+            return null;
+          })()
+        )}
 
         <div className="grid grid-cols-2 gap-6">
           {/* Date */}
