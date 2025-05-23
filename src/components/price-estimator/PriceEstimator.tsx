@@ -14,7 +14,7 @@ import JourneyForm from "./components/JourneyForm";
 import PriceModal from "./components/PriceModal";
 import { AlertCircle } from "lucide-react";
 import type { Location, Vehicle } from "@/lib/types";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import VehicleSelection from "./components/VehicleSelection";
@@ -38,6 +38,7 @@ export interface BookingData {
 
 export function PriceEstimator() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [isLocationsLoading, setIsLocationsLoading] = useState(true);
   const [isVehiclesLoading, setIsVehiclesLoading] = useState(true);
@@ -151,6 +152,18 @@ export function PriceEstimator() {
     setIsPriceEstimationDisabled(false);
     setPriceEstimationMessage("");
   }, [serviceType, serviceSubType, pickupLocationId, dropoffLocationId, locations]);
+
+  useEffect(() => {
+    // Pre-select service type and vehicle from query params
+    const serviceTypeParam = searchParams.get("service_type");
+    const vehicleParam = searchParams.get("vehicle");
+    if (serviceTypeParam === "hire_by_hour") {
+      setServiceType("hourlyHire");
+    }
+    if (vehicleParam) {
+      setVehicle(vehicleParam);
+    }
+  }, [searchParams]);
 
   const currentYear = new Date().getFullYear();
   const FESTIVE_PERIODS = useMemo(

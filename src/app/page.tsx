@@ -2,10 +2,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { PriceEstimator } from "@/components/price-estimator/PriceEstimator"
-// import { Input } from "@/components/ui/input"
-// import { Label } from "@radix-ui/react-label"
-// import { useState } from "react"
-// import { Button } from "@/components/ui/button"
+import { Suspense } from "react"
+
 
 export default function Home() {
   // const [activeTab, setActiveTab] = useState("one-way");
@@ -112,7 +110,9 @@ export default function Home() {
       <section id="estimate" className="py-16 bg-muted">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
-            <PriceEstimator/>
+            <Suspense fallback={<div>Loading estimator...</div>}>
+              <PriceEstimator/>
+            </Suspense>
           </div>
         </div>
       </section>
