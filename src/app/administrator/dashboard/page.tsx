@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import VehiclesTab from "@/components/admin/VehiclesTab";
 import DriverPaymentsTab from "@/components/admin/DriverPaymentsTab";
 import InvoicesTab from "@/components/admin/InvoicesTab";
@@ -25,17 +23,34 @@ import {
   SidebarTrigger,
   SidebarProvider,
 } from "@/components/ui/sidebar";
-import { ChevronLeft, ChevronRight, Car, Calendar, DollarSign, FileText, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Car, Calendar, DollarSign, FileText, Settings, User, LogOut, Shield, Key } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { isAdminUser } from "@/lib/adminUtils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 
 export default function AdminDashboard() {
-  const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "vehicles" | "bookings" | "payments" | "invoices" | "priceSettings"
-  >("bookings"); // Default to bookings
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Sidebar open by default
+  >("bookings");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const router = useRouter();
 
   // State for vehicles
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -56,52 +71,99 @@ export default function AdminDashboard() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      Promise.all([
-        fetchVehicles().then(({ data, error, isLoading }) => {
-          setVehicles(data || []);
-          setVehicleError(error);
-          setIsLoadingVehicles(isLoading);
-        }),
-        fetchBookings().then(({ data, error, isLoading }) => {
-          setBookings(data || []);
-          setBookingError(error);
-          setIsLoadingBookings(isLoading);
-        }),
-        fetchDrivers().then(({ data }) => {
-          setDrivers(data || []);
-        }),
-        fetchDriverPayments().then(({ data, error, isLoading }) => {
-          setDriverPayments(data || []);
-          setPaymentError(error);
-          setIsLoadingPayments(isLoading);
-        }),
-      ]);
-    }
-  }, [password]);
+    console.log("Setting up auth state listener...");
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth state changed:", user ? "User found" : "No user");
+      
+      if (!user) {
+        console.log("No user found, redirecting to sign in...");
+        window.location.replace("/administrator/signin");
+        return;
+      }
 
-  if (!isAuthenticated) {
+      try {
+        console.log("Checking admin status for user:", user.uid);
+        const isAdmin = await isAdminUser(user.uid);
+        console.log("Is admin:", isAdmin);
+
+        if (!isAdmin) {
+          console.log("User is not admin, signing out and redirecting...");
+          await auth.signOut();
+          window.location.replace("/administrator/signin");
+          return;
+        }
+
+        console.log("User is admin, setting up dashboard...");
+        setIsAuthenticated(true);
+        setIsAdmin(true);
+        setIsLoading(false);
+        setUserEmail(user.email || "");
+
+        // Fetch all data
+        console.log("Fetching dashboard data...");
+        Promise.all([
+          fetchVehicles().then(({ data, error, isLoading }) => {
+            setVehicles(data || []);
+            setVehicleError(error);
+            setIsLoadingVehicles(isLoading);
+          }),
+          fetchBookings().then(({ data, error, isLoading }) => {
+            setBookings(data || []);
+            setBookingError(error);
+            setIsLoadingBookings(isLoading);
+          }),
+          fetchDrivers().then(({ data }) => {
+            setDrivers(data || []);
+          }),
+          fetchDriverPayments().then(({ data, error, isLoading }) => {
+            setDriverPayments(data || []);
+            setPaymentError(error);
+            setIsLoadingPayments(isLoading);
+          }),
+        ]).then(() => {
+          console.log("Dashboard data fetched successfully");
+        }).catch((error) => {
+          console.error("Error fetching dashboard data:", error);
+        });
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+        await auth.signOut();
+        window.location.replace("/administrator/signin");
+      }
+    });
+
+    return () => {
+      console.log("Cleaning up auth state listener...");
+      unsubscribe();
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      // Clear session cookie
+      document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      toast.success("Successfully signed out");
+      window.location.replace("/administrator/signin");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast.error("Failed to sign out");
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
-          <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Admin Access</h2>
-          <Input
-            type="password"
-            placeholder="Enter admin password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-4 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-          <Button onClick={() => setPassword(password)} className="w-full bg-indigo-600 hover:bg-indigo-700">
-            Submit
-          </Button>
-          {password && password !== process.env.NEXT_PUBLIC_ADMIN_PASSWORD && (
-            <p className="text-red-500 text-center mt-2">Access Denied</p>
-          )}
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated || !isAdmin) {
+    return null; // Will redirect in useEffect
   }
 
   // Calculate stats
@@ -119,7 +181,7 @@ export default function AdminDashboard() {
         {/* Sidebar */}
         <Sidebar
           className={cn(
-            "fixed top-0 left-0 h-full transition-all duration-300 border-r bg-gradient-to-t from-[#1C2526] to-[#323838] text-white",
+            "fixed top-0 left-0 h-full transition-all duration-300 border-r bg-gradient-to-t from-[#1C2526] to-[#323838] text-white z-30",
             isSidebarOpen ? "w-64" : "w-16"
           )}
         >
@@ -131,9 +193,7 @@ export default function AdminDashboard() {
               onClick={() => setIsSidebarOpen((prev) => !prev)}
               className="p-2 rounded-md hover:bg-gray-700"
             >
-              <Button variant="ghost" size="icon">
-                {isSidebarOpen ? <ChevronLeft className="h-5 w-5 text-white" /> : <ChevronRight className="h-5 w-5 text-white" />}
-              </Button>
+              {isSidebarOpen ? <ChevronLeft className="h-5 w-5 text-white" /> : <ChevronRight className="h-5 w-5 text-white" />}
             </SidebarTrigger>
           </div>
           <SidebarContent>
@@ -142,7 +202,8 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab("bookings")}
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "bookings" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700"
+                  activeTab === "bookings" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
+                  !isSidebarOpen && "justify-center"
                 )}
               >
                 <Calendar className="h-5 w-5" />
@@ -152,7 +213,8 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab("vehicles")}
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "vehicles" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700"
+                  activeTab === "vehicles" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
+                  !isSidebarOpen && "justify-center"
                 )}
               >
                 <Car className="h-5 w-5" />
@@ -162,7 +224,8 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab("payments")}
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "payments" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700"
+                  activeTab === "payments" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
+                  !isSidebarOpen && "justify-center"
                 )}
               >
                 <DollarSign className="h-5 w-5" />
@@ -172,7 +235,8 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab("invoices")}
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "invoices" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700"
+                  activeTab === "invoices" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
+                  !isSidebarOpen && "justify-center"
                 )}
               >
                 <FileText className="h-5 w-5" />
@@ -182,7 +246,8 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab("priceSettings")}
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "priceSettings" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700"
+                  activeTab === "priceSettings" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
+                  !isSidebarOpen && "justify-center"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -199,6 +264,46 @@ export default function AdminDashboard() {
             isSidebarOpen ? "ml-64" : "ml-16"
           )}
         >
+          {/* Top Navigation Bar */}
+          <div className="bg-white border-b px-6 py-3 flex justify-end items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="relative h-8 w-8 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src="/avatars/01.png" alt={userEmail} />
+                  <AvatarFallback>{userEmail.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">Admin</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {userEmail}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push('/administrator/profile')}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/administrator/add-admin')}>
+                  <Shield className="mr-2 h-4 w-4" />
+                  <span>Add Admin</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/administrator/change-password')}>
+                  <Key className="mr-2 h-4 w-4" />
+                  <span>Change Password</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
           <div className="p-6 w-full">
             {activeTab === "bookings" && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

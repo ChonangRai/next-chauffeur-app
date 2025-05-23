@@ -12,28 +12,28 @@ export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
   let isLoading = true;
   try {
     const vehiclesRef = collection(db, "vehicles");
-    const q = query(vehiclesRef, orderBy("basePrice", "asc"));
+    const q = query(vehiclesRef, orderBy("base_price", "asc"));
     const snapshot = await getDocs(q);
     
     const data = snapshot.docs.map(doc => {
       const vehicle = doc.data();
       return {
         id: doc.id,
-        title: vehicle.title || "",
-        name: vehicle.name || "",
-        description: vehicle.description || "",
-        passengers: vehicle.passengers || 1,
-        bags: vehicle.bags || 0,
-        wifi: vehicle.wifi ?? false,
-        meet_greet: vehicle.meetGreet ?? false,
-        drinks: vehicle.drinks ?? false,
-        waiting_time: vehicle.waitingTime || "",
-        base_price: vehicle.basePrice || 0,
-        price_per_hour: vehicle.pricePerHour || 0,
-        image_url: vehicle.imageUrl || "",
-        created_at: vehicle.createdAt,
-        vehicle_status: vehicle.status,
-        daily_rate: vehicle.dailyRate
+        title: vehicle.title || vehicle.Title || "",
+        name: vehicle.name || vehicle.Name || "",
+        description: vehicle.description || vehicle.Description || "",
+        passengers: vehicle.passengers || vehicle.Passengers || 1,
+        bags: vehicle.bags || vehicle.Bags || 0,
+        wifi: vehicle.wifi ?? vehicle.Wifi ?? false,
+        meet_greet: vehicle.meet_greet ?? vehicle.meetGreet ?? false,
+        drinks: vehicle.drinks ?? vehicle.Drinks ?? false,
+        waiting_time: vehicle.waiting_time || vehicle.waitingTime || "",
+        base_price: vehicle.base_price || vehicle.basePrice || 0,
+        price_per_hour: vehicle.price_per_hour || vehicle.pricePerHour || 0,
+        image_url: vehicle.image_url || vehicle.imageUrl || "",
+        created_at: vehicle.created_at || vehicle.createdAt,
+        vehicle_status: vehicle.vehicle_status || vehicle.status || "active",
+        daily_rate: vehicle.daily_rate || vehicle.dailyRate || 0
       };
     });
     
@@ -151,6 +151,8 @@ export const fetchLocations = async (): Promise<FetchResult<Location>> => {
       id: index + 1,
       name: doc.data().name || "",
       status: doc.data().status || "active",
+      isAirport: doc.data().isAirport || false,
+      terminals: doc.data().terminals || []
     }));
     isLoading = false;
     return { data, error: null, isLoading };
@@ -164,32 +166,31 @@ export const fetchLocations = async (): Promise<FetchResult<Location>> => {
 export const fetchServicePricing = async (): Promise<FetchResult<ServicePricing>> => {
   let isLoading = true;
   try {
-    const pricingRef = collection(db, "servicePricing");
-    const snapshot = await getDocs(pricingRef);
-    const data = snapshot.docs.map((doc, index) => ({
-      id: index + 1,
-      service_type: doc.data().serviceType || "",
-      sub_type: doc.data().subType || "",
-      base_price: doc.data().basePrice || 0,
+    const serviceRatesRef = collection(db, "service_rates");
+    const snapshot = await getDocs(serviceRatesRef);
+    const data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      baseRate: doc.data().baseRate,
+      description: doc.data().description,
     }));
     isLoading = false;
     return { data, error: null, isLoading };
   } catch (err: unknown) {
-    console.error("Error fetching service pricing:", err);
+    console.error("Error fetching service rates:", err);
     isLoading = false;
-    return { data: null, error: err instanceof Error ? err.message : "Failed to load service pricing", isLoading };
+    return { data: null, error: err instanceof Error ? err.message : "Failed to load service rates", isLoading };
   }
 };
 
 export const fetchExtraCharges = async (): Promise<FetchResult<ExtraCharge>> => {
   let isLoading = true;
   try {
-    const chargesRef = collection(db, "extraCharges");
-    const snapshot = await getDocs(chargesRef);
-    const data = snapshot.docs.map((doc, index) => ({
-      id: index + 1,
-      charge_type: doc.data().chargeType || "",
-      amount: doc.data().amount || 0,
+    const extraChargesRef = collection(db, "extra_charges");
+    const snapshot = await getDocs(extraChargesRef);
+    const data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      amount: doc.data().amount,
+      description: doc.data().description,
     }));
     isLoading = false;
     return { data, error: null, isLoading };

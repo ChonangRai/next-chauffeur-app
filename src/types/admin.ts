@@ -69,21 +69,24 @@ export type DriverPayment = {
   payment_method: string;
 };
 
-export type Location = {
+export interface Location {
   id: number;
   name: string;
   status: "active" | "inactive";
+  isAirport: boolean;
+  terminals?: string[];
 }
 
-export type ServicePricing = {
-  id: number;
-  service_type: string;
-  sub_type: string;
-  base_price: number;
+export interface ServicePricing {
+  id: string;
+  baseRate: number;
+  description: string;
 }
 
-export type ExtraCharge = {
-  id: number;
-  charge_type: string;
+
+export interface ExtraCharge {
+  id: string;
   amount: number;
+  description: string;
 }
+

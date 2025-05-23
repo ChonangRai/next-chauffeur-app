@@ -1,102 +1,161 @@
 "use client";
-import React from "react";
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+
+import { createAdminUser } from "@/lib/adminUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { toast } from "sonner";
+import { isAdminUser } from "@/lib/adminUtils";
 
-export default function AdminSignUp() {
+export default function AddAdminPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const router = useRouter();
 
-  const handleAdminSignUp = async (e: React.FormEvent) => {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Check if current user is admin
+        const isAdmin = await isAdminUser(user.uid);
+        if (isAdmin) {
+          setIsAuthorized(true);
+        } else {
+          toast.error("Unauthorized access");
+          router.push("/administrator/signin");
+        }
+      } else {
+        router.push("/administrator/signin");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  const validatePassword = (password: string) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (password.length < minLength) {
+      return "Password must be at least 8 characters long";
+    }
+    if (!hasUpperCase) {
+      return "Password must contain at least one uppercase letter";
+    }
+    if (!hasLowerCase) {
+      return "Password must contain at least one lowercase letter";
+    }
+    if (!hasNumbers) {
+      return "Password must contain at least one number";
+    }
+    if (!hasSpecialChar) {
+      return "Password must contain at least one special character";
+    }
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    setIsLoading(true);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      // Validate passwords match
+      if (password !== confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
 
-      // Create admin document
-      await setDoc(doc(db, "admins", user.uid), {
-        firstName,
-        lastName,
-        phoneNumber,
-        email,
-        createdAt: new Date().toISOString(),
-      });
+      // Validate password strength
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        throw new Error(passwordError);
+      }
 
-      setSuccess("Admin registered successfully!");
-      setTimeout(() => {
-        router.push("/administrator/signin");
-      }, 2000);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to create admin account");
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error("Invalid email format");
+      }
+
+      await createAdminUser(email, password);
+      toast.success("Admin user created successfully");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      console.error("Error creating admin:", error);
+      toast.error(error.message || "Failed to create admin user");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  if (!isAuthorized) {
+    return null; // Will redirect in useEffect
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-        <h2 className="text-2xl font-bold mb-4 text-center">Admin Sign Up</h2>
-        <form onSubmit={handleAdminSignUp} className="space-y-4">
-          <Input
-            type="text"
-            placeholder="First Name"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            required
-          />
-          <Input
-            type="text"
-            placeholder="Last Name"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            required
-          />
-          <Input
-            type="text"
-            placeholder="Phone Number"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            required
-          />
-          <Input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <Button type="submit" className="w-full">Sign Up</Button>
-          {error && <p className="text-red-500 text-center">{error}</p>}
-          {success && <p className="text-green-500 text-center">{success}</p>}
-          <p className="text-center">
-            Already have an account?{" "}
-            <a href="/administrator/signin" className="text-blue-500 hover:underline">
-              Sign In
-            </a>
-          </p>
-        </form>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">Add Admin User</CardTitle>
+          <CardDescription className="text-center">
+            Create a new administrator account. This action can only be performed by existing administrators.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Password must be at least 8 characters long and contain uppercase, lowercase, numbers, and special characters.
+              </p>
+            </div>
+            <div>
+              <Input
+                type="password"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating..." : "Create Admin User"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
