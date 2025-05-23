@@ -17,6 +17,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import clsx from "clsx";
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,6 +27,14 @@ export function Header() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
+  const [mobileHireByHourOpen, setMobileHireByHourOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [hireByHourOpen, setHireByHourOpen] = useState(false);
+  const servicesButtonRef = useRef<HTMLButtonElement>(null);
+  const hireByHourButtonRef = useRef<HTMLButtonElement>(null);
+  let servicesMenuCloseTimer: NodeJS.Timeout;
+  let hireByHourMenuCloseTimer: NodeJS.Timeout;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -130,12 +139,128 @@ export function Header() {
             >
               About
             </Link>
-            <Link
-              href="/services"
-              className="text-sm font-medium hover:text-primary transition-colors"
+            <div
+              className="relative group"
+              onMouseEnter={() => { clearTimeout(servicesMenuCloseTimer); setServicesOpen(true); }}
+              onMouseLeave={() => {
+                servicesMenuCloseTimer = setTimeout(() => { setServicesOpen(false); }, 120);
+              }}
             >
-              Services
-            </Link>
+              <button
+                ref={servicesButtonRef}
+                className={clsx(
+                  "text-sm font-medium hover:text-primary transition-colors flex items-center gap-1 focus:outline-none",
+                  servicesOpen && "text-primary"
+                )}
+                aria-haspopup="menu"
+                aria-expanded={servicesOpen}
+                aria-controls="services-menu"
+                onClick={e => { e.preventDefault(); setServicesOpen(v => !v); }}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") { setServicesOpen(v => !v); }
+                  if (e.key === "Escape") { setServicesOpen(false); servicesButtonRef.current?.focus(); }
+                }}
+                tabIndex={0}
+              >
+                Services <ChevronDown className={clsx("h-4 w-4 transition-transform duration-200", servicesOpen && "rotate-180")}/>
+              </button>
+              <div
+                id="services-menu"
+                role="menu"
+                aria-label="Services"
+                className={clsx(
+                  "absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 transition-all duration-200 origin-top opacity-0 scale-95 pointer-events-none",
+                  servicesOpen && "opacity-100 scale-100 pointer-events-auto"
+                )}
+                style={{ transitionProperty: 'opacity, transform' }}
+                onMouseEnter={() => { clearTimeout(servicesMenuCloseTimer); setServicesOpen(true); }}
+                onMouseLeave={() => {
+                  servicesMenuCloseTimer = setTimeout(() => { setServicesOpen(false); }, 120);
+                }}
+              >
+                <div className="py-1">
+                  <Link
+                    href="/services#meet-and-greet"
+                    role="menuitem"
+                    tabIndex={servicesOpen ? 0 : -1}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 transition-colors"
+                    onClick={() => { setServicesOpen(false); }}
+                  >
+                    Meet & Greet
+                  </Link>
+                  <Link
+                    href="/services#airport-transfer"
+                    role="menuitem"
+                    tabIndex={servicesOpen ? 0 : -1}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 transition-colors"
+                    onClick={() => { setServicesOpen(false); }}
+                  >
+                    Airport Transfer
+                  </Link>
+                  <div
+                    className="relative group/submenu"
+                    onMouseEnter={() => { clearTimeout(hireByHourMenuCloseTimer); setHireByHourOpen(true); }}
+                    onMouseLeave={() => {
+                      hireByHourMenuCloseTimer = setTimeout(() => { setHireByHourOpen(false); }, 120);
+                    }}
+                  >
+                    <button
+                      ref={hireByHourButtonRef}
+                      className={clsx(
+                        "flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 transition-colors focus:outline-none",
+                        hireByHourOpen && "bg-gray-100"
+                      )}
+                      aria-haspopup="menu"
+                      aria-expanded={hireByHourOpen}
+                      aria-controls="hirebyhour-menu"
+                      tabIndex={servicesOpen ? 0 : -1}
+                      onClick={e => { e.preventDefault(); setHireByHourOpen(v => !v); }}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" || e.key === " ") { setHireByHourOpen(v => !v); }
+                        if (e.key === "Escape") { setHireByHourOpen(false); hireByHourButtonRef.current?.focus(); }
+                      }}
+                    >
+                      Hire By Hour <ChevronDown className={clsx("h-4 w-4 ml-auto transition-transform duration-200", hireByHourOpen && "rotate-90")}/>
+                    </button>
+                    <div
+                      id="hirebyhour-menu"
+                      role="menu"
+                      aria-label="Hire By Hour"
+                      className={clsx(
+                        "absolute top-0 right-full -mr-1 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 transition-all duration-200 origin-top-right opacity-0 scale-95 pointer-events-none",
+                        hireByHourOpen && "opacity-100 scale-100 pointer-events-auto"
+                      )}
+                      style={{ right: '100%', left: 'auto', transitionProperty: 'opacity, transform' }}
+                      onMouseEnter={() => { clearTimeout(hireByHourMenuCloseTimer); setHireByHourOpen(true); }}
+                      onMouseLeave={() => {
+                        hireByHourMenuCloseTimer = setTimeout(() => { setHireByHourOpen(false); }, 120);
+                      }}
+                    >
+                      <div className="py-1">
+                        <Link
+                          href="/services#serving-cities"
+                          role="menuitem"
+                          tabIndex={hireByHourOpen ? 0 : -1}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 transition-colors"
+                          onClick={() => { setHireByHourOpen(false); setServicesOpen(false); }}
+                        >
+                          Serving Cities
+                        </Link>
+                        <Link
+                          href="/fleet"
+                          role="menuitem"
+                          tabIndex={hireByHourOpen ? 0 : -1}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 transition-colors"
+                          onClick={() => { setHireByHourOpen(false); setServicesOpen(false); }}
+                        >
+                          Our Fleet
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <Link
               href="/contact"
               className="text-sm font-medium hover:text-primary transition-colors"
@@ -246,13 +371,62 @@ export function Header() {
           >
             About
           </Link>
-          <Link
-            href="/services"
-            onClick={toggleMenu}
-            className="text-sm font-medium hover:text-primary"
+          <button
+            className="flex items-center justify-between text-sm font-medium hover:text-primary focus:outline-none w-full bg-transparent border-0 p-0"
+            onClick={() => setMobileServicesOpen((v) => !v)}
+            aria-expanded={mobileServicesOpen}
+            aria-controls="mobile-services-menu"
+            type="button"
           >
-            Services
-          </Link>
+            <span>Services</span>
+            <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${mobileServicesOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {mobileServicesOpen && (
+            <div id="mobile-services-menu" className="ml-4 flex flex-col space-y-2">
+              <Link
+                href="/services#meet-and-greet"
+                onClick={() => { toggleMenu(); setMobileServicesOpen(false); }}
+                className="text-sm font-medium hover:text-primary"
+              >
+                Meet & Greet
+              </Link>
+              <Link
+                href="/services#airport-transfer"
+                onClick={() => { toggleMenu(); setMobileServicesOpen(false); }}
+                className="text-sm font-medium hover:text-primary"
+              >
+                Airport Transfer
+              </Link>
+              <button
+                className="flex items-center justify-between text-sm font-medium hover:text-primary focus:outline-none w-full bg-transparent border-0 p-0"
+                onClick={() => setMobileHireByHourOpen((v) => !v)}
+                aria-expanded={mobileHireByHourOpen}
+                aria-controls="mobile-hirebyhour-menu"
+                type="button"
+              >
+                <span>Hire By Hour</span>
+                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${mobileHireByHourOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileHireByHourOpen && (
+                <div id="mobile-hirebyhour-menu" className="ml-4 flex flex-col space-y-2">
+                  <Link
+                    href="/services#serving-cities"
+                    onClick={() => { toggleMenu(); setMobileServicesOpen(false); setMobileHireByHourOpen(false); }}
+                    className="text-sm font-medium hover:text-primary"
+                  >
+                    Serving Cities
+                  </Link>
+                  <Link
+                    href="/fleet"
+                    onClick={() => { toggleMenu(); setMobileServicesOpen(false); setMobileHireByHourOpen(false); }}
+                    className="text-sm font-medium hover:text-primary"
+                  >
+                    Our Fleet
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
           <Link
             href="/contact"
             onClick={toggleMenu}
