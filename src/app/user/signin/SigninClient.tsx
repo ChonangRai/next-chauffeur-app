@@ -7,8 +7,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
 import { Icons } from "@/components/ui/icons";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const logoURL = "/favicon.ico";
 
@@ -22,6 +24,10 @@ export default function SigninClient({
   const [error, setError] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetStatus, setResetStatus] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
   const router = useRouter();
   const errorMessage = (searchParams?.error as string) || null;
 
@@ -74,6 +80,22 @@ export default function SigninClient({
       }
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetStatus(null);
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast.success("A password reset email has been sent.");
+      setShowResetModal(false);
+      setResetEmail("");
+    } catch (err: any) {
+      setResetStatus(err.message || "Failed to send reset email.");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -141,6 +163,11 @@ export default function SigninClient({
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          <div className="flex justify-center">
+            <button type="button" className="text-xs text-blue-500 hover:underline" onClick={() => setShowResetModal(true)}>
+              Forgot Password?
+            </button>
+          </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <>
@@ -169,6 +196,28 @@ export default function SigninClient({
           </p>
         </form>
       </div>
+
+      <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>Enter your email to receive a password reset link.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordReset} className="space-y-4">
+            <Input
+              type="email"
+              placeholder="Email"
+              value={resetEmail}
+              onChange={e => setResetEmail(e.target.value)}
+              required
+            />
+            <Button type="submit" className="w-full" disabled={resetLoading}>
+              {resetLoading ? "Sending..." : "Send Reset Email"}
+            </Button>
+            {resetStatus && <p className="text-center text-sm text-gray-600">{resetStatus}</p>}
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

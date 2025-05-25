@@ -2,18 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 import { isAdminUser } from "@/lib/adminUtils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function AdminSignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetStatus, setResetStatus] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
   
 
   // Clear any existing auth state when the page loads
@@ -143,6 +148,21 @@ export default function AdminSignInPage() {
     }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetStatus(null);
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setShowResetModal(false);
+      toast.success("A password reset email has been sent.");
+    } catch (err: any) {
+      setResetStatus(err.message || "Failed to send reset email.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <Card className="w-full max-w-md">
@@ -187,6 +207,11 @@ export default function AdminSignInPage() {
                 className={error ? "border-red-500" : ""}
               />
             </div>
+            <div className="flex justify-center">
+              <button type="button" className="text-xs text-blue-500 hover:underline" onClick={() => setShowResetModal(true)}>
+                Forgot Password?
+              </button>
+            </div>
             <Button
               type="submit"
               className="w-full"
@@ -197,6 +222,27 @@ export default function AdminSignInPage() {
           </form>
         </CardContent>
       </Card>
+      <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>Enter your email to receive a password reset link.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordReset} className="space-y-4">
+            <Input
+              type="email"
+              placeholder="Email"
+              value={resetEmail}
+              onChange={e => setResetEmail(e.target.value)}
+              required
+            />
+            <Button type="submit" className="w-full" disabled={resetLoading}>
+              {resetLoading ? "Sending..." : "Send Reset Email"}
+            </Button>
+            {resetStatus && <p className="text-center text-sm text-gray-600">{resetStatus}</p>}
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
