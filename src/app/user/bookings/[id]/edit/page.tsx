@@ -151,13 +151,13 @@ export default function EditBookingPage({
                     <div className="space-y-2">
                       <Label>Flight Number</Label>
                       <Input
-                        value={booking.service_subtype === "arrival" ? booking.arrival_flight : booking.departure_flight || ""}
+                        value={booking.service_subtype === "arrival" 
+                          ? (booking.arrival_flight || "") 
+                          : (booking.departure_flight || "")}
                         onChange={(e) =>
                           setBooking({
                             ...booking,
-                            ...(booking.service_subtype === "arrival"
-                              ? { arrival_flight: e.target.value }
-                              : { departure_flight: e.target.value }),
+                            [booking.service_subtype === "arrival" ? "arrival_flight" : "departure_flight"]: e.target.value || null,
                           })
                         }
                       />

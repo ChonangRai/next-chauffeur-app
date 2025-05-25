@@ -224,6 +224,72 @@ export default function CustomerDashboard() {
     return <Badge variant="success">{booking.status}</Badge>;
   };
 
+  const renderBookingActions = (booking: Booking) => {
+    const isExpired = !canModifyBooking(booking.date_time);
+    const isPendingPayment = booking.payment_status !== "Paid";
+    const hasActiveSession = booking.stripe_session_id && !booking.payment_status;
+
+    if (booking.status === "cancelled") {
+      return (
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setBookingToDelete(booking)}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+        </Button>
+      );
+    }
+
+    if (isExpired && isPendingPayment) {
+      return null;
+    }
+
+    if (isPendingPayment && !hasActiveSession) {
+      return (
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handlePayment(booking)}
+          disabled={processingPayments[booking.id]}
+        >
+          {processingPayments[booking.id] ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            "Make Payment"
+          )}
+        </Button>
+      );
+    }
+
+    if (hasActiveSession) {
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled
+        >
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          Payment Processing
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setBookingToCancel(booking)}
+      >
+        Cancel Booking
+      </Button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-muted p-4 sm:p-6">
       <AlertDialog open={!!bookingToCancel} onOpenChange={() => setBookingToCancel(null)}>
@@ -293,15 +359,70 @@ export default function CustomerDashboard() {
           </CardHeader>
           <CardContent>
             {currentBookings.length === 0 ? (
-              <p>No current bookings.</p>
+              <p className="text-gray-500">No current bookings found.</p>
+            ) : (
+              <div className="space-y-4">
+                {currentBookings.map((booking) => (
+                  <Card key={booking.id}>
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="space-y-1">
+                          <p className="font-medium">
+                            {formatServiceType(booking.service_type)}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {formatDate(booking.date_time)}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            From: {booking.pickup_location}
+                          </p>
+                          {booking.dropoff_location && (
+                            <p className="text-sm text-gray-500">
+                              To: {booking.dropoff_location}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-500">
+                            Amount: £{booking.amount.toFixed(2)}
+                          </p>
+                          {getBookingStatus(booking)}
+                        </div>
+                        <div className="flex gap-2">
+                          {renderBookingActions(booking)}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Past Bookings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pastBookings.length === 0 ? (
+              <p>No past bookings.</p>
             ) : (
               <div className="grid gap-4">
-                {currentBookings.map((booking) => (
+                {pastBookings.map((booking) => (
                   <div
                     key={booking.id}
-                    className="border rounded-lg p-4 sm:p-6 bg-white"
+                    className="border rounded-lg p-4 sm:p-6 bg-white relative"
                   >
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+                    <div className="absolute top-4 right-4">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setBookingToDelete(booking)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </div>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div className="w-full sm:w-1/2">
                         <h3 className="font-semibold text-lg mb-2">
                           Booking Details
@@ -380,121 +501,6 @@ export default function CustomerDashboard() {
                                 </p>
                               )}
                             </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {booking.status === "pending" && (
-                        <>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => router.push(`/user/bookings/${booking.id}/edit`)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setBookingToCancel(booking)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handlePayment(booking)}
-                            disabled={processingPayments[booking.id]}
-                          >
-                            {processingPayments[booking.id] ? "Processing..." : "Make Payment"}
-                          </Button>
-                        </>
-                      )}
-                      {booking.status === "confirmed" && (
-                        <>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setBookingToCancel(booking)}
-                          >
-                            Cancel
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Past Bookings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pastBookings.length === 0 ? (
-              <p>No past bookings.</p>
-            ) : (
-              <div className="grid gap-4">
-                {pastBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="border rounded-lg p-4 sm:p-6 bg-white relative"
-                  >
-                    <div className="absolute top-4 right-4">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setBookingToDelete(booking)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    </div>
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                      <div className="w-full sm:w-1/2">
-                        <h3 className="font-semibold text-lg mb-2">
-                          Booking Details
-                        </h3>
-                        <div className="space-y-2">
-                          <p className="text-sm text-gray-600">
-                            Booking Reference: {booking.booking_ref}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Date: {formatDate(booking.date_time)}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Service Type: {formatServiceType(booking.service_type)}
-                          </p>
-                          <div className="text-sm text-gray-600 flex items-center gap-2">
-                            <span>Status:</span>
-                            {getBookingStatus(booking)}
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            Total Amount: £{booking.amount.toFixed(2)}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Payment Status: {booking.payment_status || "Unpaid"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="w-full sm:w-1/2">
-                        <h3 className="font-semibold text-lg mb-2">
-                          Location Details
-                        </h3>
-                        <div className="space-y-2">
-                          <p className="text-sm">
-                            <span className="font-medium">Pickup:</span>{" "}
-                            {booking.pickup_location}
-                          </p>
-                          {booking.dropoff_location && (
-                            <p className="text-sm">
-                              <span className="font-medium">Dropoff:</span>{" "}
-                              {booking.dropoff_location}
-                            </p>
                           )}
                         </div>
                       </div>

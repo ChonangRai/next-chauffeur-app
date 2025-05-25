@@ -24,13 +24,13 @@ export default function PaymentSuccessPage({ params }: { params: { id: string } 
       }
 
       try {
-        // Update booking payment status
+        // Store the session ID and let the webhook handle the status update
         await updateDoc(doc(db, "bookings", params.id), {
-          payment_status: "Paid",
+          stripe_session_id: sessionId,
           updated_at: new Date().toISOString(),
         });
 
-        toast.success("Payment successful!");
+        toast.success("Payment processing...");
       } catch (error) {
         console.error("Error updating booking:", error);
         toast.error("Failed to update booking status");
@@ -60,13 +60,13 @@ export default function PaymentSuccessPage({ params }: { params: { id: string } 
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle className="h-6 w-6 text-green-500" />
-            Payment Successful
+            Payment Processing
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
             <p className="text-gray-600">
-              Your payment has been processed successfully. Thank you for your booking!
+              Your payment is being processed. Please check your dashboard for the updated status.
             </p>
             <div className="flex justify-end">
               <Button onClick={() => router.push("/user/dashboard")}>

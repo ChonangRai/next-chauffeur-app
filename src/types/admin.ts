@@ -21,32 +21,37 @@ export type Vehicle = {
 
 export type Booking = {
   id: string;
+  user_id: string;
   booking_ref: string;
-  full_name: string;
-  email: string;
-  phone?: string;
+  service_type: string;
+  service_subtype?: string;
   date_time: string;
   pickup_location: string;
   dropoff_location?: string | null;
-  service_type: 'meetAndGreet' | 'airportTransfer' | 'hourlyHire';
-  service_subtype?: 'arrival' | 'departure' | 'connection' | null;
-  departure_flight?: string;
-  arrival_flight?: string;
-  passengers: number;
-  luggage?: number;
-  additional_hours?: number;
-  want_buggy?: boolean;
-  want_porter?: boolean;
   amount: number;
+  status: string;
   payment_status?: string;
-  driver_id?: string | null;
-  driver_status?: string;
-  selected_vehicle?: string;
-  status?: string;
-  duration?: number;
-  duration_unit?: string;
+  stripe_session_id?: string | null;
   created_at: string;
   updated_at: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  departure_flight?: string | null;
+  arrival_flight?: string | null;
+  passengers?: number;
+  luggage?: number | null;
+  additional_requests?: string | null;
+  selected_vehicle?: string | null;
+  is_hire_by_hour?: boolean | null;
+  duration?: number | null;
+  duration_unit?: string | null;
+  driver_id?: string | null;
+  driver_status?: string | null;
+  terminal?: string | null;
+  additional_hours?: number | null;
+  want_buggy?: boolean;
+  want_porter?: boolean;
 };
 
 export type Driver = {
