@@ -16,6 +16,7 @@ import { getFestivePeriods } from "../festive-periods";
 import { isWithinInterval, startOfDay } from "date-fns";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import React, { forwardRef } from "react";
 
 interface JourneyFormProps {
   type: "meetAndGreet" | "airportTransfer" | "hourlyHire";
@@ -63,6 +64,32 @@ interface JourneyFormProps {
     setCustomDropoffAddress?: (address: string) => void;
   };
 }
+
+// Custom input for DatePicker with icon inside
+const DateInputWithIcon = forwardRef<HTMLInputElement, any>(
+  ({ value, onClick, onChange, placeholder, disabled }, ref) => (
+    <div className="relative w-full">
+      <input
+        ref={ref}
+        value={value}
+        onClick={onClick}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        readOnly
+        className="w-full pr-10 pl-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white cursor-pointer"
+      />
+      <span
+        className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
+        onClick={onClick}
+        tabIndex={-1}
+      >
+        <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+      </span>
+    </div>
+  )
+);
+DateInputWithIcon.displayName = "DateInputWithIcon";
 
 export default function JourneyForm({
   type,
@@ -334,36 +361,19 @@ export default function JourneyForm({
           {/* Date */}
           <div className="w-full sm:w-[240px] space-y-3">
             <Label>Date</Label>
-            <div className="relative">
-              <DatePicker
-                selected={formData.date}
-                onChange={(date: Date | null) =>
-                  setFormData.setDate(date || undefined)
-                }
-                dateFormat="PPP"
-                className="w-full pr-8 pl-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                minDate={new Date()}
-                disabled={isLoading}
-                placeholderText="Pick a date"
-                customInput={
-                  <input
-                    onClick={(e) => e.preventDefault()}
-                    className="w-full pr-8 pl-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                }
-              />
-              <CalendarIcon
-                className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const dateInput = e.currentTarget
-                    .previousElementSibling as HTMLInputElement;
-                  if (dateInput && !dateInput.disabled) {
-                    dateInput.focus();
-                  }
-                }}
-              />
-            </div>
+            <DatePicker
+              selected={formData.date}
+              onChange={(date: Date | null) =>
+                setFormData.setDate(date || undefined)
+              }
+              dateFormat="PPP"
+              minDate={new Date()}
+              disabled={isLoading}
+              placeholderText="Pick a date"
+              customInput={
+                <DateInputWithIcon />
+              }
+            />
             {isFestivePeriod && (
               <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
                 <p className="text-xs">

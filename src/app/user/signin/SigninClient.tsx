@@ -46,11 +46,36 @@ export default function SigninClient({
       } else {
         router.push('/user/dashboard');
       }
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError("An unexpected error occurred.");
+    } catch (error: any) {
+      // Handle specific Firebase auth errors
+      switch (error.code) {
+        case 'auth/invalid-email':
+          setError("Invalid email address");
+          toast.error("Invalid email address");
+          break;
+        case 'auth/user-disabled':
+          setError("This account has been disabled");
+          toast.error("This account has been disabled");
+          break;
+        case 'auth/user-not-found':
+          setError("No account found with this email");
+          toast.error("No account found with this email");
+          break;
+        case 'auth/wrong-password':
+          setError("Incorrect password");
+          toast.error("Incorrect password");
+          break;
+        case 'auth/invalid-credential':
+          setError("Invalid email or password");
+          toast.error("Invalid email or password");
+          break;
+        case 'auth/too-many-requests':
+          setError("Too many failed attempts. Please try again later");
+          toast.error("Too many failed attempts. Please try again later");
+          break;
+        default:
+          setError("Failed to sign in. Please try again.");
+          toast.error("Failed to sign in. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -90,10 +115,30 @@ export default function SigninClient({
     try {
       await sendPasswordResetEmail(auth, resetEmail);
       toast.success("A password reset email has been sent.");
-      setShowResetModal(false);
-      setResetEmail("");
+      // Wait for 3 seconds before closing the modal
+      setTimeout(() => {
+        setShowResetModal(false);
+        setResetEmail("");
+      }, 3000);
     } catch (err: any) {
-      setResetStatus(err.message || "Failed to send reset email.");
+      // Handle specific Firebase auth errors
+      switch (err.code) {
+        case 'auth/invalid-email':
+          setResetStatus("Invalid email address");
+          toast.error("Invalid email address");
+          break;
+        case 'auth/user-not-found':
+          setResetStatus("No account found with this email");
+          toast.error("No account found with this email");
+          break;
+        case 'auth/too-many-requests':
+          setResetStatus("Too many attempts. Please try again later");
+          toast.error("Too many attempts. Please try again later");
+          break;
+        default:
+          setResetStatus("Failed to send reset email. Please try again.");
+          toast.error("Failed to send reset email. Please try again.");
+      }
     } finally {
       setResetLoading(false);
     }
@@ -211,10 +256,20 @@ export default function SigninClient({
               onChange={e => setResetEmail(e.target.value)}
               required
             />
+            {resetStatus && (
+              <div
+                className={`text-center text-sm px-2 py-1 rounded ${
+                  resetStatus.toLowerCase().includes('sent')
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {resetStatus}
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={resetLoading}>
               {resetLoading ? "Sending..." : "Send Reset Email"}
             </Button>
-            {resetStatus && <p className="text-center text-sm text-gray-600">{resetStatus}</p>}
           </form>
         </DialogContent>
       </Dialog>
