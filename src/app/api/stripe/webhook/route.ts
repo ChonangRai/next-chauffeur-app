@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       
       await updateDoc(bookingRef, {
         status: "confirmed",
-        payment_status: "paid",
+        payment_status: "Paid",
         updated_at: new Date()
       });
 

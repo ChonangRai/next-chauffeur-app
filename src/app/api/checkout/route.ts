@@ -18,6 +18,14 @@ function formatServiceType(serviceType: string): string {
   }
 }
 
+function generateBookingRef() {
+  // Example: CHAUF-YYYYMMDD-XXXXXX
+  const date = new Date();
+  const dateStr = date.toISOString().slice(0,10).replace(/-/g, '');
+  const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `CHAUF-${dateStr}-${randomStr}`;
+}
+
 export async function POST(req: Request) {
   try {
     const { bookingDetails, amount, userId } = await req.json();
@@ -96,6 +104,7 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
       });
 
       // Save booking to Firebase
+      const bookingRef = generateBookingRef();
       const bookingData = {
         full_name: bookingDetails.fullName,
         email: bookingDetails.email,
@@ -122,6 +131,7 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         updated_at: new Date(),
         stripe_session_id: session.id,
         user_id: userId || null,
+        booking_ref: bookingRef,
       };
 
       const bookingsRef = collection(db, "bookings");
