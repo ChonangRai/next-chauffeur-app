@@ -13,6 +13,7 @@ import {
   getDocs,
   doc,
   updateDoc,
+  getDoc as getFirestoreDoc,
 } from "firebase/firestore";
 import { format, isAfter, subHours } from "date-fns";
 import { toast } from "sonner";
@@ -54,9 +55,17 @@ export default function CustomerDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (!user) {
+        router.push("/user/signin");
+        return;
+      }
+      // Check for user profile
+      const profileDoc = await getFirestoreDoc(doc(db, "profiles", user.uid));
+      if (!profileDoc.exists()) {
+        toast.error("No profile found for this account. Please contact support.");
+        await auth.signOut();
         router.push("/user/signin");
         return;
       }

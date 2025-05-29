@@ -65,40 +65,41 @@ function ResetPasswordPageContent() {
         <CardContent>
           {isVerifying ? (
             <p className="text-center">Verifying reset link...</p>
-          ) : error ? (
-            <div className="text-center text-red-500 mb-4">{error}</div>
           ) : status ? (
             <div className="text-center text-green-600 mb-4">{status}</div>
           ) : (
-            <form onSubmit={handleReset} className="space-y-4">
-              <div>
-                <label className="block text-sm mb-1">Email</label>
-                <Input type="email" value={email} disabled className="bg-gray-100" />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">New Password</label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Confirm Password</label>
-                <Input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isResetting}>
-                {isResetting ? "Resetting..." : "Reset Password"}
-              </Button>
-            </form>
+            <>
+              {error && <div className="text-center text-red-500 mb-4">{error}</div>}
+              <form onSubmit={handleReset} className="space-y-4">
+                <div>
+                  <label className="block text-sm mb-1">Email</label>
+                  <Input type="email" value={email} disabled className="bg-gray-100" />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">New Password</label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Confirm Password</label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isResetting}>
+                  {isResetting ? "Resetting..." : "Reset Password"}
+                </Button>
+              </form>
+            </>
           )}
           {status && (
             <div className="text-center mt-4">

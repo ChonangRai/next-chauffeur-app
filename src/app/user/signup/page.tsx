@@ -53,7 +53,7 @@ export default function SignUpPage() {
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
-        role: "user",
+        role: "customer",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });

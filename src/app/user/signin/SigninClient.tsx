@@ -114,11 +114,13 @@ export default function SigninClient({
     setResetLoading(true);
     try {
       await sendPasswordResetEmail(auth, resetEmail);
+      setResetStatus("Password reset link has been sent to your email.");
       toast.success("A password reset email has been sent.");
       // Wait for 3 seconds before closing the modal
       setTimeout(() => {
         setShowResetModal(false);
         setResetEmail("");
+        setResetStatus(null);
       }, 3000);
     } catch (err: any) {
       // Handle specific Firebase auth errors
@@ -267,7 +269,7 @@ export default function SigninClient({
                 {resetStatus}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={resetLoading}>
+            <Button type="submit" className="w-full" disabled={resetLoading || !!(resetStatus && resetStatus.toLowerCase().includes('sent'))}>
               {resetLoading ? "Sending..." : "Send Reset Email"}
             </Button>
           </form>
