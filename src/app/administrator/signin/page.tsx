@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { isAdminUser } from "@/lib/adminUtils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { getDoc, doc as firestoreDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function AdminSignInPage() {
   const [email, setEmail] = useState("");
@@ -99,14 +101,34 @@ export default function AdminSignInPage() {
       }
 
       // If we get here, the user is authenticated and is an admin
-      console.log("User is admin, setting session cookie and redirecting...");
+      // Fetch admin user document
+      const userDoc = await getDoc(firestoreDoc(db, "users", userCredential.user.uid));
+      if (!userDoc.exists()) {
+        throw new Error("Admin user record not found.");
+      }
+      const userData = userDoc.data();
+      // Check mustChangePassword or password age
+      let mustChangePassword = userData.mustChangePassword;
+      if (!mustChangePassword && userData.lastPasswordChanged) {
+        const lastChanged = new Date(userData.lastPasswordChanged);
+        const now = new Date();
+        const daysSinceChange = (now.getTime() - lastChanged.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceChange > 90) {
+          mustChangePassword = true;
+        }
+      }
+      if (mustChangePassword) {
+        window.location.replace("/administrator/change-password");
+        return;
+      }
+      if (!userData.isProfileComplete) {
+        window.location.replace("/administrator/complete-profile");
+        return;
+      }
       // Set session cookie
       const token = await userCredential.user.getIdToken();
       document.cookie = `session=${token}; path=/;`;
-      
       toast.success("Successfully signed in as administrator");
-      
-      // Use replace instead of push to prevent back button issues
       window.location.replace("/administrator/dashboard");
 
     } catch (error: any) {

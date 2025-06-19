@@ -1,16 +1,16 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 
-export default function SignUpPage() {
+function SignupPageContent() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -22,6 +22,8 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const noprofileError = searchParams.get("error") === "noprofile";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,6 +175,9 @@ export default function SignUpPage() {
               </div>
             </div>
 
+            {noprofileError && (
+              <p className="text-red-500 text-sm">No profile found for your account. Please complete your registration below.</p>
+            )}
             {error && <p className="text-red-500 text-sm">{error}</p>}
 
             <Button
@@ -193,5 +198,13 @@ export default function SignUpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense>
+      <SignupPageContent />
+    </Suspense>
   );
 }

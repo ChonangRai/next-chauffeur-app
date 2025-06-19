@@ -64,9 +64,7 @@ export default function CustomerDashboard() {
       // Check for user profile
       const profileDoc = await getFirestoreDoc(doc(db, "profiles", user.uid));
       if (!profileDoc.exists()) {
-        toast.error("No profile found for this account. Please contact support.");
-        await auth.signOut();
-        router.push("/user/signin");
+        router.push("/user/signup?error=noprofile");
         return;
       }
     });

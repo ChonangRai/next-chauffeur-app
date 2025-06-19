@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
@@ -7,10 +7,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { Label } from "@radix-ui/react-label";
 import { Icons } from "@/components/ui/icons";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const logoURL = "/favicon.ico";
 
@@ -30,6 +32,16 @@ export default function SigninClient({
   const [resetLoading, setResetLoading] = useState(false);
   const router = useRouter();
   const errorMessage = (searchParams?.error as string) || null;
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push("/user/dashboard");
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +125,15 @@ export default function SigninClient({
     setResetStatus(null);
     setResetLoading(true);
     try {
+      // Check if email exists in profiles collection
+      const profilesRef = collection(db, "profiles");
+      const q = query(profilesRef, where("email", "==", resetEmail));
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) {
+        setResetStatus("No account found with this email");
+        setResetLoading(false);
+        return;
+      }
       await sendPasswordResetEmail(auth, resetEmail);
       setResetStatus("Password reset link has been sent to your email.");
       toast.success("A password reset email has been sent.");

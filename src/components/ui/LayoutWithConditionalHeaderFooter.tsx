@@ -8,7 +8,7 @@ import { ReactNode } from "react";
 export default function LayoutWithConditionalHeaderFooter({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const shouldHideHeaderFooter =
-    pathname.startsWith("/administrator/dashboard") ||
+    pathname.startsWith("/administrator") ||
     pathname.startsWith("/user/signin") ||
     pathname.startsWith("/user/signup");
 

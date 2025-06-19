@@ -15,31 +15,17 @@ import {
   fetchExtraCharges,
 } from "@/lib/adminFetch";
 import { Vehicle, Booking, Driver, DriverPayment } from "@/types/admin";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarMenuItem,
-  SidebarTrigger,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
-import { ChevronLeft, ChevronRight, Car, Calendar, DollarSign, FileText, Settings, User, LogOut, Shield, Key } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
 import { isAdminUser } from "@/lib/adminUtils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner";
+
+const TABS = [
+  { key: "bookings", label: "Bookings" },
+  { key: "vehicles", label: "Vehicles" },
+  { key: "payments", label: "Payments" },
+  { key: "invoices", label: "Invoices" },
+  { key: "priceSettings", label: "Price Settings" },
+];
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -48,9 +34,6 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<
     "vehicles" | "bookings" | "payments" | "invoices" | "priceSettings"
   >("bookings");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [userEmail, setUserEmail] = useState<string>("");
-  const router = useRouter();
 
   // State for vehicles
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -71,36 +54,22 @@ export default function AdminDashboard() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("Setting up auth state listener...");
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("Auth state changed:", user ? "User found" : "No user");
-      
       if (!user) {
-        console.log("No user found, redirecting to sign in...");
         window.location.replace("/administrator/signin");
         return;
       }
-
       try {
-        console.log("Checking admin status for user:", user.uid);
         const isAdmin = await isAdminUser(user.uid);
-        console.log("Is admin:", isAdmin);
-
         if (!isAdmin) {
-          console.log("User is not admin, signing out and redirecting...");
           await auth.signOut();
           window.location.replace("/administrator/signin");
           return;
         }
-
-        console.log("User is admin, setting up dashboard...");
         setIsAuthenticated(true);
         setIsAdmin(true);
         setIsLoading(false);
-        setUserEmail(user.email || "");
-
         // Fetch all data
-        console.log("Fetching dashboard data...");
         Promise.all([
           fetchVehicles().then(({ data, error, isLoading }) => {
             setVehicles(data || []);
@@ -120,36 +89,14 @@ export default function AdminDashboard() {
             setPaymentError(error);
             setIsLoadingPayments(isLoading);
           }),
-        ]).then(() => {
-          console.log("Dashboard data fetched successfully");
-        }).catch((error) => {
-          console.error("Error fetching dashboard data:", error);
-        });
+        ]);
       } catch (error) {
-        console.error("Error checking admin status:", error);
         await auth.signOut();
         window.location.replace("/administrator/signin");
       }
     });
-
-    return () => {
-      console.log("Cleaning up auth state listener...");
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
-
-  const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      // Clear session cookie
-      document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      toast.success("Successfully signed out");
-      window.location.replace("/administrator/signin");
-    } catch (error) {
-      console.error("Error signing out:", error);
-      toast.error("Failed to sign out");
-    }
-  };
 
   if (isLoading) {
     return (
@@ -176,215 +123,102 @@ export default function AdminDashboard() {
   const activeDrivers = drivers.filter((d) => d.status === "active").length;
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen bg-gray-100 w-full">
-        {/* Sidebar */}
-        <Sidebar
-          className={cn(
-            "fixed top-0 left-0 h-full transition-all duration-300 border-r bg-gradient-to-t from-[#1C2526] to-[#323838] text-white z-30",
-            isSidebarOpen ? "w-64" : "w-16"
-          )}
-        >
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            {isSidebarOpen && (
-              <h2 className="text-lg font-semibold">Admin Panel</h2>
-            )}
-            <SidebarTrigger
-              onClick={() => setIsSidebarOpen((prev) => !prev)}
-              className="p-2 rounded-md hover:bg-gray-700"
-            >
-              {isSidebarOpen ? <ChevronLeft className="h-5 w-5 text-white" /> : <ChevronRight className="h-5 w-5 text-white" />}
-            </SidebarTrigger>
-          </div>
-          <SidebarContent>
-            <SidebarGroup className="mt-4">
-              <SidebarMenuItem
-                onClick={() => setActiveTab("bookings")}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "bookings" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
-                  !isSidebarOpen && "justify-center"
-                )}
-              >
-                <Calendar className="h-5 w-5" />
-                {isSidebarOpen && <span>Bookings</span>}
-              </SidebarMenuItem>
-              <SidebarMenuItem
-                onClick={() => setActiveTab("vehicles")}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "vehicles" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
-                  !isSidebarOpen && "justify-center"
-                )}
-              >
-                <Car className="h-5 w-5" />
-                {isSidebarOpen && <span>Vehicles</span>}
-              </SidebarMenuItem>
-              <SidebarMenuItem
-                onClick={() => setActiveTab("payments")}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "payments" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
-                  !isSidebarOpen && "justify-center"
-                )}
-              >
-                <DollarSign className="h-5 w-5" />
-                {isSidebarOpen && <span>Payments</span>}
-              </SidebarMenuItem>
-              <SidebarMenuItem
-                onClick={() => setActiveTab("invoices")}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "invoices" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
-                  !isSidebarOpen && "justify-center"
-                )}
-              >
-                <FileText className="h-5 w-5" />
-                {isSidebarOpen && <span>Invoices</span>}
-              </SidebarMenuItem>
-              <SidebarMenuItem
-                onClick={() => setActiveTab("priceSettings")}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-md cursor-pointer transition-colors",
-                  activeTab === "priceSettings" ? "bg-[#007AFF] text-white" : "text-gray-300 hover:bg-gray-700",
-                  !isSidebarOpen && "justify-center"
-                )}
-              >
-                <Settings className="h-5 w-5" />
-                {isSidebarOpen && <span>Price Settings</span>}
-              </SidebarMenuItem>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
-
-        {/* Main Content */}
-        <div
-          className={cn(
-            "flex-1 transition-all duration-300 w-full bg-gray-100",
-            isSidebarOpen ? "ml-64" : "ml-16"
-          )}
-        >
-          {/* Top Navigation Bar */}
-          <div className="bg-white border-b px-6 py-3 flex justify-end items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/avatars/01.png" alt={userEmail} />
-                  <AvatarFallback>{userEmail.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Admin</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {userEmail}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/administrator/profile')}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/administrator/add-admin')}>
-                  <Shield className="mr-2 h-4 w-4" />
-                  <span>Add Admin</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/administrator/change-password')}>
-                  <Key className="mr-2 h-4 w-4" />
-                  <span>Change Password</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="p-6 w-full">
-            {activeTab === "bookings" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Total Bookings</h3>
-                  <p className="text-2xl font-bold text-gray-900">{totalBookings}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Website Visitors</h3>
-                  <p className="text-2xl font-bold text-gray-900">{websiteVisitors}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Meet & Greet Bookings</h3>
-                  <p className="text-2xl font-bold text-gray-900">{meetAndGreetBookings}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Airport Transfer Bookings</h3>
-                  <p className="text-2xl font-bold text-gray-900">{airportTransferBookings}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Hire By Hour Bookings</h3>
-                  <p className="text-2xl font-bold text-gray-900">{hourlyHireBookings}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Total Revenue (£)</h3>
-                  <p className="text-2xl font-bold text-gray-900">{totalRevenue.toFixed(2)}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h3 className="text-sm font-medium text-gray-500">Active Drivers</h3>
-                  <p className="text-2xl font-bold text-gray-900">{activeDrivers}</p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "vehicles" && (
-              <VehiclesTab
-                vehicles={vehicles}
-                isLoadingVehicles={isLoadingVehicles}
-                vehicleError={vehicleError}
-                fetchVehicles={async () => {
-                  const { data, error, isLoading } = await fetchVehicles();
-                  setVehicles(data || []);
-                  setVehicleError(error);
-                  setIsLoadingVehicles(isLoading);
-                }}
-              />
-            )}
-
-            {activeTab === "payments" && (
-              <DriverPaymentsTab
-                driverPayments={driverPayments}
-                isLoadingPayments={isLoadingPayments}
-                paymentError={paymentError}
-                drivers={drivers}
-                fetchDriverPayments={async () => {
-                  const { data, error, isLoading } = await fetchDriverPayments();
-                  setDriverPayments(data || []);
-                  setPaymentError(error);
-                  setIsLoadingPayments(isLoading);
-                }}
-              />
-            )}
-
-            {activeTab === "invoices" && (
-              <InvoicesTab
-                bookings={bookings}
-                isLoadingBookings={isLoadingBookings}
-                bookingError={bookingError}
-              />
-            )}
-
-            {activeTab === "priceSettings" && (
-              <PriceSettingsTab
-                fetchLocations={fetchLocations}
-                fetchServicePricing={fetchServicePricing}
-                fetchExtraCharges={fetchExtraCharges}
-              />
-            )}
-          </div>
-        </div>
+    <div className="w-full p-6">
+      {/* Tab Navigation */}
+      <div className="flex gap-4 mb-6 border-b">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            className={`px-4 py-2 -mb-px border-b-2 font-medium transition-colors duration-200 focus:outline-none ${
+              activeTab === tab.key
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-blue-600 hover:border-blue-300"
+            }`}
+            onClick={() => setActiveTab(tab.key as typeof activeTab)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-    </SidebarProvider>
+
+      {/* Tab Content */}
+      {activeTab === "bookings" && (
+        <div>
+          {/* Dashboard stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <h3 className="text-sm font-medium text-gray-500">Total Bookings</h3>
+              <p className="text-2xl font-bold text-gray-900">{totalBookings}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <h3 className="text-sm font-medium text-gray-500">Website Visitors</h3>
+              <p className="text-2xl font-bold text-gray-900">{websiteVisitors}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <h3 className="text-sm font-medium text-gray-500">Meet & Greet Bookings</h3>
+              <p className="text-2xl font-bold text-gray-900">{meetAndGreetBookings}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <h3 className="text-sm font-medium text-gray-500">Airport Transfer Bookings</h3>
+              <p className="text-2xl font-bold text-gray-900">{airportTransferBookings}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <h3 className="text-sm font-medium text-gray-500">Hire By Hour Bookings</h3>
+              <p className="text-2xl font-bold text-gray-900">{hourlyHireBookings}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <h3 className="text-sm font-medium text-gray-500">Total Revenue (£)</h3>
+              <p className="text-2xl font-bold text-gray-900">{totalRevenue.toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <h3 className="text-sm font-medium text-gray-500">Active Drivers</h3>
+              <p className="text-2xl font-bold text-gray-900">{activeDrivers}</p>
+            </div>
+          </div>
+          {/* BookingsTab can go here if you want bookings table below stats */}
+        </div>
+      )}
+      {activeTab === "vehicles" && (
+        <VehiclesTab
+          vehicles={vehicles}
+          isLoadingVehicles={isLoadingVehicles}
+          vehicleError={vehicleError}
+          fetchVehicles={async () => {
+            const { data, error, isLoading } = await fetchVehicles();
+            setVehicles(data || []);
+            setVehicleError(error);
+            setIsLoadingVehicles(isLoading);
+          }}
+        />
+      )}
+      {activeTab === "payments" && (
+        <DriverPaymentsTab
+          driverPayments={driverPayments}
+          isLoadingPayments={isLoadingPayments}
+          paymentError={paymentError}
+          drivers={drivers}
+          fetchDriverPayments={async () => {
+            const { data, error, isLoading } = await fetchDriverPayments();
+            setDriverPayments(data || []);
+            setPaymentError(error);
+            setIsLoadingPayments(isLoading);
+          }}
+        />
+      )}
+      {activeTab === "invoices" && (
+        <InvoicesTab
+          bookings={bookings}
+          isLoadingBookings={isLoadingBookings}
+          bookingError={bookingError}
+        />
+      )}
+      {activeTab === "priceSettings" && (
+        <PriceSettingsTab
+          fetchLocations={fetchLocations}
+          fetchServicePricing={fetchServicePricing}
+          fetchExtraCharges={fetchExtraCharges}
+        />
+      )}
+    </div>
   );
 }
