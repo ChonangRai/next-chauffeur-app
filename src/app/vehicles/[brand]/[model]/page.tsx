@@ -1,169 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-// import { Vehicle } from "@/types/admin";
+import { Vehicle } from "@/types/admin";
 import { fetchVehicles } from "@/lib/adminFetch";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Users, Briefcase, Wifi, Coffee, Clock, Star } from "lucide-react";
 
-// Vehicle data mapping for the vehicle routes
-const vehicleData = {
-  "mercedes": {
-    "s-class": {
-      title: "Mercedes-Benz S-Class",
-      name: "S-Class Chauffeur Car",
-      description: "Experience the pinnacle of automotive excellence with our flagship Mercedes-Benz S-Class, where every journey becomes an occasion. This luxury sedan combines cutting-edge technology with unparalleled comfort, making it the perfect choice for business travel, airport transfers, and special events.",
-      image: "/images/cars/mercedes-s.jpeg",
-      passengers: 4,
-      bags: 3,
-      base_price: 120,
-      price_per_hour: 85,
-      wifi: true,
-      drinks: true,
-      waiting_time: "30 minutes",
-      features: [
-        "Heated & Ventilated Seats",
-        "Ambient Lighting",
-        "Premium Sound System",
-        "Climate Control",
-        "WiFi Hotspot",
-        "Complimentary Refreshments"
-      ],
-      specifications: {
-        engine: "3.0L 6-Cylinder",
-        power: "362 hp",
-        transmission: "9-Speed Automatic",
-        fuel_type: "Petrol",
-        seating: "4 Passengers",
-        luggage: "3 Large Bags"
-      }
-    },
-    "luxury-v-class": {
-      title: "Mercedes-Benz V-Class",
-      name: "Luxury V-Class",
-      description: "The Mercedes-Benz V-Class offers spacious luxury for larger groups. Perfect for corporate events, airport transfers with multiple passengers, or family travel. This premium MPV combines the comfort of a luxury sedan with the practicality of a people carrier.",
-      image: "/images/cars/v-class.jpeg",
-      passengers: 7,
-      bags: 5,
-      base_price: 140,
-      price_per_hour: 95,
-      wifi: true,
-      drinks: true,
-      waiting_time: "30 minutes",
-      features: [
-        "7-Seat Configuration",
-        "Sliding Doors",
-        "Premium Interior",
-        "Climate Control",
-        "WiFi Hotspot",
-        "Complimentary Refreshments"
-      ],
-      specifications: {
-        engine: "2.0L 4-Cylinder",
-        power: "163 hp",
-        transmission: "9-Speed Automatic",
-        fuel_type: "Diesel",
-        seating: "7 Passengers",
-        luggage: "5 Large Bags"
-      }
-    }
-  },
-  "range-rover": {
-    "autobiography-2022": {
-      title: "Range Rover Autobiography",
-      name: "Autobiography 2022 Model",
-      description: "The Range Rover Autobiography represents the ultimate in luxury SUV travel. With its commanding presence and sophisticated interior, this vehicle offers the perfect blend of off-road capability and on-road refinement for discerning clients.",
-      image: "/images/cars/range-rover.jpeg",
-      passengers: 5,
-      bags: 4,
-      base_price: 150,
-      price_per_hour: 100,
-      wifi: true,
-      drinks: true,
-      waiting_time: "30 minutes",
-      features: [
-        "All-Terrain Capability",
-        "Premium Leather Interior",
-        "Panoramic Roof",
-        "Climate Control",
-        "WiFi Hotspot",
-        "Complimentary Refreshments"
-      ],
-      specifications: {
-        engine: "3.0L 6-Cylinder",
-        power: "395 hp",
-        transmission: "8-Speed Automatic",
-        fuel_type: "Petrol",
-        seating: "5 Passengers",
-        luggage: "4 Large Bags"
-      }
-    },
-    "autobiography-2025": {
-      title: "Range Rover Autobiography",
-      name: "Autobiography 2025 Model",
-      description: "The latest Range Rover Autobiography model featuring cutting-edge technology and enhanced luxury features. This state-of-the-art SUV delivers an unparalleled driving experience with advanced driver assistance systems and premium comfort.",
-      image: "/images/cars/range-rover.jpeg",
-      passengers: 5,
-      bags: 4,
-      base_price: 160,
-      price_per_hour: 110,
-      wifi: true,
-      drinks: true,
-      waiting_time: "30 minutes",
-      features: [
-        "Latest Technology",
-        "Enhanced Safety Features",
-        "Premium Interior",
-        "Climate Control",
-        "WiFi Hotspot",
-        "Complimentary Refreshments"
-      ],
-      specifications: {
-        engine: "3.0L 6-Cylinder",
-        power: "395 hp",
-        transmission: "8-Speed Automatic",
-        fuel_type: "Petrol",
-        seating: "5 Passengers",
-        luggage: "4 Large Bags"
-      }
-    }
-  },
-  "13-seater": {
-    "default": {
-      title: "13 Seater Luxury Vehicle",
-      name: "13 Seater Executive Transport",
-      description: "Our 13-seater luxury vehicle is perfect for large groups, corporate events, and airport transfers. This spacious vehicle ensures everyone travels in comfort while maintaining the high standards of our chauffeur service.",
-      image: "/images/cars/suv1.jpg",
-      passengers: 13,
-      bags: 8,
-      base_price: 200,
-      price_per_hour: 120,
-      wifi: true,
-      drinks: true,
-      waiting_time: "30 minutes",
-      features: [
-        "13-Seat Configuration",
-        "Spacious Interior",
-        "Climate Control",
-        "WiFi Hotspot",
-        "Complimentary Refreshments",
-        "Luggage Space"
-      ],
-      specifications: {
-        engine: "3.0L 6-Cylinder",
-        power: "300 hp",
-        transmission: "Automatic",
-        fuel_type: "Diesel",
-        seating: "13 Passengers",
-        luggage: "8 Large Bags"
-      }
-    }
-  }
-};
-
 export default function VehiclePage({ params }: { params: { brand: string; model: string } }) {
-  const [vehicle, setVehicle] = useState<any>(null);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -171,31 +16,23 @@ export default function VehiclePage({ params }: { params: { brand: string; model
   useEffect(() => {
     const loadVehicle = async () => {
       try {
-        // First try to get from our static data
-        const brandData = vehicleData[params.brand as keyof typeof vehicleData];
-        if (brandData) {
-          const modelData = brandData[params.model as keyof typeof brandData];
-          if (modelData) {
-            setVehicle(modelData);
-            setIsLoading(false);
-            return;
-          }
-        }
-
-        // If not found in static data, try to fetch from Firestore
         const result = await fetchVehicles();
-        if (result.data) {
-          // Create a slug from brand and model
-          const searchSlug = `${params.brand}-${params.model}`.toLowerCase();
-          const foundVehicle = result.data.find(v => 
-            v.id.toLowerCase().includes(searchSlug) || 
-            v.title.toLowerCase().includes(searchSlug)
+        if (result.data && result.data.length > 0) {
+          // Find vehicle by brand and model, ignoring case and checking the correct status field.
+          const foundVehicle = result.data.find(
+            (v) =>
+              v.brand?.toLowerCase() === params.brand.toLowerCase() &&
+              v.model?.toLowerCase() === params.model.toLowerCase() &&
+              v.vehicle_status !== "draft"
           );
+          
           if (foundVehicle) {
             setVehicle(foundVehicle);
           } else {
-            setError("Vehicle not found");
+            setError("Vehicle not found or not available");
           }
+        } else {
+          setError("No vehicles found");
         }
         if (result.error) {
           setError(result.error);
@@ -224,7 +61,7 @@ export default function VehiclePage({ params }: { params: { brand: string; model
       <div className="text-center">
         <p className="text-red-500 text-xl">{error}</p>
         <Button 
-          onClick={() => router.push('/fleet')}
+          onClick={() => router.push('/vehicles')}
           className="mt-4"
         >
           View All Vehicles
@@ -238,7 +75,7 @@ export default function VehiclePage({ params }: { params: { brand: string; model
       <div className="text-center">
         <p className="text-gray-600 text-xl">Vehicle not found</p>
         <Button 
-          onClick={() => router.push('/fleet')}
+          onClick={() => router.push('/vehicles')}
           className="mt-4"
         >
           View All Vehicles
@@ -253,7 +90,7 @@ export default function VehiclePage({ params }: { params: { brand: string; model
       <section className="relative h-[70vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
-            src={vehicle.image}
+            src={vehicle.image_url || "/images/cars/mercedes-s.jpeg"}
             alt={vehicle.title}
             fill
             className="object-cover"
@@ -290,10 +127,10 @@ export default function VehiclePage({ params }: { params: { brand: string; model
                 <Button 
                   variant="outline" 
                   size="lg"
-                  className="border-white text-white hover:bg-white hover:text-black px-8 py-4 rounded-none text-lg transition-all duration-300"
+                  className="border-white text-yellow-600 hover:bg-gray-300 hover:text-black px-8 py-4 rounded-none text-lg transition-all duration-300"
                   onClick={() => router.push('/contact')}
                 >
-                  Get a Quote
+                  Get a Bespoke Quote
                 </Button>
               </div>
             </div>
@@ -308,7 +145,7 @@ export default function VehiclePage({ params }: { params: { brand: string; model
             {/* Vehicle Image */}
             <div className="relative h-[500px] w-full">
               <Image
-                src={vehicle.image}
+                src={vehicle.image_url || "/images/cars/mercedes-s.jpeg"}
                 alt={vehicle.title}
                 fill
                 className="object-cover rounded-lg"
@@ -381,7 +218,7 @@ export default function VehiclePage({ params }: { params: { brand: string; model
               </div>
 
               {/* Features List */}
-              {vehicle.features && (
+              {vehicle.features && vehicle.features.length > 0 && (
                 <div>
                   <h3 className="text-2xl font-semibold mb-4">Features</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -401,10 +238,12 @@ export default function VehiclePage({ params }: { params: { brand: string; model
                   <h3 className="text-2xl font-semibold mb-4">Specifications</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {Object.entries(vehicle.specifications).map(([key, value]) => (
-                      <div key={key}>
-                        <p className="text-gray-600 capitalize">{key.replace('_', ' ')}</p>
-                        <p className="font-semibold">{value as string}</p>
-                      </div>
+                      value && (
+                        <div key={key}>
+                          <p className="text-gray-600 capitalize">{key.replace('_', ' ')}</p>
+                          <p className="font-semibold">{value as string}</p>
+                        </div>
+                      )
                     ))}
                   </div>
                 </div>
@@ -423,7 +262,7 @@ export default function VehiclePage({ params }: { params: { brand: string; model
                   variant="outline" 
                   size="lg"
                   className="border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-4 rounded-none text-lg transition-all duration-300"
-                  onClick={() => router.push('/fleet')}
+                  onClick={() => router.push('/vehicles')}
                 >
                   View All Vehicles
                 </Button>

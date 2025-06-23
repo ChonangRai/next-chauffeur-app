@@ -1,14 +1,16 @@
 "use client";
-import {  Mail, Menu, Phone, X, ChevronDown, LayoutDashboard, User, LogOut} from "lucide-react";
+import {  Mail, Menu, Phone, X, ChevronDown, LayoutDashboard, User, LogOut, Car} from "lucide-react";
 import Link from "next/link";
 import { Button } from "./button";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import clsx from "clsx";
+import { fetchVehicles } from "@/lib/adminFetch";
+import { Vehicle } from "@/types/admin";
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +18,8 @@ export function Header() {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
@@ -23,20 +27,75 @@ export function Header() {
   const [mobileCarsOpen, setMobileCarsOpen] = useState(false);
   const [mobileMercedesOpen, setMobileMercedesOpen] = useState(false);
   const [mobileRangeRoverOpen, setMobileRangeRoverOpen] = useState(false);
+  const [mobileOtherOpen, setMobileOtherOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
   const [hireByHourOpen, setHireByHourOpen] = useState(false);
   const [carsOpen, setCarsOpen] = useState(false);
   const [mercedesOpen, setMercedesOpen] = useState(false);
   const [rangeRoverOpen, setRangeRoverOpen] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
   const servicesButtonRef = useRef<HTMLButtonElement>(null);
   const hireByHourButtonRef = useRef<HTMLButtonElement>(null);
   const carsButtonRef = useRef<HTMLButtonElement>(null);
   const mercedesButtonRef = useRef<HTMLButtonElement>(null);
   const rangeRoverButtonRef = useRef<HTMLButtonElement>(null);
+  const otherButtonRef = useRef<HTMLButtonElement>(null);
   let servicesMenuCloseTimer: NodeJS.Timeout;
   let carsMenuCloseTimer: NodeJS.Timeout;
   const pathname = usePathname();
   const isAdminRoute = pathname.startsWith("/administrator");
+
+  // Fetch vehicles for dynamic menu
+  useEffect(() => {
+    const loadVehicles = async () => {
+      try {
+        const result = await fetchVehicles();
+        
+        if (result.data && result.data.length > 0) {
+          // Filter vehicles for the menu (show all except 'draft')
+          const availableVehicles = result.data.filter(
+            (v) => v.vehicle_status !== "draft"
+          );
+          
+          setVehicles(availableVehicles);
+        }
+      } catch (err) {
+        console.error("Header - Failed to load vehicles for menu:", err);
+      } finally {
+        setVehiclesLoading(false);
+      }
+    };
+
+    loadVehicles();
+  }, []);
+
+  // Memoize the grouped and filtered vehicles to prevent re-calculation on every render
+  const filteredVehiclesByBrand = useMemo(() => {
+    const vehiclesByBrand = vehicles.reduce((acc, vehicle) => {
+      let brand = vehicle.brand || 'other';
+      
+      // Special handling for 13-Seater vehicles
+      if (vehicle.title.toLowerCase().includes('13-seater') || 
+          vehicle.title.toLowerCase().includes('13 seater')) {
+        brand = '13-seater';
+      }
+      
+      if (!acc[brand]) {
+        acc[brand] = [];
+      }
+      acc[brand].push(vehicle);
+      return acc;
+    }, {} as Record<string, Vehicle[]>);
+
+    // Filter out empty brands and sort by name
+    return Object.entries(vehiclesByBrand)
+      .filter(([brandVehicles]) => brandVehicles.length > 0)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .reduce((acc, [brand, brandVehicles]) => {
+        acc[brand] = brandVehicles;
+        return acc;
+      }, {} as Record<string, Vehicle[]>);
+  }, [vehicles]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -284,7 +343,7 @@ export function Header() {
                 }}
                 tabIndex={0}
               >
-                {/* <Car className="h-4 w-4" /> */}
+                <Car className="h-4 w-4" />
                 Cars <ChevronDown className={clsx("h-4 w-4 transition-transform duration-200", carsOpen && "rotate-180")}/>
               </button>
               <div
@@ -322,122 +381,92 @@ export function Header() {
                     View All Vehicles
                   </Link>
                   
-                  {/* Mercedes */}
-                  <div className="relative">
-                    <button
-                      ref={mercedesButtonRef}
-                      className={clsx(
-                        "flex items-center justify-between w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors focus:outline-none border-b border-gray-100",
-                        mercedesOpen && "bg-gray-50"
-                      )}
-                      aria-haspopup="menu"
-                      aria-expanded={mercedesOpen}
-                      aria-controls="mercedes-menu"
-                      tabIndex={carsOpen ? 0 : -1}
-                      onClick={e => { e.preventDefault(); setMercedesOpen(v => !v); }}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" || e.key === " ") { setMercedesOpen(v => !v); }
-                        if (e.key === "Escape") { setMercedesOpen(false); mercedesButtonRef.current?.focus(); }
-                      }}
-                    >
-                      <span className="font-medium">Mercedes</span>
-                      <ChevronDown className={clsx("h-4 w-4 transition-transform duration-200", mercedesOpen && "rotate-180")}/>
-                    </button>
-                    <div
-                      id="mercedes-menu"
-                      role="menu"
-                      aria-label="Mercedes"
-                      className={clsx(
-                        "overflow-hidden transition-all duration-300 ease-in-out",
-                        mercedesOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
-                      )}
-                    >
-                      <div className="bg-gray-50">
-                        <Link
-                          href="/vehicles/mercedes/s-class"
-                          role="menuitem"
-                          tabIndex={mercedesOpen ? 0 : -1}
-                          className="block px-6 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                          onClick={() => { setMercedesOpen(false); setCarsOpen(false); }}
-                        >
-                          S Class
-                        </Link>
-                        <Link
-                          href="/vehicles/mercedes/luxury-v-class"
-                          role="menuitem"
-                          tabIndex={mercedesOpen ? 0 : -1}
-                          className="block px-6 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                          onClick={() => { setMercedesOpen(false); setCarsOpen(false); }}
-                        >
-                          Luxury V Class
-                        </Link>
-                      </div>
+                  {/* Dynamic Vehicle Brands */}
+                  {vehiclesLoading ? (
+                    <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                      Loading vehicles...
                     </div>
-                  </div>
-
-                  {/* Range Rover */}
-                  <div className="relative">
-                    <button
-                      ref={rangeRoverButtonRef}
-                      className={clsx(
-                        "flex items-center justify-between w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors focus:outline-none border-b border-gray-100",
-                        rangeRoverOpen && "bg-gray-50"
-                      )}
-                      aria-haspopup="menu"
-                      aria-expanded={rangeRoverOpen}
-                      aria-controls="rangerover-menu"
-                      tabIndex={carsOpen ? 0 : -1}
-                      onClick={e => { e.preventDefault(); setRangeRoverOpen(v => !v); }}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" || e.key === " ") { setRangeRoverOpen(v => !v); }
-                        if (e.key === "Escape") { setRangeRoverOpen(false); rangeRoverButtonRef.current?.focus(); }
-                      }}
-                    >
-                      <span className="font-medium">Range Rover</span>
-                      <ChevronDown className={clsx("h-4 w-4 transition-transform duration-200", rangeRoverOpen && "rotate-180")}/>
-                    </button>
-                    <div
-                      id="rangerover-menu"
-                      role="menu"
-                      aria-label="Range Rover"
-                      className={clsx(
-                        "overflow-hidden transition-all duration-300 ease-in-out",
-                        rangeRoverOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
-                      )}
-                    >
-                      <div className="bg-gray-50">
-                        <Link
-                          href="/vehicles/range-rover/autobiography-2022"
-                          role="menuitem"
-                          tabIndex={rangeRoverOpen ? 0 : -1}
-                          className="block px-6 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                          onClick={() => { setRangeRoverOpen(false); setCarsOpen(false); }}
-                        >
-                          Auto Biography 2022 Model
-                        </Link>
-                        <Link
-                          href="/vehicles/range-rover/autobiography-2025"
-                          role="menuitem"
-                          tabIndex={rangeRoverOpen ? 0 : -1}
-                          className="block px-6 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                          onClick={() => { setRangeRoverOpen(false); setCarsOpen(false); }}
-                        >
-                          Auto Biography 2025 Model
-                        </Link>
-                      </div>
+                  ) : Object.keys(filteredVehiclesByBrand).length > 0 ? (
+                    Object.entries(filteredVehiclesByBrand).map(([brand, brandVehicles]) => {
+                      const brandKey = brand.toLowerCase().replace(/\s+/g, '-');
+                      const isOpen = brandKey === 'mercedes' ? mercedesOpen : 
+                                   brandKey === 'range-rover' ? rangeRoverOpen : 
+                                   brandKey === '13-seater' ? otherOpen : 
+                                   brandKey === 'other' ? otherOpen : false;
+                      const setIsOpen = brandKey === 'mercedes' ? setMercedesOpen : 
+                                      brandKey === 'range-rover' ? setRangeRoverOpen : 
+                                      brandKey === '13-seater' ? setOtherOpen : 
+                                      brandKey === 'other' ? setOtherOpen : () => {};
+                      const buttonRef = brandKey === 'mercedes' ? mercedesButtonRef : 
+                                      brandKey === 'range-rover' ? rangeRoverButtonRef : 
+                                      brandKey === '13-seater' ? otherButtonRef : 
+                                      brandKey === 'other' ? otherButtonRef : null;
+                      
+                      return (
+                        <div key={brand} className="relative">
+                          <button
+                            ref={buttonRef}
+                            className={clsx(
+                              "flex items-center justify-between w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors focus:outline-none border-b border-gray-100",
+                              isOpen && "bg-gray-50"
+                            )}
+                            aria-haspopup="menu"
+                            aria-expanded={isOpen}
+                            aria-controls={`${brandKey}-menu`}
+                            tabIndex={carsOpen ? 0 : -1}
+                            onClick={e => { e.preventDefault(); setIsOpen(v => !v); }}
+                            onKeyDown={e => {
+                              if (e.key === "Enter" || e.key === " ") { setIsOpen(v => !v); }
+                              if (e.key === "Escape") { setIsOpen(false); buttonRef?.current?.focus(); }
+                            }}
+                          >
+                            <span className="font-medium capitalize">{brand}</span>
+                            <ChevronDown className={clsx("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")}/>
+                          </button>
+                          <div
+                            id={`${brandKey}-menu`}
+                            role="menu"
+                            aria-label={brand}
+                            className={clsx(
+                              "overflow-hidden transition-all duration-300 ease-in-out",
+                              isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                            )}
+                          >
+                            <div className="bg-gray-50">
+                              {brandVehicles.map((vehicle: Vehicle) => {
+                                // Generate URL based on vehicle data
+                                let vehicleUrl = `/vehicles/${vehicle.brand || 'default'}/${vehicle.model || 'default'}`;
+                                
+                                // Special handling for vehicles that might not have proper brand/model
+                                // Check if this is a vehicle that should use a different URL structure
+                                if (vehicle.title.toLowerCase().includes('13-seater') || 
+                                    vehicle.title.toLowerCase().includes('13 seater')) {
+                                  vehicleUrl = `/cars/13-seater/default`;
+                                }
+                                
+                                return (
+                                  <Link
+                                    key={vehicle.id}
+                                    href={vehicleUrl}
+                                    role="menuitem"
+                                    tabIndex={isOpen ? 0 : -1}
+                                    className="block px-6 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                                    onClick={() => { setIsOpen(false); setCarsOpen(false); }}
+                                  >
+                                    {vehicle.title}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                      No vehicles available
                     </div>
-                  </div>
-
-                  {/* 13 Seater */}
-                  <Link
-                    href="/vehicles/13-seater/default"
-                    role="menuitem"
-                    tabIndex={carsOpen ? 0 : -1}
-                    className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors font-medium"
-                    onClick={() => { setCarsOpen(false); }}
-                  >
-                    13 Seater
-                  </Link>
+                  )}
                 </div>
               </div>
             </div>
@@ -617,7 +646,7 @@ export function Header() {
             type="button"
           >
             <span className="flex items-center gap-2">
-              {/* <Car className="h-4 w-4" /> */}
+              <Car className="h-4 w-4" />
               Cars
             </span>
             <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${mobileCarsOpen ? 'rotate-180' : ''}`} />
@@ -633,74 +662,69 @@ export function Header() {
                 View All Vehicles
               </Link>
               
-              {/* Mobile Mercedes Submenu */}
-              <button
-                className="flex items-center justify-between text-sm font-medium hover:text-primary focus:outline-none w-full bg-transparent border-0 p-0"
-                onClick={() => setMobileMercedesOpen((v) => !v)}
-                aria-expanded={mobileMercedesOpen}
-                aria-controls="mobile-mercedes-menu"
-                type="button"
-              >
-                <span>Mercedes</span>
-                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${mobileMercedesOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {mobileMercedesOpen && (
-                <div id="mobile-mercedes-menu" className="ml-4 flex flex-col space-y-2">
-                  <Link
-                    href="/vehicles/mercedes/s-class"
-                    onClick={() => { toggleMenu(); setMobileCarsOpen(false); setMobileMercedesOpen(false); }}
-                    className="text-sm font-medium hover:text-primary"
-                  >
-                    S Class
-                  </Link>
-                  <Link
-                    href="/vehicles/mercedes/luxury-v-class"
-                    onClick={() => { toggleMenu(); setMobileCarsOpen(false); setMobileMercedesOpen(false); }}
-                    className="text-sm font-medium hover:text-primary"
-                  >
-                    Luxury V Class
-                  </Link>
+              {/* Dynamic Mobile Vehicle Brands */}
+              {vehiclesLoading ? (
+                <div className="text-sm text-gray-500">
+                  Loading vehicles...
+                </div>
+              ) : Object.keys(filteredVehiclesByBrand).length > 0 ? (
+                Object.entries(filteredVehiclesByBrand).map(([brand, brandVehicles]) => {
+                  const brandKey = brand.toLowerCase().replace(/\s+/g, '-');
+                  const isOpen = brandKey === 'mercedes' ? mobileMercedesOpen : 
+                               brandKey === 'range-rover' ? mobileRangeRoverOpen : 
+                               brandKey === '13-seater' ? mobileOtherOpen : 
+                               brandKey === 'other' ? mobileOtherOpen : false;
+                  const setIsOpen = brandKey === 'mercedes' ? setMobileMercedesOpen : 
+                                  brandKey === 'range-rover' ? setMobileRangeRoverOpen : 
+                                  brandKey === '13-seater' ? setMobileOtherOpen : 
+                                  brandKey === 'other' ? setMobileOtherOpen : () => {};
+                  
+                  return (
+                    <div key={brand}>
+                      <button
+                        className="flex items-center justify-between text-sm font-medium hover:text-primary focus:outline-none w-full bg-transparent border-0 p-0"
+                        onClick={() => setIsOpen((v) => !v)}
+                        aria-expanded={isOpen}
+                        aria-controls={`mobile-${brandKey}-menu`}
+                        type="button"
+                      >
+                        <span className="capitalize">{brand}</span>
+                        <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isOpen && (
+                        <div id={`mobile-${brandKey}-menu`} className="ml-4 flex flex-col space-y-2">
+                          {brandVehicles.map((vehicle: Vehicle) => {
+                            // Generate URL based on vehicle data
+                            let vehicleUrl = `/vehicles/${vehicle.brand || 'default'}/${vehicle.model || 'default'}`;
+                            
+                            // Special handling for vehicles that might not have proper brand/model
+                            // Check if this is a vehicle that should use a different URL structure
+                            if (vehicle.title.toLowerCase().includes('13-seater') || 
+                                vehicle.title.toLowerCase().includes('13 seater')) {
+                              vehicleUrl = `/cars/13-seater/default`;
+                            }
+                            
+                            return (
+                              <Link
+                                key={vehicle.id}
+                                href={vehicleUrl}
+                                onClick={() => { toggleMenu(); setMobileCarsOpen(false); setIsOpen(false); }}
+                                className="text-sm font-medium hover:text-primary"
+                              >
+                                {vehicle.title}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-sm text-gray-500">
+                  No vehicles available
                 </div>
               )}
-
-              {/* Mobile Range Rover Submenu */}
-              <button
-                className="flex items-center justify-between text-sm font-medium hover:text-primary focus:outline-none w-full bg-transparent border-0 p-0"
-                onClick={() => setMobileRangeRoverOpen((v) => !v)}
-                aria-expanded={mobileRangeRoverOpen}
-                aria-controls="mobile-rangerover-menu"
-                type="button"
-              >
-                <span>Range Rover</span>
-                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${mobileRangeRoverOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {mobileRangeRoverOpen && (
-                <div id="mobile-rangerover-menu" className="ml-4 flex flex-col space-y-2">
-                  <Link
-                    href="/vehicles/range-rover/autobiography-2022"
-                    onClick={() => { toggleMenu(); setMobileCarsOpen(false); setMobileRangeRoverOpen(false); }}
-                    className="text-sm font-medium hover:text-primary"
-                  >
-                    Auto Biography 2022 Model
-                  </Link>
-                  <Link
-                    href="/vehicles/range-rover/autobiography-2025"
-                    onClick={() => { toggleMenu(); setMobileCarsOpen(false); setMobileRangeRoverOpen(false); }}
-                    className="text-sm font-medium hover:text-primary"
-                  >
-                    Auto Biography 2025 Model
-                  </Link>
-                </div>
-              )}
-
-              {/* Mobile 13 Seater */}
-              <Link
-                href="/vehicles/13-seater/default"
-                onClick={() => { toggleMenu(); setMobileCarsOpen(false); }}
-                className="text-sm font-medium hover:text-primary"
-              >
-                13 Seater
-              </Link>
             </div>
           )}
 

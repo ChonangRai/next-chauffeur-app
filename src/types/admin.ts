@@ -17,6 +17,17 @@ export type Vehicle = {
   created_at?: string;
   vehicle_status: string;
   daily_rate: number;
+  features?: string[];
+  brand?: string;
+  model?: string;
+  specifications?: {
+    engine?: string;
+    power?: string;
+    transmission?: string;
+    fuel_type?: string;
+    seating?: string;
+    luggage?: string;
+  };
 };
 
 export type Booking = {

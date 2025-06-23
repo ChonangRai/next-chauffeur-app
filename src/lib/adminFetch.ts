@@ -17,6 +17,8 @@ export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
     
     const data = snapshot.docs.map(doc => {
       const vehicle = doc.data();
+      
+      
       return {
         id: doc.id,
         title: vehicle.title || vehicle.Title || "",
@@ -32,8 +34,19 @@ export const fetchVehicles = async (): Promise<FetchResult<Vehicle>> => {
         price_per_hour: vehicle.price_per_hour || vehicle.pricePerHour || 0,
         image_url: vehicle.image_url || vehicle.imageUrl || "",
         created_at: vehicle.created_at || vehicle.createdAt,
-        vehicle_status: vehicle.vehicle_status || vehicle.status || "active",
-        daily_rate: vehicle.daily_rate || vehicle.dailyRate || 0
+        vehicle_status: vehicle.vehicle_status || "active",
+        daily_rate: vehicle.daily_rate || vehicle.dailyRate || 0,
+        features: vehicle.features || vehicle.Features || [],
+        brand: vehicle.brand || vehicle.Brand || "",
+        model: vehicle.model || vehicle.Model || "",
+        specifications: vehicle.specifications || vehicle.Specifications || {
+          engine: vehicle.engine || vehicle.Engine || "",
+          power: vehicle.power || vehicle.Power || "",
+          transmission: vehicle.transmission || vehicle.Transmission || "",
+          fuel_type: vehicle.fuel_type || vehicle.fuelType || "",
+          seating: vehicle.seating || vehicle.Seating || "",
+          luggage: vehicle.luggage || vehicle.Luggage || ""
+        }
       };
     });
     
