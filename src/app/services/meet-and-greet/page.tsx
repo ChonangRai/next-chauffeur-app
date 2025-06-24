@@ -137,7 +137,7 @@ export default function MeetAndGreetPage() {
       <section className="relative h-[80vh] flex items-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
-            src="/images/meet-and-greet/greeter.jpeg"
+            src="/images/meet-and-greet/greeter.png"
             alt="Airport Meet & Greet Service"
             fill
             className="object-cover"
@@ -345,8 +345,8 @@ export default function MeetAndGreetPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative h-[500px] w-full">
               <Image
-                src="/images/meet-and-greet/baggage.jpeg"
-                alt="Fast track service"
+                src="/images/meet-and-greet/bagcar.jpeg"
+                alt="Baggage Assistance"
                 fill
                 className="object-cover rounded-lg"
               />

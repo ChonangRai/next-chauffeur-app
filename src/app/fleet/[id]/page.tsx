@@ -100,7 +100,7 @@ export default function VehiclePage({ params }: { params: { id: string } }) {
             )}
             <div className="flex items-center space-x-2">
               <Clock className="h-5 w-5 text-gray-500" />
-              <span>{vehicle.waiting_time} Waiting Time</span>
+              <span>Waiting Time: 1 hour for airport transfers and 15 minutes for all other services</span>
             </div>
           </div>
 

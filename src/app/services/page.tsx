@@ -150,8 +150,8 @@ export default function ServicesPage() {
                     <span>Luggage assistance</span>
                   </li>
                 </ul>
-                <Link href="/#estimate" className="inline-flex items-center text-primary hover:underline">
-                  Get a quote
+                <Link href="/services/airport-transfer" className="inline-flex items-center text-primary hover:underline">
+                  Learn more
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
