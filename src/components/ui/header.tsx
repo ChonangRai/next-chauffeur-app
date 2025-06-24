@@ -249,7 +249,7 @@ export function Header() {
                     <h3 className="text-sm font-semibold text-gray-900 text-center">Our Services</h3>
                   </div>
                   <Link
-                    href="/services#meet-and-greet"
+                    href="/services/meet-and-greet"
                     role="menuitem"
                     tabIndex={servicesOpen ? 0 : -1}
                     className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors"
@@ -593,7 +593,7 @@ export function Header() {
           {mobileServicesOpen && (
             <div id="mobile-services-menu" className="ml-4 flex flex-col space-y-2">
               <Link
-                href="/services#meet-and-greet"
+                href="/services/meet-and-greet"
                 onClick={() => { toggleMenu(); setMobileServicesOpen(false); }}
                 className="text-sm font-medium hover:text-primary"
               >
