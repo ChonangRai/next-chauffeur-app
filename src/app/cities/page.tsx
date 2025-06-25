@@ -459,7 +459,7 @@ export default function CitiesPage() {
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center pt-8">
               <div className="flex items-center space-x-2 text-gray-300">
                 <Phone className="h-4 w-4" />
-                <span>Call us: +44 (0) 20 1234 5678</span>
+                <span>Call us: +44 (0) 746 767 7766</span>
               </div>
               <div className="flex items-center space-x-2 text-gray-300">
                 <Mail className="h-4 w-4" />

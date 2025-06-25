@@ -189,7 +189,7 @@ export default async function MeetAndGreetPage() {
                   className="bg-yellow-600 text-white hover:bg-yellow-700 font-semibold px-8 py-4 rounded-none text-lg transition-all duration-300 hover:scale-105"
                   asChild
                 >
-                  <Link href="/#estimate">
+                  <Link href="/?service_type=meet_and_greet#estimate">
                     Book Your Service
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -397,7 +397,7 @@ export default async function MeetAndGreetPage() {
                   className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold px-8 py-4 rounded-none text-lg transition-all duration-300 hover:scale-105"
                   asChild
                 >
-                  <Link href="/#estimate">
+                  <Link href="/?service_type=meet_and_greet#estimate">
                     Book Your Service
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -509,7 +509,7 @@ export default async function MeetAndGreetPage() {
                 className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold px-8 py-4 rounded-none text-lg transition-all duration-300 hover:scale-105"
                 asChild
               >
-                <Link href="/#estimate">
+                <Link href="/?service_type=meet_and_greet#estimate">
                   Book Now
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>

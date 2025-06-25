@@ -44,7 +44,7 @@ export function PriceEstimator() {
   const [isVehiclesLoading, setIsVehiclesLoading] = useState(true);
   const [serviceType, setServiceType] = useState<
     "meetAndGreet" | "airportTransfer" | "hourlyHire"
-  >("meetAndGreet");
+  >("hourlyHire");
   const [date, setDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [hour, setHour] = useState("14"); // 24-hour format
   const [minute, setMinute] = useState("00");
@@ -157,9 +157,24 @@ export function PriceEstimator() {
     // Pre-select service type and vehicle from query params
     const serviceTypeParam = searchParams.get("service_type");
     const vehicleParam = searchParams.get("vehicle");
-    if (serviceTypeParam === "hire_by_hour") {
-      setServiceType("hourlyHire");
+    
+    // Handle service type parameter
+    if (serviceTypeParam) {
+      switch (serviceTypeParam) {
+        case "hire_by_hour":
+          setServiceType("hourlyHire");
+          break;
+        case "airport_transfer":
+          setServiceType("airportTransfer");
+          break;
+        case "meet_and_greet":
+          setServiceType("meetAndGreet");
+          break;
+        default:
+          setServiceType("hourlyHire"); // Default to hourly hire
+      }
     }
+    
     if (vehicleParam) {
       setVehicle(vehicleParam);
     }
@@ -480,83 +495,15 @@ export function PriceEstimator() {
           </div>
         )}
         <Tabs 
-          defaultValue="meetAndGreet" 
+          value={serviceType}
           onValueChange={(value) => setServiceType(value as "meetAndGreet" | "airportTransfer" | "hourlyHire")}
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3">
-            <TabsTrigger value="meetAndGreet" className="text-xs sm:text-sm">Meet & Greet</TabsTrigger>
-            <TabsTrigger value="airportTransfer" className="text-xs sm:text-sm">Airport Transfer</TabsTrigger>
             <TabsTrigger value="hourlyHire" className="text-xs sm:text-sm">Hire by Hour</TabsTrigger>
+            <TabsTrigger value="airportTransfer" className="text-xs sm:text-sm">Airport Transfer</TabsTrigger>
+            <TabsTrigger value="meetAndGreet" className="text-xs sm:text-sm">Meet & Greet</TabsTrigger>
           </TabsList>
-          <TabsContent value="meetAndGreet">
-            <JourneyForm
-              type="meetAndGreet"
-              locations={locations}
-              onCalculate={calculatePrice}
-              formData={{
-                date,
-                hour,
-                minute,
-                service_subtype: serviceSubType,
-                passengers,
-                wantBuggy,
-                wantPorter,
-                bags,
-                flightNumberArrival,
-                flightNumberDeparture,
-                additionalHours,
-                pickupLocationId,
-                dropoffLocationId,
-              }}
-              setFormData={{
-                setDate,
-                setHour,
-                setMinute,
-                setServiceSubType,
-                setPassengers,
-                setWantBuggy,
-                setWantPorter,
-                setBags,
-                setFlightNumberArrival,
-                setFlightNumberDeparture,
-                setAdditionalHours,
-                setPickupLocationId,
-                setDropoffLocationId,
-              }}
-              isLoading={isLocationsLoading}
-            />
-          </TabsContent>
-          <TabsContent value="airportTransfer">
-            <JourneyForm
-              type="airportTransfer"
-              locations={locations}
-              onCalculate={calculatePrice}
-              formData={{
-                date,
-                hour,
-                minute,
-                passengers,
-                additionalHours,
-                pickupLocationId,
-                dropoffLocationId,
-                customPickupAddress,
-                customDropoffAddress,
-              }}
-              setFormData={{
-                setDate,
-                setHour,
-                setMinute,
-                setPassengers,
-                setAdditionalHours,
-                setPickupLocationId,
-                setDropoffLocationId,
-                setCustomPickupAddress,
-                setCustomDropoffAddress,
-              }}
-              isLoading={isLocationsLoading}
-            />
-          </TabsContent>
           <TabsContent value="hourlyHire">
             {showVehicleSelection ? (
               <VehicleSelection
@@ -615,6 +562,74 @@ export function PriceEstimator() {
                 isLoading={isLocationsLoading}
               />
             )}
+          </TabsContent>
+          <TabsContent value="airportTransfer">
+            <JourneyForm
+              type="airportTransfer"
+              locations={locations}
+              onCalculate={calculatePrice}
+              formData={{
+                date,
+                hour,
+                minute,
+                passengers,
+                additionalHours,
+                pickupLocationId,
+                dropoffLocationId,
+                customPickupAddress,
+                customDropoffAddress,
+              }}
+              setFormData={{
+                setDate,
+                setHour,
+                setMinute,
+                setPassengers,
+                setAdditionalHours,
+                setPickupLocationId,
+                setDropoffLocationId,
+                setCustomPickupAddress,
+                setCustomDropoffAddress,
+              }}
+              isLoading={isLocationsLoading}
+            />
+          </TabsContent>
+          <TabsContent value="meetAndGreet">
+            <JourneyForm
+              type="meetAndGreet"
+              locations={locations}
+              onCalculate={calculatePrice}
+              formData={{
+                date,
+                hour,
+                minute,
+                service_subtype: serviceSubType,
+                passengers,
+                wantBuggy,
+                wantPorter,
+                bags,
+                flightNumberArrival,
+                flightNumberDeparture,
+                additionalHours,
+                pickupLocationId,
+                dropoffLocationId,
+              }}
+              setFormData={{
+                setDate,
+                setHour,
+                setMinute,
+                setServiceSubType,
+                setPassengers,
+                setWantBuggy,
+                setWantPorter,
+                setBags,
+                setFlightNumberArrival,
+                setFlightNumberDeparture,
+                setAdditionalHours,
+                setPickupLocationId,
+                setDropoffLocationId,
+              }}
+              isLoading={isLocationsLoading}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>

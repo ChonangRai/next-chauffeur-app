@@ -446,6 +446,13 @@ export default function JourneyForm({
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+            {formData.passengers > 2 && type !== "hourlyHire" && (
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
+                <p className="text-xs">
+                  Additional charge per passenger will be applied for more than 2.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Additional Hours */}
@@ -486,28 +493,15 @@ export default function JourneyForm({
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-          </div>
-        </div>
-
-        {/* Combined Warnings Row */}
-        {(formData.additionalHours > 0 || formData.passengers > 2) && (
-          <div className="flex gap-4 mt-2">
             {formData.additionalHours > 0 && type !== "hourlyHire" && (
-              <div className="p-3 bg-amber-100 text-amber-800 rounded-md flex-1">
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
                 <p className="text-xs">
                   Additional hours (over 2) will be charged at the hourly rate
                 </p>
               </div>
             )}
-            {formData.passengers > 2 && type !== "hourlyHire" && (
-              <div className="p-3 bg-amber-100 text-amber-800 rounded-md flex-1">
-                <p className="text-xs">
-                  Additional charge per passenger will be applied for more than 2 passengers
-                </p>
-              </div>
-            )}
           </div>
-        )}
+        </div>
 
         {/* Update the warning message for additional hours based on service type */}
         {type === "hourlyHire" && formData.additionalHours > 0 && (
