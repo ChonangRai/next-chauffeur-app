@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://londonchauffeurhire.com/sitemap.xml
+
+# Disallow admin and user areas
+Disallow: /administrator/
+Disallow: /user/
+Disallow: /api/
+
+# Allow important pages
+Allow: /cities
+Allow: /services
+Allow: /vehicles
+Allow: /about
+Allow: /contact 

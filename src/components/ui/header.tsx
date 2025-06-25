@@ -197,6 +197,12 @@ export function Header() {
             >
               About
             </Link>
+            <Link
+              href="/cities"
+              className="text-sm font-medium hover:text-primary transition-colors"
+            >
+              Cities
+            </Link>
             <div
               className="relative group"
               onMouseEnter={() => { clearTimeout(servicesMenuCloseTimer); setServicesOpen(true); }}
@@ -543,6 +549,13 @@ export function Header() {
             className="text-sm font-medium hover:text-primary"
           >
             About
+          </Link>
+          <Link
+            href="/cities"
+            onClick={toggleMenu}
+            className="text-sm font-medium hover:text-primary"
+          >
+            Cities
           </Link>
           <button
             className="flex items-center justify-between text-sm font-medium hover:text-primary focus:outline-none w-full bg-transparent border-0 p-0"
