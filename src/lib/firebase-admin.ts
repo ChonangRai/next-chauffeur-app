@@ -47,6 +47,13 @@ export async function getServiceRates(): Promise<ServiceRate[]> {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceRate));
 }
 
+// Extra Charges Functions
+export async function getExtraCharges(): Promise<any[]> {
+  const chargesRef = adminDb.collection('extra_charges');
+  const snapshot = await chargesRef.get();
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
 // Vehicle Functions
 export async function getVehicles(): Promise<Vehicle[]> {
   const vehiclesRef = adminDb.collection(COLLECTIONS.VEHICLES);

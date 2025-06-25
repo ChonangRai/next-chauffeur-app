@@ -16,6 +16,7 @@ import {
   Building2,
   Clock3
 } from 'lucide-react';
+import { getLocations, getServiceRates, getExtraCharges } from '@/lib/firebase-admin';
 
 export const metadata: Metadata = {
   title: 'Meet and Greet Airport Assistance in London | London Chauffeur Hire',
@@ -66,14 +67,6 @@ const testimonials = [
   }
 ];
 
-const airports = [
-  { name: "Heathrow Airport", terminals: "Terminals 2, 3, 4, 5", icon: Building2 },
-  { name: "Gatwick Airport", terminals: "North & South Terminals", icon: Building2 },
-  { name: "Stansted Airport", terminals: "Main Terminal", icon: Building2 },
-  { name: "Luton Airport", terminals: "Main Terminal", icon: Building2 },
-  { name: "London City Airport", terminals: "Main Terminal", icon: Building2 }
-];
-
 const serviceTypes = [
   {
     icon: Plane,
@@ -110,17 +103,6 @@ const whatsIncluded = [
   { icon: Calendar, text: "Available at all hours, 365 days a year" }
 ];
 
-const pricing = [
-  { item: "Standard Service (up to 2 hours, 2 people)", price: "Custom Estimate", notes: "Pricing based on airport and service type" },
-  { item: "Extra Hours", price: "£50", notes: "Per hour" },
-  { item: "Additional Person", price: "£45", notes: "Per person" },
-  { item: "Unsocial Hours Fee (10 PM - 6 AM)", price: "£60", notes: "Flat rate" },
-  { item: "Festive Period Surcharge", price: "2x Price", notes: "Applies on Good Friday, December 24, December 25, December 26, December 31 & January 1" },
-  { item: "Child under 6 months", price: "Free", notes: "Not counted as additional" },
-  { item: "Buggy Service (Heathrow T2, T3, T4)", price: "£80", notes: "4-seater or 6-seater, subject to availability" },
-  { item: "Porter Service", price: "£65", notes: "One porter per 8 bags" }
-];
-
 const whyBookWithUs = [
   "Fully trained, multilingual greeters",
   "Available at all major London airports",
@@ -130,7 +112,46 @@ const whyBookWithUs = [
   "Festive and late-night service availability"
 ];
 
-export default function MeetAndGreetPage() {
+export default async function MeetAndGreetPage() {
+  // Fetch data from Firestore
+  const [locations, serviceRates, extraCharges] = await Promise.all([
+    getLocations(),
+    getServiceRates(),
+    getExtraCharges()
+  ]);
+
+  // Filter airports from locations
+  const airports = locations
+    .filter(location => location.type === 'AIRPORT')
+    .map(location => ({
+      name: location.name,
+      terminals: location.terminal || 'Main Terminal',
+      icon: Building2
+    }));
+
+  // Extract pricing from service rates and extra charges
+  const meetAssistBase = serviceRates.find(rate => rate.id === 'meet-assist-base')?.baseRate;
+  const meetAssistConnection = serviceRates.find(rate => rate.id === 'meet-assist-connection')?.baseRate;
+  
+  // Extract extra charges
+  const unsocialHoursCharge = extraCharges.find(charge => charge.id === 'unsocial-hours')?.amount;
+  const additionalPassengerCharge = extraCharges.find(charge => charge.id === 'additional-passenger')?.amount;
+  const buggyServiceCharge = extraCharges.find(charge => charge.id === 'buggy-service')?.amount;
+  const porterServiceCharge = extraCharges.find(charge => charge.id === 'porter-service')?.amount;
+
+  const pricing = [
+    { item: "Arrival or Departure Standard Service (up to 2 hours, 2 people)", price: meetAssistBase ? `£${meetAssistBase}` : "Custom Estimate", notes: "Available at all London Airports" },
+    { item: "Same Terminal Connection (Transit) Service", price: meetAssistConnection ? `£${meetAssistBase}` : "Custom Estimate", notes: "Available at Heathrow Airport and Gatwick Airport only" },
+    { item: "Inter-terminal Connection (Transit) Service", price: meetAssistConnection ? `£${meetAssistConnection}` : "Custom Estimate", notes: "Available at Heathrow Airport only" },
+    { item: "Extra Hours", price: "£50", notes: "Per hour" },
+    { item: "Additional Person", price: additionalPassengerCharge ? `£${additionalPassengerCharge}` : "£45", notes: "Per person" },
+    { item: "Unsocial Hours Fee (10 PM - 6 AM)", price: unsocialHoursCharge ? `£${unsocialHoursCharge}` : "£60", notes: "Flat rate" },
+    { item: "Festive Period Surcharge", price: "2x Price", notes: "Applies on December 24th, December 25th, December 26th, December 31st & January 1st" },
+    { item: "Child under 6 months", price: "Free", notes: "Not counted as additional" },
+    { item: "Buggy Service (Heathrow T2, T3 and T4 only)", price: buggyServiceCharge ? `£${buggyServiceCharge}` : "£80", notes: "4-seater or 6-seater, subject to availability" },
+    { item: "Porter Service", price: porterServiceCharge ? `£${porterServiceCharge}` : "£65", notes: "One porter per 8 bags, subject to availability" }
+  ];
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -473,7 +494,7 @@ export default function MeetAndGreetPage() {
               Book Your Meet and Greet Today
             </h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Whether you're arriving, departing, or making a connection, our professional greeters will ensure your airport experience is smooth and welcoming.
+              Whether you're arriving, departing, or on a transit flight, our professional greeters will ensure your airport experience is smooth and welcoming.
             </p>
             <p className="text-lg text-yellow-400 font-medium">
               Let us handle the hassle — so you can focus on your journey.
