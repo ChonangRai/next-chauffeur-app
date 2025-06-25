@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ServicePricing, ExtraCharge, Location } from "@/types/admin";
+import { ServicePricing, ExtraCharge, Location } from "@/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +75,7 @@ export default function PriceSettingsTab({
   }, [fetchData]);
 
 
-  const updateLocationStatus = async (id: number, status: "active" | "inactive") => {
+  const updateLocationStatus = async (id: string, status: "active" | "inactive") => {
     const response = await fetch(`/api/admin/locations/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -341,7 +341,11 @@ export default function PriceSettingsTab({
                       <TableCell>
                         <Select
                           value={location.status}
-                          onValueChange={(value) => updateLocationStatus(location.id, value as "active" | "inactive")}
+                          onValueChange={(value) => {
+                            if (value === "active" || value === "inactive") {
+                              updateLocationStatus(location.id, value);
+                            }
+                          }}
                         >
                           <SelectTrigger className="w-[180px]">
                             <SelectValue />

@@ -7,7 +7,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Booking, Driver } from "@/types/admin";
+import { Booking, Driver } from "@/types";
 
 type BookingDetailsProps = {
   booking: Booking;

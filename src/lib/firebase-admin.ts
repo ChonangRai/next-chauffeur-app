@@ -2,8 +2,8 @@
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import type { Location, ServiceRate, Vehicle, BookingData, UserData } from './types';
-import { COLLECTIONS } from './types';
+import type { Location, ServiceRate, Vehicle, BookingData, UserData } from '@/types';
+import { COLLECTIONS } from '@/types';
 
 // Initialize Firebase Admin
 const apps = getApps();

@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import JourneyForm from "./components/JourneyForm";
 import PriceModal from "./components/PriceModal";
 import { AlertCircle } from "lucide-react";
-import type { Location, Vehicle } from "@/lib/types";
+import type { Location, Vehicle } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -330,7 +330,7 @@ export function PriceEstimator() {
         if (selectedVehicle) {
           
           // Base price is always applied
-          basePrice = selectedVehicle.basePrice;
+          basePrice = selectedVehicle.base_price;
           breakdown.push({ 
             description:selectedVehicle.name + " - Base Rate", 
             amount: basePrice 
@@ -338,7 +338,7 @@ export function PriceEstimator() {
 
           // Additional hours charge
           if (additionalHoursValue > 0) {
-            const additionalHoursCharge = additionalHoursValue * selectedVehicle.additionalHourlyRate;
+            const additionalHoursCharge = additionalHoursValue * selectedVehicle.price_per_hour;
             breakdown.push({ 
               description: `Additional Hours (${additionalHoursValue} hours)`, 
               amount: additionalHoursCharge 

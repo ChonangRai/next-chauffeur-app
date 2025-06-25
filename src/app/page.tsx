@@ -128,8 +128,8 @@ export default function Home() {
                   alt="Airport Transfer"
                   height={256}
                   width={512}
-                  priority={true}
                   className="w-full h-full object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
                 />
               </div>
               <div className="p-6">
@@ -145,7 +145,7 @@ export default function Home() {
                   width={512}
                   alt="Corporate Travel"
                   className="w-full h-full object-cover"
-
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
                 />
               </div>
               <div className="p-6">
@@ -161,6 +161,7 @@ export default function Home() {
                   width={512}
                   alt="Special Events"
                   className="w-full h-full object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
                 />
               </div>
               <div className="p-6">

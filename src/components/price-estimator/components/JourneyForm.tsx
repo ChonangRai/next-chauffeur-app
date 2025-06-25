@@ -11,7 +11,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { CalendarIcon, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Location, Vehicle } from "@/lib/types";
+import type { Location, Vehicle } from "@/types";
 import { getFestivePeriods } from "../festive-periods";
 import { isWithinInterval, startOfDay } from "date-fns";
 import { useState, useEffect } from "react";

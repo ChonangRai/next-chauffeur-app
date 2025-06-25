@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DriverPayment, Driver } from "@/types/admin";
+import { DriverPayment, Driver } from "@/types";
 import { Label } from "../ui/label";
 import Notification from "@/components/ui/notification";
 import { db } from "@/lib/firebase";

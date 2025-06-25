@@ -1,6 +1,6 @@
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { Vehicle, Booking, Driver, DriverPayment, Location, ServicePricing, ExtraCharge } from "@/types/admin";
+import { Vehicle, Booking, Driver, DriverPayment, Location, ServicePricing, ExtraCharge } from "@/types";
 
 type FetchResult<T> = {
   data: T[] | null;
@@ -149,13 +149,20 @@ export const fetchLocations = async (): Promise<FetchResult<Location>> => {
   try {
     const locationsRef = collection(db, "locations");
     const snapshot = await getDocs(locationsRef);
-    const data = snapshot.docs.map((doc, index) => ({
-      id: index + 1,
-      name: doc.data().name || "",
-      status: doc.data().status || "active",
-      isAirport: doc.data().isAirport || false,
-      terminals: doc.data().terminals || []
-    }));
+    const data = snapshot.docs.map((doc) => {
+      const locationData = doc.data();
+      return {
+        id: doc.id,
+        name: locationData.name || "",
+        type: (locationData.isAirport ? 'AIRPORT' : 'HOTEL') as 'AIRPORT' | 'HOTEL',
+        status: locationData.status || "active",
+        isAirport: locationData.isAirport || false,
+        terminals: locationData.terminals || [],
+        airport: locationData.airport || undefined,
+        terminal: locationData.terminal || undefined,
+        address: locationData.address || undefined
+      };
+    });
     isLoading = false;
     return { data, error: null, isLoading };
   } catch (err: unknown) {

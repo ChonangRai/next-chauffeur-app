@@ -151,7 +151,8 @@ export default async function AirportTransferPage() {
             alt="Airport Transfer Service"
             fill
             className="object-cover"
-            priority
+            sizes="100vw"
+            loading="eager"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
         </div>
@@ -310,6 +311,7 @@ export default async function AirportTransferPage() {
                 alt="Luxury Airport Transfer"
                 fill
                 className="object-cover rounded-lg"
+                sizes="(max-width: 768px) 100vw, 50vw"
               />
             </div>
           </div>
@@ -419,6 +421,7 @@ export default async function AirportTransferPage() {
                         alt={testimonial.name}
                         fill
                         className="object-cover rounded-full"
+                        sizes="48px"
                       />
                     </div>
                     <div>

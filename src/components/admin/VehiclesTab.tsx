@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Vehicle } from "@/types/admin";
+import { Vehicle } from "@/types";
 import { Label } from "../ui/label";
 import Image from "next/image";
 import Notification from "@/components/ui/notification";

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { Booking } from "@/types/admin";
+import { Booking } from "@/types";
 import { auth, db } from "@/lib/firebase";
 import {
   collection,

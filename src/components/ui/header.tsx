@@ -10,7 +10,7 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import clsx from "clsx";
 import { fetchVehicles } from "@/lib/adminFetch";
-import { Vehicle } from "@/types/admin";
+import { Vehicle } from "@/types";
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -23,19 +23,16 @@ export function Header() {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
-  const [mobileHireByHourOpen, setMobileHireByHourOpen] = useState(false);
   const [mobileCarsOpen, setMobileCarsOpen] = useState(false);
   const [mobileMercedesOpen, setMobileMercedesOpen] = useState(false);
   const [mobileRangeRoverOpen, setMobileRangeRoverOpen] = useState(false);
   const [mobileOtherOpen, setMobileOtherOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
-  const [hireByHourOpen, setHireByHourOpen] = useState(false);
   const [carsOpen, setCarsOpen] = useState(false);
   const [mercedesOpen, setMercedesOpen] = useState(false);
   const [rangeRoverOpen, setRangeRoverOpen] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
-  const servicesButtonRef = useRef<HTMLButtonElement>(null);
-  const hireByHourButtonRef = useRef<HTMLButtonElement>(null);
+  const servicesButtonRef = useRef<HTMLAnchorElement>(null);
   const carsButtonRef = useRef<HTMLButtonElement>(null);
   const mercedesButtonRef = useRef<HTMLButtonElement>(null);
   const rangeRoverButtonRef = useRef<HTMLButtonElement>(null);
@@ -207,7 +204,8 @@ export function Header() {
                 servicesMenuCloseTimer = setTimeout(() => { setServicesOpen(false); }, 120);
               }}
             >
-              <button
+              <Link
+                href="/services"
                 ref={servicesButtonRef}
                 className={clsx(
                   "text-sm font-medium hover:text-primary transition-colors flex items-center gap-1 focus:outline-none",
@@ -216,7 +214,6 @@ export function Header() {
                 aria-haspopup="menu"
                 aria-expanded={servicesOpen}
                 aria-controls="services-menu"
-                onClick={e => { e.preventDefault(); setServicesOpen(v => !v); }}
                 onKeyDown={e => {
                   if (e.key === "Enter" || e.key === " ") { setServicesOpen(v => !v); }
                   if (e.key === "Escape") { setServicesOpen(false); servicesButtonRef.current?.focus(); }
@@ -224,7 +221,7 @@ export function Header() {
                 tabIndex={0}
               >
                 Services <ChevronDown className={clsx("h-4 w-4 transition-transform duration-200", servicesOpen && "rotate-180")}/>
-              </button>
+              </Link>
               <div
                 id="services-menu"
                 role="menu"
@@ -249,6 +246,15 @@ export function Header() {
                     <h3 className="text-sm font-semibold text-gray-900 text-center">Our Services</h3>
                   </div>
                   <Link
+                    href="/services"
+                    role="menuitem"
+                    tabIndex={servicesOpen ? 0 : -1}
+                    className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors font-medium border-b border-gray-100"
+                    onClick={() => { setServicesOpen(false); }}
+                  >
+                    View All Services
+                  </Link>
+                  <Link
                     href="/services/meet-and-greet"
                     role="menuitem"
                     tabIndex={servicesOpen ? 0 : -1}
@@ -266,57 +272,15 @@ export function Header() {
                   >
                     Airport Transfer
                   </Link>
-                  <div className="relative">
-                    <button
-                      ref={hireByHourButtonRef}
-                      className={clsx(
-                        "flex items-center justify-between w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors focus:outline-none border-b border-gray-100",
-                        hireByHourOpen && "bg-gray-50"
-                      )}
-                      aria-haspopup="menu"
-                      aria-expanded={hireByHourOpen}
-                      aria-controls="hirebyhour-menu"
-                      tabIndex={servicesOpen ? 0 : -1}
-                      onClick={e => { e.preventDefault(); setHireByHourOpen(v => !v); }}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" || e.key === " ") { setHireByHourOpen(v => !v); }
-                        if (e.key === "Escape") { setHireByHourOpen(false); hireByHourButtonRef.current?.focus(); }
-                      }}
-                    >
-                      <span className="font-medium">Hire By Hour</span>
-                      <ChevronDown className={clsx("h-4 w-4 transition-transform duration-200", hireByHourOpen && "rotate-180")}/>
-                    </button>
-                    <div
-                      id="hirebyhour-menu"
-                      role="menu"
-                      aria-label="Hire By Hour"
-                      className={clsx(
-                        "overflow-hidden transition-all duration-300 ease-in-out",
-                        hireByHourOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
-                      )}
-                    >
-                      <div className="bg-gray-50">
-                        <Link
-                          href="/services#serving-cities"
-                          role="menuitem"
-                          tabIndex={hireByHourOpen ? 0 : -1}
-                          className="block px-6 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                          onClick={() => { setHireByHourOpen(false); setServicesOpen(false); }}
-                        >
-                          Serving Cities
-                        </Link>
-                        <Link
-                          href="/fleet"
-                          role="menuitem"
-                          tabIndex={hireByHourOpen ? 0 : -1}
-                          className="block px-6 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                          onClick={() => { setHireByHourOpen(false); setServicesOpen(false); }}
-                        >
-                          Our Fleet
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
+                  <Link
+                    href="/services/hire-by-hour"
+                    role="menuitem"
+                    tabIndex={servicesOpen ? 0 : -1}
+                    className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+                    onClick={() => { setServicesOpen(false); }}
+                  >
+                    Hire By Hour
+                  </Link>
                 </div>
               </div>
             </div>
@@ -593,6 +557,13 @@ export function Header() {
           {mobileServicesOpen && (
             <div id="mobile-services-menu" className="ml-4 flex flex-col space-y-2">
               <Link
+                href="/services"
+                onClick={() => { toggleMenu(); setMobileServicesOpen(false); }}
+                className="text-sm font-medium hover:text-primary"
+              >
+                View All Services
+              </Link>
+              <Link
                 href="/services/meet-and-greet"
                 onClick={() => { toggleMenu(); setMobileServicesOpen(false); }}
                 className="text-sm font-medium hover:text-primary"
@@ -606,34 +577,13 @@ export function Header() {
               >
                 Airport Transfer
               </Link>
-              <button
-                className="flex items-center justify-between text-sm font-medium hover:text-primary focus:outline-none w-full bg-transparent border-0 p-0"
-                onClick={() => setMobileHireByHourOpen((v) => !v)}
-                aria-expanded={mobileHireByHourOpen}
-                aria-controls="mobile-hirebyhour-menu"
-                type="button"
+              <Link
+                href="/services/hire-by-hour"
+                onClick={() => { toggleMenu(); setMobileServicesOpen(false); }}
+                className="text-sm font-medium hover:text-primary"
               >
-                <span>Hire By Hour</span>
-                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${mobileHireByHourOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {mobileHireByHourOpen && (
-                <div id="mobile-hirebyhour-menu" className="ml-4 flex flex-col space-y-2">
-                  <Link
-                    href="/services#serving-cities"
-                    onClick={() => { toggleMenu(); setMobileServicesOpen(false); setMobileHireByHourOpen(false); }}
-                    className="text-sm font-medium hover:text-primary"
-                  >
-                    Serving Cities
-                  </Link>
-                  <Link
-                    href="/fleet"
-                    onClick={() => { toggleMenu(); setMobileServicesOpen(false); setMobileHireByHourOpen(false); }}
-                    className="text-sm font-medium hover:text-primary"
-                  >
-                    Our Fleet
-                  </Link>
-                </div>
-              )}
+                Hire By Hour
+              </Link>
             </div>
           )}
 

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { getLocations } from "@/lib/firebase-admin";
-import type { Location } from "@/lib/types";
+import type { Location } from "@/types";
 import {
   Dialog,
   DialogContent,

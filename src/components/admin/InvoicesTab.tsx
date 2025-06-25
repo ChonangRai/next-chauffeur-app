@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Booking } from "@/types/admin";
+import { Booking } from "@/types";
 import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { Booking, Driver } from "@/types/admin";
+import { Booking, Driver } from "@/types";
 import BookingDetails from "./BookingDetails";
 
 type BookingRowProps = {

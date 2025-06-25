@@ -14,7 +14,7 @@ import {
   fetchServicePricing,
   fetchExtraCharges,
 } from "@/lib/adminFetch";
-import { Vehicle, Booking, Driver, DriverPayment } from "@/types/admin";
+import { Vehicle, Booking, Driver, DriverPayment } from "@/types";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { isAdminUser } from "@/lib/adminUtils";

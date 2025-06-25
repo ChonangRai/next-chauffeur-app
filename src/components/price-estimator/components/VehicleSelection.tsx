@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Vehicle } from "@/lib/types";
+import type { Vehicle } from "@/types";
 import VehicleServiceCard from "@/components/vehicle/vehicle";
 
 interface VehicleSelectionProps {
@@ -56,13 +56,13 @@ export default function VehicleSelection({
               title={vehicle.title}
               name={vehicle.name}
               description={vehicle.description || ""}
-              passengers={vehicle.maxPassengers}
-              bags={vehicle.maxBags}
-              wifi={vehicle.hasWifi}
-              meetGreet={vehicle.meetAndGreet}
-              drinks={vehicle.complimentaryDrinks}
-              waitingTime={vehicle.waitingTime}
-              price={vehicle.basePrice}
+              passengers={vehicle.passengers}
+              bags={vehicle.bags}
+              wifi={vehicle.wifi}
+              meetGreet={vehicle.meet_greet}
+              drinks={vehicle.drinks}
+              waitingTime={vehicle.waiting_time}
+              price={vehicle.base_price}
               selected={selectedVehicle?.id === vehicle.id}
               onSelect={() => handleVehicleSelect(vehicle)}
             />

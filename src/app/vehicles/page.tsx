@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Vehicle } from "@/types/admin";
+import { Vehicle } from "@/types";
 import { fetchVehicles } from "@/lib/adminFetch";
 import Image from "next/image";
 import Link from "next/link";
@@ -85,12 +85,12 @@ export default function VehiclesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="relative py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
-          <h1 className="text-5xl lg:text-6xl font-serif text-white mb-6">
+      <section className="relative py-16 sm:py-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-serif text-white mb-4 sm:mb-6">
             Our <span className="text-yellow-400">Luxury Fleet</span>
           </h1>
-          <p className="text-xl text-slate-300 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto">
             Experience the finest collection of luxury vehicles, each meticulously maintained 
             and driven by professional chauffeurs for your ultimate comfort and satisfaction.
           </p>
@@ -98,9 +98,9 @@ export default function VehiclesPage() {
       </section>
 
       {/* Vehicles Grid */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <section className="py-12 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {vehicles.map((vehicle) => {
               // Generate URL based on vehicle data
               let vehicleUrl = `/vehicles/${vehicle.brand || 'default'}/${vehicle.model || 'default'}`;
@@ -115,26 +115,27 @@ export default function VehiclesPage() {
               return (
                 <Link href={vehicleUrl} key={vehicle.id}>
                   <Card className="h-full hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer group">
-                    <div className="relative h-64 w-full overflow-hidden">
+                    <div className="relative h-48 sm:h-56 lg:h-64 w-full overflow-hidden">
                       <Image
                         src={vehicle.image_url || "/images/cars/mercedes-s.jpeg"}
                         alt={vehicle.title}
                         fill
                         className="object-cover group-hover:scale-110 transition-transform duration-300"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       <div className="absolute bottom-4 left-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <p className="text-sm font-medium">View Details</p>
                       </div>
                     </div>
-                    <CardHeader>
-                      <CardTitle className="text-xl group-hover:text-yellow-600 transition-colors">
+                    <CardHeader className="p-4 sm:p-6">
+                      <CardTitle className="text-lg sm:text-xl group-hover:text-yellow-600 transition-colors">
                         {vehicle.title}
                       </CardTitle>
                       <p className="text-gray-600 text-sm">{vehicle.name}</p>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-gray-700 line-clamp-2">{vehicle.description}</p>
+                    <CardContent className="space-y-4 p-4 sm:p-6">
+                      <p className="text-gray-700 line-clamp-2 text-sm sm:text-base">{vehicle.description}</p>
                       
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="flex items-center space-x-2">
@@ -151,11 +152,11 @@ export default function VehiclesPage() {
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-gray-600 text-sm">From</p>
-                            <p className="text-2xl font-bold text-yellow-600">£{vehicle.base_price}</p>
+                            <p className="text-xl sm:text-2xl font-bold text-yellow-600">£{vehicle.base_price}</p>
                           </div>
                           <Button 
                             size="sm"
-                            className="bg-yellow-600 hover:bg-yellow-700 text-black"
+                            className="bg-yellow-600 hover:bg-yellow-700 text-black text-sm"
                           >
                             Book Now
                           </Button>
@@ -184,17 +185,17 @@ export default function VehiclesPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Experience Luxury?</h2>
-          <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
+      <section className="py-12 sm:py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4">Ready to Experience Luxury?</h2>
+          <p className="text-gray-600 mb-6 sm:mb-8 max-w-2xl mx-auto text-sm sm:text-base">
             Book your preferred vehicle today and enjoy the ultimate in luxury transportation 
             with our professional chauffeur service.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg"
-              className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-8 py-4"
+              className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base"
               onClick={() => window.location.href = '/#estimate'}
             >
               Get a Quote
@@ -202,7 +203,7 @@ export default function VehiclesPage() {
             <Button 
               variant="outline" 
               size="lg"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 px-8 py-4"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base"
               onClick={() => window.location.href = '/contact'}
             >
               Contact Us
