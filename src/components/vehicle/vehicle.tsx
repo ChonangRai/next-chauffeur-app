@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { FaUsers, FaSuitcase, FaWifi, FaHandshake, FaClock, FaGlassCheers } from "react-icons/fa";
+import { FaUsers, FaSuitcase, FaWifi, FaHandshake, FaClock, FaGlassCheers, FaExclamationTriangle } from "react-icons/fa";
 
 type VehicleServiceCardProps = {
   title: string;
@@ -13,6 +13,8 @@ type VehicleServiceCardProps = {
   waitingTime: string;
   price: number;
   selected?: boolean;
+  disabled?: boolean;
+  requiredPassengers?: number;
   onSelect?: () => void;
 };
 
@@ -28,12 +30,18 @@ const VehicleServiceCard = ({
   waitingTime,
   price,
   selected = false,
+  disabled = false,
+  requiredPassengers,
   onSelect
 }: VehicleServiceCardProps) => {
   return (
     <div 
-      className={`flex flex-col md:flex-row bg-white p-4 border rounded-lg w-full mx-auto transition-all ${
-        selected ? "border-primary border-2 bg-blue-50" : "border-gray-200"
+      className={`flex flex-col md:flex-row p-4 border rounded-lg w-full mx-auto transition-all ${
+        selected 
+          ? "border-primary border-2 bg-blue-50" 
+          : disabled 
+            ? "border-gray-300 bg-gray-50 opacity-60" 
+            : "border-gray-200 bg-white"
       }`}
     >
       {/* Left Side: Car Image */}
@@ -60,6 +68,19 @@ const VehicleServiceCard = ({
         <p className="text-gray-600 mt-2 text-justify">
           {description}
         </p>
+
+        {/* Disabled Warning */}
+        {disabled && requiredPassengers && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <div className="flex items-center text-amber-800">
+              <FaExclamationTriangle className="mr-2" size={16} />
+              <span className="text-sm font-medium">
+                Insufficient capacity for {requiredPassengers} passengers. 
+                This vehicle accommodates {passengers} passengers maximum.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Features Grid */}
         <div className="grid grid-cols-2 gap-4 mt-4">
@@ -99,13 +120,16 @@ const VehicleServiceCard = ({
         <div className="flex justify-end mt-4">
           <button 
             onClick={onSelect}
+            disabled={disabled}
             className={`font-semibold py-2 px-6 rounded transition ${
-              selected 
-                ? "bg-green-600 text-white hover:bg-green-700" 
-                : "bg-yellow-500 text-white hover:bg-yellow-600"
+              disabled
+                ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                : selected 
+                  ? "bg-green-600 text-white hover:bg-green-700" 
+                  : "bg-yellow-500 text-white hover:bg-yellow-600"
             }`}
           >
-            {selected ? "SELECTED" : "SELECT"}
+            {disabled ? "UNAVAILABLE" : selected ? "SELECTED" : "SELECT"}
           </button>
         </div>
       </div>
