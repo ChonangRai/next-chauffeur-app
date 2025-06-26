@@ -78,6 +78,12 @@ export async function getBooking(bookingId: string) {
   return booking.exists ? { id: booking.id, ...booking.data() } : null;
 }
 
+export async function getBookingById(bookingId: string) {
+  const bookingRef = adminDb.collection(COLLECTIONS.BOOKINGS).doc(bookingId);
+  const booking = await bookingRef.get();
+  return booking.exists ? { id: booking.id, ...booking.data() } : null;
+}
+
 // User Functions
 export async function createUserProfile(userId: string, userData: UserData) {
   const userRef = adminDb.collection(COLLECTIONS.USERS).doc(userId);
