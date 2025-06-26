@@ -15,7 +15,7 @@ type BookingDetailsProps = {
   isEditing: boolean;
   editedBooking: Booking | null;
   setEditedBooking: (booking: Booking | null) => void;
-  handleAssignDriver: (bookingId: string, value: string) => Promise<void>;
+  handleAssignStaff: (bookingId: string, value: string) => Promise<void>;
   handleMarkBookingCompleted: (bookingId: string) => Promise<void>;
   startEditing: (booking: Booking) => void;
   saveEditing: () => Promise<void>;
@@ -29,7 +29,7 @@ export default function BookingDetails({
   isEditing,
   editedBooking,
   setEditedBooking,
-  handleAssignDriver,
+  handleAssignStaff,
   handleMarkBookingCompleted,
   startEditing,
   saveEditing,
@@ -205,24 +205,24 @@ export default function BookingDetails({
         <div>
           <div className="flex items-center space-x-2 mb-4">
             <span className="text-sm font-semibold text-gray-600">
-              Assigned Driver:
+              Assigned Staff:
             </span>
             {isEditing ? (
               <Select
-                value={editedBooking?.driver_id || "unassign"}
+                value={editedBooking?.staff_id || "unassign"}
                 onValueChange={(value) =>
                   setEditedBooking(
                     editedBooking
                       ? {
                           ...editedBooking,
-                          driver_id: value === "unassign" ? null : value,
+                          staff_id: value === "unassign" ? null : value,
                         }
                       : null
                   )
                 }
               >
                 <SelectTrigger className="w-[150px] bg-gray-50 border-gray-300">
-                  <SelectValue placeholder="Assign Driver" />
+                  <SelectValue placeholder="Assign Staff" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassign">Unassign</SelectItem>
@@ -235,11 +235,11 @@ export default function BookingDetails({
               </Select>
             ) : (
               <Select
-                value={booking.driver_id || "unassign"}
-                onValueChange={(value) => handleAssignDriver(booking.id, value)}
+                value={booking.staff_id || "unassign"}
+                onValueChange={(value) => handleAssignStaff(booking.id, value)}
               >
                 <SelectTrigger className="w-[150px] bg-gray-50 border-gray-300">
-                  <SelectValue placeholder="Assign Driver" />
+                  <SelectValue placeholder="Assign Staff" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassign">Unassign</SelectItem>
@@ -253,10 +253,10 @@ export default function BookingDetails({
             )}
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            <span className="font-semibold">Driver Status:</span>{" "}
-            {booking.driver_status || "N/A"}
+            <span className="font-semibold">Staff Status:</span>{" "}
+            {booking.staff_assigned ? "Assigned" : "Not Assigned"}
           </p>
-          {!isEditing && booking.driver_status === "assigned" && (
+          {!isEditing && booking.staff_assigned && (
             <Button
               variant="outline"
               size="sm"

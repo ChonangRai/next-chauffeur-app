@@ -84,6 +84,14 @@ export async function getBookingById(bookingId: string) {
   return booking.exists ? { id: booking.id, ...booking.data() } : null;
 }
 
+export async function getBookingByRef(bookingRefValue: string) {
+  const bookingsRef = adminDb.collection(COLLECTIONS.BOOKINGS);
+  const snapshot = await bookingsRef.where('booking_ref', '==', bookingRefValue).limit(1).get();
+  if (snapshot.empty) return null;
+  const doc = snapshot.docs[0];
+  return { id: doc.id, ...doc.data() };
+}
+
 // User Functions
 export async function createUserProfile(userId: string, userData: UserData) {
   const userRef = adminDb.collection(COLLECTIONS.USERS).doc(userId);

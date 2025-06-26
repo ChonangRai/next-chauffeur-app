@@ -8,7 +8,7 @@ type BookingRowProps = {
   booking: Booking;
   drivers: Driver[];
   handleUpdateBookingStatus: (bookingId: string, newStatus: string) => Promise<void>;
-  handleAssignDriver: (bookingId: string, value: string) => Promise<void>;
+  handleAssignStaff: (bookingId: string, value: string) => Promise<void>;
   handleMarkBookingCompleted: (bookingId: string) => Promise<void>;
   handleDeleteBooking: (bookingId: string) => Promise<void>;
 };
@@ -17,7 +17,7 @@ export default function BookingRow({
   booking,
   drivers,
   handleUpdateBookingStatus,
-  handleAssignDriver,
+  handleAssignStaff,
   handleMarkBookingCompleted,
   handleDeleteBooking,
 }: BookingRowProps) {
@@ -112,7 +112,7 @@ export default function BookingRow({
               isEditing={isEditing}
               editedBooking={editedBooking}
               setEditedBooking={setEditedBooking}
-              handleAssignDriver={handleAssignDriver}
+              handleAssignStaff={handleAssignStaff}
               handleMarkBookingCompleted={handleMarkBookingCompleted}
               startEditing={startEditing}
               saveEditing={saveEditing}

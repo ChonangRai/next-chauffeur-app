@@ -127,6 +127,7 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         amount: amount,
         status: "pending",
         payment_status: "pending",
+        staff_assigned: false,
         created_at: new Date(),
         updated_at: new Date(),
         stripe_session_id: session.id,

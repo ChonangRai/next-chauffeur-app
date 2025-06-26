@@ -57,8 +57,8 @@ export type Booking = {
   is_hire_by_hour?: boolean | null;
   duration?: number | null;
   duration_unit?: string | null;
-  driver_id?: string | null;
-  driver_status?: string | null;
+  staff_id?: string | null;
+  staff_assigned?: boolean;
   terminal?: string | null;
   additional_hours?: number | null;
   want_buggy?: boolean;

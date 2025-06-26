@@ -64,26 +64,26 @@ export default function BookingsTab({
     }
   };
 
-  const handleAssignDriver = async (bookingId: string, driverId: string) => {
+  const handleAssignStaff = async (bookingId: string, staffId: string) => {
     try {
       const bookingRef = doc(db, "bookings", bookingId);
       const updateData: any = {
-        driver_id: driverId === "unassign" ? null : driverId,
+        staff_id: staffId === "unassign" ? null : staffId,
         updated_at: new Date(),
       };
 
-      if (driverId !== "unassign") {
-        updateData.driver_status = "assigned";
+      if (staffId !== "unassign") {
+        updateData.staff_assigned = true;
       } else {
-        updateData.driver_status = null;
+        updateData.staff_assigned = false;
       }
 
       await updateDoc(bookingRef, updateData);
-      toast.success("Driver assigned successfully");
+      toast.success("Staff assigned successfully");
       await fetchBookings();
     } catch (error) {
-      console.error("Error assigning driver:", error);
-      toast.error("Failed to assign driver");
+      console.error("Error assigning staff:", error);
+      toast.error("Failed to assign staff");
     }
   };
 
@@ -91,8 +91,7 @@ export default function BookingsTab({
     try {
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, {
-        status: "confirmed",
-        driver_status: "completed",
+        status: "completed",
         updated_at: new Date(),
       });
 
@@ -107,13 +106,13 @@ export default function BookingsTab({
         });
 
         if (response.ok) {
-          toast.success("Booking confirmed and confirmation email sent");
+          toast.success("Booking completed and confirmation email sent");
         } else {
-          toast.error("Booking confirmed but failed to send email");
+          toast.error("Booking completed but failed to send email");
         }
       } catch (emailError) {
         console.error("Failed to send booking confirmation email:", emailError);
-        toast.error("Booking confirmed but failed to send email");
+        toast.error("Booking completed but failed to send email");
       }
 
       await fetchBookings();
@@ -206,7 +205,7 @@ export default function BookingsTab({
                   booking={booking}
                   drivers={drivers}
                   handleUpdateBookingStatus={handleUpdateBookingStatus}
-                  handleAssignDriver={handleAssignDriver}
+                  handleAssignStaff={handleAssignStaff}
                   handleMarkBookingCompleted={handleMarkBookingCompleted}
                   handleDeleteBooking={handleDeleteBooking}
                 />
