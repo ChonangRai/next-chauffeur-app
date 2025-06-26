@@ -68,6 +68,7 @@ export default function BookingRow({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="success">Success</SelectItem>
                 <SelectItem value="canceled">Canceled</SelectItem>
               </SelectContent>
@@ -82,6 +83,7 @@ export default function BookingRow({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="success">Success</SelectItem>
                 <SelectItem value="canceled">Canceled</SelectItem>
               </SelectContent>

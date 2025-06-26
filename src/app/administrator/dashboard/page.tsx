@@ -5,6 +5,8 @@ import VehiclesTab from "@/components/admin/VehiclesTab";
 import DriverPaymentsTab from "@/components/admin/DriverPaymentsTab";
 import InvoicesTab from "@/components/admin/InvoicesTab";
 import PriceSettingsTab from "@/components/admin/PriceSettingsTab";
+import BookingsTab from "@/components/admin/BookingsTab";
+import EmailTestModal from "@/components/admin/EmailTestModal";
 import {
   fetchVehicles,
   fetchBookings,
@@ -175,7 +177,29 @@ export default function AdminDashboard() {
               <p className="text-2xl font-bold text-gray-900">{activeDrivers}</p>
             </div>
           </div>
-          {/* BookingsTab can go here if you want bookings table below stats */}
+          
+          {/* Email Test Section */}
+          <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h3 className="text-lg font-semibold mb-4">Email System</h3>
+            <p className="text-gray-600 mb-4">
+              Test the email functionality to ensure booking and payment confirmation emails are working correctly.
+            </p>
+            <EmailTestModal />
+          </div>
+          
+          {/* Bookings Management */}
+          <BookingsTab
+            bookings={bookings}
+            drivers={drivers}
+            isLoadingBookings={isLoadingBookings}
+            bookingError={bookingError}
+            fetchBookings={async () => {
+              const { data, error, isLoading } = await fetchBookings();
+              setBookings(data || []);
+              setBookingError(error);
+              setIsLoadingBookings(isLoading);
+            }}
+          />
         </div>
       )}
       {activeTab === "vehicles" && (

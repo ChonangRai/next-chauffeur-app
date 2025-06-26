@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
+import { sendPaymentConfirmationEmail } from "@/lib/email";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -76,6 +77,7 @@ export async function POST(req: Request) {
       // Update the booking status
       const bookingDoc = querySnapshot.docs[0];
       const bookingRef = doc(db, "bookings", bookingDoc.id);
+      const bookingData = bookingDoc.data();
       
       try {
         await updateDoc(bookingRef, {
@@ -83,6 +85,15 @@ export async function POST(req: Request) {
           updated_at: new Date()
         });
         console.log("Successfully updated booking payment status");
+        
+        // Send payment confirmation email only
+        try {
+          await sendPaymentConfirmationEmail(bookingData);
+          console.log("Payment confirmation email sent successfully");
+        } catch (emailError) {
+          console.error("Failed to send payment confirmation email:", emailError);
+          // Don't fail the webhook if email fails
+        }
       } catch (updateError) {
         console.error("Failed to update booking:", updateError);
         return NextResponse.json(
