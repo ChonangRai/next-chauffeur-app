@@ -51,35 +51,38 @@ export default function VehicleSelection({
         <h3 className="text-lg font-semibold">Available Vehicles</h3>
         <div className="space-y-4">
           {vehicles.map((vehicle) => (
-            <VehicleServiceCard
-              key={vehicle.id}
-              title={vehicle.title}
-              name={vehicle.name}
-              description={vehicle.description || ""}
-              passengers={vehicle.passengers}
-              bags={vehicle.bags}
-              wifi={vehicle.wifi}
-              meetGreet={vehicle.meet_greet}
-              drinks={vehicle.drinks}
-              waitingTime={vehicle.waiting_time}
-              price={vehicle.base_price}
-              selected={selectedVehicle?.id === vehicle.id}
-              onSelect={() => handleVehicleSelect(vehicle)}
-            />
+            <div key={vehicle.id}>
+              <VehicleServiceCard
+                title={vehicle.title}
+                name={vehicle.name}
+                description={vehicle.description || ""}
+                passengers={vehicle.passengers}
+                bags={vehicle.bags}
+                wifi={vehicle.wifi}
+                meetGreet={vehicle.meet_greet}
+                drinks={vehicle.drinks}
+                waitingTime={vehicle.waiting_time}
+                price={vehicle.base_price}
+                selected={selectedVehicle?.id === vehicle.id}
+                onSelect={() => handleVehicleSelect(vehicle)}
+              />
+              {/* Show Continue and Back buttons underneath the selected vehicle */}
+              {selectedVehicle?.id === vehicle.id && (
+                <div className="flex justify-between mt-4 p-4 bg-gray-50 rounded-lg border">
+                  <Button variant="outline" onClick={onBack}>
+                    Back
+                  </Button>
+                  <Button
+                    onClick={() => selectedVehicle && onVehicleSelect(selectedVehicle)}
+                    disabled={!selectedVehicle}
+                  >
+                    Continue
+                  </Button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
-      </div>
-
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          onClick={() => selectedVehicle && onVehicleSelect(selectedVehicle)}
-          disabled={!selectedVehicle}
-        >
-          Continue
-        </Button>
       </div>
     </div>
   );
