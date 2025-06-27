@@ -446,68 +446,90 @@ export default function JourneyForm({
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            {formData.passengers > 2 && type !== "hourlyHire" && (
-              <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
-                <p className="text-xs">
-                  Additional charge per passenger will be applied for more than 2.
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* Additional Hours */}
-          <div className="space-y-3">
-            <Label>Additional Hours</Label>
-            <div className="flex items-center gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() =>
-                  setFormData.setAdditionalHours(
-                    Math.max(0, formData.additionalHours - 1)
-                  )
-                }
-                disabled={isLoading || formData.additionalHours <= 0}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-              <span className="w-8 text-center">
-                {formData.additionalHours}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() =>
-                  setFormData.setAdditionalHours(
-                    Math.min(MAX_ADDITIONAL_HOURS, formData.additionalHours + 1)
-                  )
-                }
-                disabled={
-                  isLoading || formData.additionalHours >= MAX_ADDITIONAL_HOURS
-                }
-                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {formData.additionalHours > 0 && type !== "hourlyHire" && (
-              <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
-                <p className="text-xs">
-                  Additional hours (over 2) will be charged at the hourly rate
-                </p>
+          {/* Luggage for Airport Transfer, Additional Hours for others */}
+          {type === "airportTransfer" ? (
+            <div className="space-y-3">
+              <Label>Luggage (Bags)</Label>
+              <div className="flex items-center gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setFormData.setBags?.(Math.max(0, (formData.bags || 0) - 1))}
+                  disabled={isLoading || (formData.bags || 0) <= 0}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-8 text-center">{formData.bags || 0}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setFormData.setBags?.((formData.bags || 0) + 1)}
+                  disabled={isLoading}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Label>Additional Hours</Label>
+              <div className="flex items-center gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setFormData.setAdditionalHours(
+                      Math.max(0, formData.additionalHours - 1)
+                    )
+                  }
+                  disabled={isLoading || formData.additionalHours <= 0}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-8 text-center">
+                  {formData.additionalHours}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setFormData.setAdditionalHours(
+                      Math.min(MAX_ADDITIONAL_HOURS, formData.additionalHours + 1)
+                    )
+                  }
+                  disabled={
+                    isLoading || formData.additionalHours >= MAX_ADDITIONAL_HOURS
+                  }
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {formData.additionalHours > 0 && type !== "hourlyHire" && (
+                <div className="p-3 bg-amber-100 text-amber-800 rounded-md">
+                  <p className="text-xs">
+                    Additional hours (over 2) will be charged at the hourly rate
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Update the warning message for additional hours based on service type */}
-        {type === "hourlyHire" && formData.additionalHours > 0 && (
+        {/* Passenger/Luggage Warning for Airport Transfer */}
+        {type === "airportTransfer" && formData.passengers > 5 && (formData.bags || 0) > 3 && (
           <div className="p-3 bg-amber-100 text-amber-800 rounded-md mt-2">
             <p className="text-xs">
-              Standard hire duration is 10 hours. Additional hours will be charged at the hourly rate.
+              For bookings with more than 5 passengers and more than 3 bags, please contact us for a custom quote or select a larger vehicle.
             </p>
           </div>
         )}

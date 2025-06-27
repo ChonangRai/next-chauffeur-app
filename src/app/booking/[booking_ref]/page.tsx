@@ -289,7 +289,7 @@ export default async function BookingDetailsPage({ params }: { params: { booking
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Date & Time</p>
                     <p className="text-sm font-semibold">
@@ -303,6 +303,27 @@ export default async function BookingDetailsPage({ params }: { params: { booking
                     </p>
                   </div>
                   <div>
+                    <p className="text-sm font-medium text-gray-500">Pickup Location</p>
+                    <p className="text-sm font-semibold">{booking.pickup_location}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Dropoff Location</p>
+                    <p className="text-sm font-semibold">{booking.dropoff_location}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Luggage</p>
+                    <p className="text-sm font-semibold flex items-center gap-1">
+                      <Briefcase className="h-4 w-4" />
+                      {booking.bags} {booking.bags === 1 ? 'bag' : 'bags'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
                     <p className="text-sm font-medium text-gray-500">Passengers</p>
                     <p className="text-sm font-semibold flex items-center gap-1">
                       <Users className="h-4 w-4" />
@@ -310,28 +331,6 @@ export default async function BookingDetailsPage({ params }: { params: { booking
                     </p>
                   </div>
                 </div>
-                
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Pickup Location</p>
-                  <p className="text-sm font-semibold">{booking.pickup_location}</p>
-                </div>
-                
-                {booking.dropoff_location && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Dropoff Location</p>
-                    <p className="text-sm font-semibold">{booking.dropoff_location}</p>
-                  </div>
-                )}
-
-                {booking.bags && booking.bags > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Luggage</p>
-                    <p className="text-sm font-semibold flex items-center gap-1">
-                      <Briefcase className="h-4 w-4" />
-                      {booking.bags} bags
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
