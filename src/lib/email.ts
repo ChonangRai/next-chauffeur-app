@@ -71,12 +71,15 @@ const emailTemplates = {
         </div>
         
         <div style="background-color: white; padding: 30px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #333; margin-bottom: 20px;">Booking Confirmed!</h2>
-          
+          <div style="text-align: center; margin-bottom: 25px;">
+            <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+              <img src='https://next-chauffeur-app.vercel.app/favicon.ico' alt='LCH Logo' style='width:48px;height:48px;display:block;margin:auto;' />
+            </div>
+            <h2 style="color: #1a1a1a; margin: 0;">Booking Confirmed!</h2>
+          </div>
           <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 25px;">
             <p style="margin: 0; color: #856404; font-weight: bold;">Booking Reference: ${bookingData.booking_ref}</p>
           </div>
-          
           <div style="margin-bottom: 25px;">
             <h3 style="color: #333; margin-bottom: 15px;">Booking Details</h3>
             <table style="width: 100%; border-collapse: collapse;">
@@ -108,7 +111,6 @@ const emailTemplates = {
               </tr>
             </table>
           </div>
-          
           <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 25px;">
             <h4 style="margin: 0 0 10px 0; color: #856404;">Important Information</h4>
             <ul style="margin: 0; padding-left: 20px; color: #856404;">
@@ -117,12 +119,10 @@ const emailTemplates = {
               <li>Have your booking reference ready: <strong>${bookingData.booking_ref}</strong></li>
             </ul>
           </div>
-          
           <div style="text-align: center; margin-top: 30px;">
-            <a href="https://next-chauffeur-app.vercel.app/booking/${bookingData.id}" style="background-color: #1a1a1a; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Booking Details</a>
+            <a href="https://next-chauffeur-app.vercel.app/booking/${bookingData.booking_ref}" style="background-color: #1a1a1a; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Booking Details</a>
           </div>
         </div>
-        
         <div style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
           <p>Thank you for choosing London Chauffeur Hire</p>
           <p>For any questions, please contact us at support@londonchauffeurhire.com</p>
@@ -146,7 +146,7 @@ const emailTemplates = {
           <div style="background-color: white; padding: 30px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 25px;">
               <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                <div style="font-size: 24px; font-weight: bold; color: #1a1a1a;">LCH</div>
+                <img src='https://next-chauffeur-app.vercel.app/favicon.ico' alt='LCH Logo' style='width:48px;height:48px;display:block;margin:auto;' />
               </div>
               <h2 style="color: #1a1a1a; margin: 0;">Payment Successful!</h2>
             </div>
@@ -185,7 +185,7 @@ const emailTemplates = {
             </div>
             
             <div style="text-align: center; margin-top: 30px;">
-              <a href="https://next-chauffeur-app.vercel.app/booking/${bookingData.id}" style="background-color: #1a1a1a; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Booking Details</a>
+              <a href="https://next-chauffeur-app.vercel.app/booking/${bookingData.booking_ref}" style="background-color: #1a1a1a; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Booking Details</a>
             </div>
           </div>
           

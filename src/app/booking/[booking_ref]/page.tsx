@@ -50,53 +50,47 @@ function BookingProgressBar({ booking }: { booking: any }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {steps.map((step, index) => (
-            <div key={step.id} className="flex items-start gap-4">
-              {/* Step Icon */}
-              <div className="flex-shrink-0 mt-1">
+        {/* Horizontal Progress Bar with Icons */}
+        <div className="relative flex items-center justify-between mb-8" style={{ minHeight: 60 }}>
+          {/* Connector Bar */}
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-4 bg-gray-200 rounded-full z-0" style={{ height: 10 }} />
+          {/* Completed Bar */}
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full z-10 transition-all duration-500"
+            style={{
+              height: 10,
+              width: `${((lastCompletedIndex + 1) / (steps.length - 1)) * 100}%`,
+              maxWidth: '100%',
+            }}
+          />
+          {/* Step Icons */}
+          {steps.map((step) => (
+            <div key={step.id} className="relative z-20 flex flex-col items-center flex-1">
+              <div className="mb-2">
                 {step.completed ? (
-                  <CheckCircle className="h-6 w-6 text-green-600" />
+                  <CheckCircle className="h-8 w-8 text-green-600 bg-white rounded-full p-1 border-2 border-green-600" />
                 ) : step.current ? (
-                  <div className="h-6 w-6 rounded-full bg-yellow-600 flex items-center justify-center">
-                    <div className="h-2 w-2 bg-white rounded-full animate-pulse"></div>
+                  <div className="h-8 w-8 rounded-full bg-yellow-600 flex items-center justify-center border-2 border-yellow-600">
+                    <div className="h-3 w-3 bg-white rounded-full animate-pulse"></div>
                   </div>
                 ) : (
-                  <Circle className="h-6 w-6 text-gray-300" />
+                  <Circle className="h-8 w-8 text-gray-300 bg-white rounded-full p-1 border-2 border-gray-300" />
                 )}
               </div>
-
-              {/* Step Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className={`text-sm font-semibold ${
-                    step.completed ? 'text-green-600' : 
-                    step.current ? 'text-yellow-600' : 'text-gray-500'
-                  }`}>
-                    {step.title}
-                  </h4>
-                  {step.current && (
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                      Current
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 mb-2">{step.description}</p>
-                
-                {/* Progress Line */}
-                {index < steps.length - 1 && (
-                  <div className="relative">
-                    <div className="absolute left-0 top-0 w-0.5 h-8 bg-gray-200"></div>
-                    {index <= lastCompletedIndex && (
-                      <div className="absolute left-0 top-0 w-0.5 h-8 bg-green-600 transition-all duration-500"></div>
-                    )}
-                  </div>
-                )}
+              <div className="text-xs text-center mt-1 font-semibold" style={{ minWidth: 80 }}>
+                {step.title}
               </div>
             </div>
           ))}
         </div>
-
+        {/* Step Descriptions */}
+        <div className="flex justify-between mb-6">
+          {steps.map((step) => (
+            <div key={step.id} className="flex-1 text-center">
+              <p className={`text-xs ${step.completed ? 'text-green-600' : step.current ? 'text-yellow-600' : 'text-gray-500'}`}>{step.description}</p>
+            </div>
+          ))}
+        </div>
         {/* Progress Summary */}
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-between mb-2">
@@ -105,9 +99,9 @@ function BookingProgressBar({ booking }: { booking: any }) {
               {Math.round(((lastCompletedIndex + 1) / steps.length) * 100)}%
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-4">
             <div 
-              className="bg-gradient-to-r from-yellow-500 to-yellow-600 h-2 rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-yellow-500 to-yellow-600 h-4 rounded-full transition-all duration-500"
               style={{ width: `${((lastCompletedIndex + 1) / steps.length) * 100}%` }}
             ></div>
           </div>
