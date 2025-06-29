@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, MapPin, Users, Briefcase, Phone, Mail, Car, Star, CheckCircle, Circle } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+const AccountCreationCTA = dynamic(() => import("@/components/booking/AccountCreationCTA"), { ssr: false });
 
 // Progress bar component
 function BookingProgressBar({ booking }: { booking: any }) {
@@ -84,28 +86,14 @@ function BookingProgressBar({ booking }: { booking: any }) {
           ))}
         </div>
         {/* Step Descriptions */}
-        <div className="flex justify-between mb-6">
+        <div className="flex justify-between">
           {steps.map((step) => (
             <div key={step.id} className="flex-1 text-center">
               <p className={`text-xs ${step.completed ? 'text-green-600' : step.current ? 'text-yellow-600' : 'text-gray-500'}`}>{step.description}</p>
             </div>
           ))}
         </div>
-        {/* Progress Summary */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-            <span className="text-sm font-semibold text-gray-900">
-              {Math.round(((lastCompletedIndex + 1) / steps.length) * 100)}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
-            <div 
-              className="bg-gradient-to-r from-yellow-500 to-yellow-600 h-4 rounded-full transition-all duration-500"
-              style={{ width: `${((lastCompletedIndex + 1) / steps.length) * 100}%` }}
-            ></div>
-          </div>
-        </div>
+
       </CardContent>
     </Card>
   );
@@ -416,42 +404,7 @@ export default async function BookingDetailsPage({ params }: { params: { booking
             </Card>
 
             {/* Account Creation CTA */}
-            <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-              <CardHeader>
-                <CardTitle className="text-yellow-800">Create an Account</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-yellow-700">
-                  Create a free account to:
-                </p>
-                <ul className="text-sm text-yellow-700 space-y-2">
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-600" />
-                    View all your bookings in one place
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-600" />
-                    Get booking updates and notifications
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-600" />
-                    Quick rebooking for future trips
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-600" />
-                    Access exclusive member benefits
-                  </li>
-                </ul>
-                <div className="space-y-2">
-                  <Button asChild className="w-full bg-yellow-600 hover:bg-yellow-700 text-white">
-                    <Link href="/user/signup">Create Account</Link>
-                  </Button>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link href="/user/signin">Sign In</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <AccountCreationCTA />
 
             {/* Actions */}
             <Card>
