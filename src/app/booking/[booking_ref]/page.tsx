@@ -318,6 +318,21 @@ export default async function BookingDetailsPage({ params }: { params: { booking
                       {booking.passengers}
                     </p>
                   </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Duration</p>
+                    <p className="text-sm font-semibold flex items-center gap-1">
+                      {booking.duration || 0} hour{(booking.duration || 0) !== 1 ? 's' : ''}
+                      {booking.additional_hours > 0 && booking.duration > 0 && (
+                        <span className="text-xs text-gray-500 ml-2">({booking.duration}h base + {booking.additional_hours}h additional)</span>
+                      )}
+                      {booking.base_duration > 0 && booking.additional_hours === 0 && (
+                        <span className="text-xs text-gray-500 ml-2">({booking.duration}h base)</span>
+                      )}
+                      {booking.duration === 0 && booking.additional_hours > 0 && (
+                        <span className="text-xs text-gray-500 ml-2">({booking.additional_hours}h total)</span>
+                      )}
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

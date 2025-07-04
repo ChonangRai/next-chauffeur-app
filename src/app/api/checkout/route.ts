@@ -105,17 +105,54 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
 
       // Save booking to Firebase
       const bookingRef = generateBookingRef();
+      
+      // Ensure date_time is always a valid ISO string
+      let dateTimeString: string;
+      if (typeof bookingDetails.dateTime === "string") {
+        const date = new Date(bookingDetails.dateTime);
+        if (isNaN(date.getTime())) {
+          throw new Error("Invalid date_time provided");
+        }
+        dateTimeString = date.toISOString();
+      } else if (bookingDetails.dateTime instanceof Date) {
+        dateTimeString = bookingDetails.dateTime.toISOString();
+      } else {
+        throw new Error("Invalid date_time format");
+      }
+      
+      // Calculate base duration and additional hours based on service type
+      let baseDuration = 0;
+      let additionalHours = 0;
+      let totalDuration = 0;
+      
+      if (bookingDetails.service_type === "meetAndGreet") {
+        baseDuration = 2; // Meet & Greet base is 2 hours
+        additionalHours = bookingDetails.duration || 0; // duration from frontend is additional hours
+        totalDuration = baseDuration + additionalHours;
+      } else if (bookingDetails.service_type === "hourlyHire") {
+        baseDuration = 0; // Hourly hire has no base duration
+        totalDuration = bookingDetails.duration || 8; // Default 8 hours for hourly hire
+        additionalHours = totalDuration; // For hourly hire, all hours are "additional"
+      } else {
+        // Airport Transfer - default 2 hours
+        baseDuration = 2;
+        additionalHours = bookingDetails.duration || 0; // duration from frontend is additional hours
+        totalDuration = baseDuration + additionalHours;
+      }
+
       const bookingData = {
         full_name: bookingDetails.fullName,
         email: bookingDetails.email,
         phone: bookingDetails.phone,
         pickup_location: bookingDetails.pickupLocation,
         dropoff_location: bookingDetails.dropoffLocation,
-        date_time: bookingDetails.dateTime,
+        date_time: dateTimeString,
         service_type: bookingDetails.service_type,
         service_subtype: bookingDetails.service_subtype,
-        duration: bookingDetails.duration,
+        duration: totalDuration,
         duration_unit: bookingDetails.durationUnit,
+        base_duration: baseDuration,
+        additional_hours: additionalHours,
         additional_requests: bookingDetails.additionalRequests,
         flight_number_arrival: bookingDetails.flightNumberArrival,
         flight_number_departure: bookingDetails.flightNumberDeparture,
@@ -128,8 +165,8 @@ ${bookingDetails.flightNumberDeparture ? `Departure Flight: ${bookingDetails.fli
         status: "pending",
         payment_status: "pending",
         staff_assigned: false,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         stripe_session_id: session.id,
         user_id: userId || null,
         booking_ref: bookingRef,

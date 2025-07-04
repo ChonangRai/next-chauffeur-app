@@ -41,6 +41,10 @@ const formatServiceType = (type: string): string => {
 // Format date for display
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    console.warn(`Invalid date string: ${dateString}`);
+    return "Invalid date";
+  }
   return format(date, "EEEE, MMMM d, yyyy 'at' h:mm a");
 };
 
@@ -49,7 +53,7 @@ export default function CustomerDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [processingPayments, setProcessingPayments] = useState<{ [key: string]: boolean }>({});
+  const [processingPayments] = useState<{ [key: string]: boolean }>({});
   const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
   const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null);
   const router = useRouter();
@@ -148,153 +152,166 @@ export default function CustomerDashboard() {
 
   const canModifyBooking = (bookingDate: string) => {
     const serviceDateTime = new Date(bookingDate);
+    // Handle invalid dates
+    if (isNaN(serviceDateTime.getTime())) {
+      console.warn(`Invalid booking date: ${bookingDate}`);
+      return false;
+    }
     const now = new Date();
     const twentyFourHoursBefore = subHours(serviceDateTime, 24);
-    return isAfter(now, twentyFourHoursBefore);
+    const canModify = isAfter(now, twentyFourHoursBefore);
+    
+    // Debug logging for canModifyBooking
+    console.log(`canModifyBooking check for ${bookingDate}:`, {
+      serviceDateTime: serviceDateTime.toISOString(),
+      now: now.toISOString(),
+      twentyFourHoursBefore: twentyFourHoursBefore.toISOString(),
+      canModify
+    });
+    
+    return canModify;
   };
 
-  const handlePayment = async (booking: Booking) => {
-    try {
-      setProcessingPayments(prev => ({ ...prev, [booking.id]: true }));
-      
-      // Create a payment session
-      const response = await fetch("/api/create-payment-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          amount: booking.amount,
-          bookingRef: booking.booking_ref,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create payment session");
-      }
-
-      const { url } = await response.json();
-      
-      if (!url) {
-        throw new Error("No checkout URL received");
-      }
-
-      // Redirect to Stripe Checkout
-      window.location.href = url;
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast.error("Failed to process payment. Please try again.");
-      setProcessingPayments(prev => ({ ...prev, [booking.id]: false }));
-    }
-  };
 
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
 
+  const now = new Date();
+  
+  // Debug: Check if bookings are loaded
+  console.log('Bookings loaded:', bookings.length);
+  console.log('All bookings:', bookings.map(b => ({
+    id: b.id,
+    booking_ref: b.booking_ref,
+    date_time: b.date_time,
+    status: b.status,
+    payment_status: b.payment_status
+  })));
+  
+  // Debug current time and timezone
+  console.log('Current time debug:', {
+    now: now.toISOString(),
+    nowLocal: now.toString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
+
   const currentBookings = bookings.filter((booking) => {
     const bookingDate = new Date(booking.date_time);
-    const isFutureBooking = bookingDate > new Date();
-    const isPendingPayment = booking.payment_status !== "Paid";
-    const isExpired = !canModifyBooking(booking.date_time);
+    // Skip bookings with invalid date_time
+    if (isNaN(bookingDate.getTime())) {
+      console.warn(`Booking ${booking.id} has invalid date_time: ${booking.date_time}`);
+      return false;
+    }
+    
+    const isFutureBooking = bookingDate.getTime() > now.getTime();
     const isCancelled = booking.status === "cancelled";
     const isDeleted = booking.status === "deleted";
     
+    // Debug logging
+    console.log(`Booking ${booking.id} (${booking.booking_ref}):`, {
+      date_time: booking.date_time,
+      bookingDate: bookingDate.toISOString(),
+      now: now.toISOString(),
+      isFutureBooking,
+      isCancelled,
+      isDeleted,
+      status: booking.status
+    });
+    
     // Only show active bookings in current bookings
-    return isFutureBooking && !isCancelled && !isDeleted && !(isExpired && isPendingPayment);
+    return isFutureBooking && !isCancelled && !isDeleted;
   });
 
   const pastBookings = bookings.filter((booking) => {
     const bookingDate = new Date(booking.date_time);
-    const isPastBooking = bookingDate <= new Date();
-    const isExpired = !canModifyBooking(booking.date_time);
-    const isPendingPayment = booking.payment_status !== "Paid";
+    // Skip bookings with invalid date_time
+    if (isNaN(bookingDate.getTime())) {
+      console.warn(`Booking ${booking.id} has invalid date_time: ${booking.date_time}`);
+      return false;
+    }
+    
+    const isPastBooking = bookingDate.getTime() <= now.getTime();
     const isCancelled = booking.status === "cancelled";
     const isDeleted = booking.status === "deleted";
     
-    // Show past bookings, cancelled bookings, and expired unpaid bookings, but not deleted ones
-    return (isPastBooking || isCancelled || (isExpired && isPendingPayment)) && !isDeleted;
+    // Debug logging
+    console.log(`Past Booking Check ${booking.id} (${booking.booking_ref}):`, {
+      date_time: booking.date_time,
+      bookingDate: bookingDate.toISOString(),
+      now: now.toISOString(),
+      isPastBooking,
+      isCancelled,
+      isDeleted,
+      status: booking.status,
+      willShowInPast: (isPastBooking || isCancelled) && !isDeleted
+    });
+    
+    // Simplified logic: Show only past bookings and cancelled bookings, but not deleted ones
+    // Removed the complex expired + pending payment logic that was causing issues
+    return (isPastBooking || isCancelled) && !isDeleted;
+  });
+
+  // Debug: Show final counts
+  console.log('Final counts:', {
+    totalBookings: bookings.length,
+    currentBookings: currentBookings.length,
+    pastBookings: pastBookings.length
   });
 
   const getBookingStatus = (booking: Booking) => {
+    const bookingDate = new Date(booking.date_time);
+    const now = new Date();
+    const isPastBooking = bookingDate.getTime() <= now.getTime();
     if (booking.status === "cancelled") {
       return <Badge variant="cancelled">Cancelled</Badge>;
     }
-    
+    // Only show 'expired' for past bookings
     const isExpired = !canModifyBooking(booking.date_time);
     const isPendingPayment = booking.payment_status !== "Paid";
-    
-    if (isExpired && isPendingPayment) {
+    if (isPastBooking && isExpired && isPendingPayment) {
       return <Badge variant="expired">Expired</Badge>;
     }
-    
     return <Badge variant="success">{booking.status}</Badge>;
   };
 
   const renderBookingActions = (booking: Booking) => {
-    const isExpired = !canModifyBooking(booking.date_time);
-    const isPendingPayment = booking.payment_status !== "Paid";
-    const hasActiveSession = booking.stripe_session_id && !booking.payment_status;
+    const bookingDate = new Date(booking.date_time);
+    const now = new Date();
+    const isFutureBooking = bookingDate.getTime() > now.getTime();
+    const isCancelled = booking.status === "cancelled";
+    const isDeleted = booking.status === "deleted";
+    const isPending = booking.status === "pending";
+    const isConfirmed = booking.status === "confirmed";
 
-    if (booking.status === "cancelled") {
-      return (
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setBookingToDelete(booking)}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete
-        </Button>
-      );
-    }
-
-    if (isExpired && isPendingPayment) {
+    if (isCancelled || isDeleted) {
       return null;
     }
 
-    if (isPendingPayment && !hasActiveSession) {
+    // Show Cancel for pending bookings
+    if (isPending && isFutureBooking) {
       return (
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => handlePayment(booking)}
-          disabled={processingPayments[booking.id]}
-        >
-          {processingPayments[booking.id] ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            "Make Payment"
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setBookingToCancel(booking)}
+          >
+            Cancel Booking
+          </Button>
+        </div>
       );
     }
 
-    if (hasActiveSession) {
+    // Show contact message for confirmed bookings
+    if (isConfirmed && isFutureBooking) {
       return (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled
-        >
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          Payment Processing
-        </Button>
+        <div className="text-sm text-gray-600">
+          To make changes or cancel this booking, please contact our team via the <a href="/contact" className="underline text-blue-600">contact form</a> or email us at <a href="mailto:desk.vipfirst@gmail.com" className="underline text-blue-600">desk.vipfirst@gmail.com</a>.
+        </div>
       );
     }
 
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setBookingToCancel(booking)}
-      >
-        Cancel Booking
-      </Button>
-    );
+    return null;
   };
 
   return (
@@ -362,44 +379,61 @@ export default function CustomerDashboard() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Current Bookings</CardTitle>
+            <CardTitle>Active Bookings</CardTitle>
           </CardHeader>
           <CardContent>
             {currentBookings.length === 0 ? (
-              <p className="text-gray-500">No current bookings found.</p>
+              <p className="text-gray-500">No active bookings found.</p>
             ) : (
               <div className="space-y-4">
-                {currentBookings.map((booking) => (
-                  <Card key={booking.id}>
-                    <CardContent className="p-4">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div className="space-y-1">
-                          <p className="font-medium">
-                            {formatServiceType(booking.service_type)}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {formatDate(booking.date_time)}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            From: {booking.pickup_location}
-                          </p>
-                          {booking.dropoff_location && (
-                            <p className="text-sm text-gray-500">
-                              To: {booking.dropoff_location}
+                {currentBookings.map((booking) => {
+                  return (
+                    <Card key={booking.id}>
+                      <CardContent className="p-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <div className="space-y-1">
+                            <p className="font-medium">
+                              {formatServiceType(booking.service_type)}
                             </p>
-                          )}
-                          <p className="text-sm text-gray-500">
-                            Amount: £{booking.amount.toFixed(2)}
-                          </p>
-                          {getBookingStatus(booking)}
+                            <p className="text-sm text-gray-500">
+                              Booking Date: {formatDate(booking.date_time)}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Created: {formatDate(booking.created_at)}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              From: {booking.pickup_location}
+                            </p>
+                            {booking.dropoff_location && (
+                              <p className="text-sm text-gray-500">
+                                To: {booking.dropoff_location}
+                              </p>
+                            )}
+                            <p className="text-sm text-gray-500">
+                              Duration: {booking.duration || 0} hour{(booking.duration || 0) !== 1 ? 's' : ''}
+                              {(typeof booking.additional_hours === 'number' && booking.additional_hours > 0) && (booking.base_duration || 0) > 0 && (
+                                <span className="text-xs text-gray-400 ml-2">({booking.base_duration}h base + {booking.additional_hours}h additional)</span>
+                              )}
+                              {(booking.base_duration || 0) > 0 && (typeof booking.additional_hours === 'number' && booking.additional_hours === 0) && (
+                                <span className="text-xs text-gray-400 ml-2">({booking.base_duration}h base)</span>
+                              )}
+                              {(booking.base_duration || 0) === 0 && (typeof booking.additional_hours === 'number' && booking.additional_hours > 0) && (
+                                <span className="text-xs text-gray-400 ml-2">({booking.additional_hours}h total)</span>
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Amount: £{booking.amount.toFixed(2)}
+                            </p>
+                            Booking Status: {getBookingStatus(booking)}
+                          </div>
+                          <div className="flex gap-2">
+                            {renderBookingActions(booking)}
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          {renderBookingActions(booking)}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -414,22 +448,22 @@ export default function CustomerDashboard() {
               <p>No past bookings.</p>
             ) : (
               <div className="grid gap-4">
-                {pastBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="border rounded-lg p-4 sm:p-6 bg-white relative"
-                  >
-                    <div className="absolute top-4 right-4">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setBookingToDelete(booking)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    </div>
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                {pastBookings.map((booking) => {
+                  return (
+                    <div
+                      key={booking.id}
+                      className="border rounded-lg p-4 sm:p-6 bg-white relative"
+                    >
+                      <div className="absolute top-4 right-4">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setBookingToDelete(booking)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </div>
                       <div className="w-full sm:w-1/2">
                         <h3 className="font-semibold text-lg mb-2">
                           Booking Details
@@ -442,7 +476,7 @@ export default function CustomerDashboard() {
                             Date: {formatDate(booking.date_time)}
                           </p>
                           <p className="text-sm text-gray-600">
-                            Service Type: {formatServiceType(booking.service_type)}
+                            Created: {formatDate(booking.created_at)}
                           </p>
                           <div className="text-sm text-gray-600 flex items-center gap-2">
                             <span>Status:</span>
@@ -453,6 +487,9 @@ export default function CustomerDashboard() {
                           </p>
                           <p className="text-sm text-gray-600">
                             Payment Status: {booking.payment_status || "Unpaid"}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Booking Status: {booking.status || "pending"}
                           </p>
                         </div>
                       </div>
@@ -471,6 +508,19 @@ export default function CustomerDashboard() {
                               {booking.dropoff_location}
                             </p>
                           )}
+                          <p className="text-sm">
+                            <span className="font-medium">Duration:</span>{" "}
+                            {booking.duration || 0} hour{(booking.duration || 0) !== 1 ? 's' : ''}
+                            {(typeof booking.additional_hours === 'number' && booking.additional_hours > 0) && (booking.base_duration || 0) > 0 && (
+                              <span className="text-xs text-gray-400 ml-2">({booking.base_duration}h base + {booking.additional_hours}h additional)</span>
+                            )}
+                            {(booking.base_duration || 0) > 0 && (typeof booking.additional_hours === 'number' && booking.additional_hours === 0) && (
+                              <span className="text-xs text-gray-400 ml-2">({booking.base_duration}h base)</span>
+                            )}
+                            {(booking.base_duration || 0) === 0 && (typeof booking.additional_hours === 'number' && booking.additional_hours > 0) && (
+                              <span className="text-xs text-gray-400 ml-2">({booking.additional_hours}h total)</span>
+                            )}
+                          </p>
                           {booking.service_subtype === "arrival" &&
                             booking.arrival_flight && (
                               <p className="text-sm">
@@ -512,8 +562,8 @@ export default function CustomerDashboard() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

@@ -66,21 +66,48 @@ export const fetchBookings = async (): Promise<FetchResult<Booking>> => {
     const q = query(bookingsRef, orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
     
-    const data = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      user_id: doc.data().user_id,
-      booking_ref: doc.data().booking_ref,
-      service_type: doc.data().service_type,
-      date_time: doc.data().date_time,
-      pickup_location: doc.data().pickup_location,
-      dropoff_location: doc.data().dropoff_location,
-      amount: doc.data().amount || 0,
-      status: doc.data().status || "pending",
-      payment_status: doc.data().payment_status,
-      stripe_session_id: doc.data().stripe_session_id,
-      created_at: doc.data().created_at,
-      updated_at: doc.data().updated_at || doc.data().created_at
-    })) as Booking[];
+    const data = snapshot.docs.map((doc) => {
+      const docData = doc.data();
+      
+      // Ensure created_at is always a string
+      let createdAt = docData.created_at;
+      if (createdAt && typeof createdAt.toDate === 'function') {
+        // Handle Firestore Timestamp
+        createdAt = createdAt.toDate().toISOString();
+      } else if (createdAt && typeof createdAt === 'object') {
+        // Handle Date object
+        createdAt = new Date(createdAt).toISOString();
+      } else if (!createdAt) {
+        // Fallback to current time if missing
+        createdAt = new Date().toISOString();
+      }
+      
+      // Ensure updated_at is always a string
+      let updatedAt = docData.updated_at || docData.created_at;
+      if (updatedAt && typeof updatedAt.toDate === 'function') {
+        updatedAt = updatedAt.toDate().toISOString();
+      } else if (updatedAt && typeof updatedAt === 'object') {
+        updatedAt = new Date(updatedAt).toISOString();
+      } else if (!updatedAt) {
+        updatedAt = createdAt;
+      }
+      
+      return {
+        id: doc.id,
+        user_id: docData.user_id,
+        booking_ref: docData.booking_ref,
+        service_type: docData.service_type,
+        date_time: docData.date_time,
+        pickup_location: docData.pickup_location,
+        dropoff_location: docData.dropoff_location,
+        amount: docData.amount || 0,
+        status: docData.status || "pending",
+        payment_status: docData.payment_status,
+        stripe_session_id: docData.stripe_session_id,
+        created_at: createdAt,
+        updated_at: updatedAt
+      };
+    }) as Booking[];
     
     isLoading = false;
     return { data, error: null, isLoading };

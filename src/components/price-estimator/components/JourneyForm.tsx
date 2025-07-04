@@ -101,7 +101,6 @@ export default function JourneyForm({
   submitButtonText = "Calculate Estimate",
   isLoading = false,
 }: JourneyFormProps) {
-  const MAX_PASSENGERS = 8;
   const MAX_ADDITIONAL_HOURS = 12;
 
   const currentYear = new Date().getFullYear();
@@ -121,6 +120,7 @@ export default function JourneyForm({
   const [locationError, setLocationError] = useState("");
   const [isPriceEstimationDisabled, setIsPriceEstimationDisabled] = useState(false);
   const [priceEstimationMessage, setPriceEstimationMessage] = useState("");
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Add useEffect to handle price estimation disable logic
   useEffect(() => {
@@ -161,23 +161,65 @@ export default function JourneyForm({
     setPriceEstimationMessage("");
   }, [type, formData.service_subtype, formData.pickupLocationId, formData.dropoffLocationId, locations]);
 
+  const validate = () => {
+    const newErrors: { [key: string]: string } = {};
+    
+    // Common required fields for all service types (always displayed)
+    if (!formData.date) newErrors.date = "Date is required.";
+    if (!formData.hour) newErrors.hour = "Hour is required.";
+    if (!formData.minute) newErrors.minute = "Minute is required.";
+    if (!formData.pickupLocationId) newErrors.pickupLocationId = "Pickup location is required.";
+    if (!formData.passengers || formData.passengers < 1) newErrors.passengers = "Passengers is required.";
+    
+    // Service-specific validations for displayed fields only
+    if (type === "airportTransfer") {
+      if (!formData.dropoffLocationId) newErrors.dropoffLocationId = "Dropoff location is required.";
+    }
+    
+    if (type === "meetAndGreet") {
+      // Only validate service_subtype if the field is actually displayed
+      if (formData.service_subtype !== undefined && setFormData.setServiceSubType && !formData.service_subtype) {
+        newErrors.service_subtype = "Meet & Greet type is required.";
+      }
+    }
+    
+    // Vehicle validation only for hourly hire when the field is displayed
+    if (type === "hourlyHire" && vehicles && setFormData.setVehicle && (!formData.vehicle || formData.vehicle === "")) {
+      newErrors.vehicle = "Vehicle is required.";
+    }
+    
+    return newErrors;
+  };
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        console.log("Form submitted - starting validation");
+        const validationErrors = validate();
+        console.log("Validation errors:", validationErrors);
+        setErrors(validationErrors);
+        if (Object.keys(validationErrors).length > 0) {
+          console.log("Form validation failed, not calling onCalculate");
+          return;
+        }
         setLocationError("");
         if (!formData.pickupLocationId || formData.pickupLocationId === "") {
+          console.log("Pickup location missing");
           setLocationError("Please select a pickup location.");
           return;
         }
         if (type === "airportTransfer" && (!formData.dropoffLocationId || formData.dropoffLocationId === "")) {
+          console.log("Dropoff location missing for airport transfer");
           setLocationError("Please select a dropoff location.");
           return;
         }
         if (isPriceEstimationDisabled) {
+          console.log("Price estimation disabled:", priceEstimationMessage);
           setLocationError(priceEstimationMessage);
           return;
         }
+        console.log("All validation passed, calling onCalculate");
         onCalculate();
       }}
       className="space-y-8"
@@ -186,7 +228,7 @@ export default function JourneyForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Pickup Location */}
           <div className="w-full sm:w-[240px] space-y-3">
-            <Label>Pickup Location</Label>
+            <Label>Pickup Location <span className="text-red-500">*</span></Label>
             <Select
               value={formData.pickupLocationId || ""}
               onValueChange={(value) => {
@@ -231,7 +273,7 @@ export default function JourneyForm({
           {/* Meet & Greet Type */}
           {formData.service_subtype && setFormData.setServiceSubType && (
             <div className="w-full sm:w-[240px] space-y-3">
-              <Label>Meet & Greet Type</Label>
+              <Label>Meet & Greet Type <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.service_subtype}
                 onValueChange={value => setFormData.setServiceSubType?.(value as "arrival" | "departure" | "connection")}
@@ -252,7 +294,7 @@ export default function JourneyForm({
           {/* Dropoff Location for Airport Transfer */}
           {type === "airportTransfer" && setFormData.setDropoffLocationId && (
             <div className="w-full sm:w-[240px] space-y-3">
-              <Label>Dropoff Location</Label>
+              <Label>Dropoff Location <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.dropoffLocationId || ""}
                 onValueChange={(value) => {
@@ -360,7 +402,7 @@ export default function JourneyForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Date */}
           <div className="w-full sm:w-[240px] space-y-3">
-            <Label>Date</Label>
+            <Label>Date <span className="text-red-500">*</span></Label>
             <DatePicker
               selected={formData.date}
               onChange={(date: Date | null) =>
@@ -381,11 +423,12 @@ export default function JourneyForm({
                 </p>
               </div>
             )}
+            {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date}</p>}
           </div>
 
           {/* Time */}
           <div className="w-full sm:w-[240px] space-y-3">
-            <Label>Time</Label>
+            <Label>Time <span className="text-red-500">*</span></Label>
             <div className="relative">
               <input
                 type="time"
@@ -408,44 +451,49 @@ export default function JourneyForm({
                   </p>
                 </div>
               )}
+            {errors.hour && <p className="text-xs text-red-500 mt-1">{errors.hour}</p>}
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Passengers */}
           <div className="space-y-3">
-            <Label>Number of Passengers</Label>
+            <Label>Passengers <span className="text-red-500">*</span></Label>
             <div className="flex items-center gap-4">
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() =>
-                  setFormData.setPassengers(
-                    Math.max(1, formData.passengers - 1)
-                  )
-                }
+                onClick={() => setFormData.setPassengers(Math.max(1, formData.passengers - 1))}
                 disabled={isLoading || formData.passengers <= 1}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               >
-                <Minus className="h-4 w-4" />
+                -
               </Button>
               <span className="w-8 text-center">{formData.passengers}</span>
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() =>
-                  setFormData.setPassengers(
-                    Math.min(MAX_PASSENGERS, formData.passengers + 1)
-                  )
-                }
-                disabled={isLoading || formData.passengers >= MAX_PASSENGERS}
+                onClick={() => setFormData.setPassengers(formData.passengers + 1)}
+                disabled={isLoading}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               >
-                <Plus className="h-4 w-4" />
+                +
               </Button>
             </div>
+            {errors.passengers && <p className="text-xs text-red-500 mt-1">{errors.passengers}</p>}
+            {/* Contextual warnings */}
+            {type === "meetAndGreet" && formData.passengers > 2 && (
+              <p className="text-xs text-yellow-600 mt-1">
+                Standard Meet & Greet service includes up to 2 passengers. For each additional passenger, an extra £50 will be added to your total.
+              </p>
+            )}
+            {type === "airportTransfer" && formData.passengers > 5 && (
+              <p className="text-xs text-yellow-600 mt-1">
+                This number of passengers exceeds a standard vehicle's capacity. Please submit a contact form for a bespoke quote.
+              </p>
+            )}
           </div>
 
           {/* Luggage for Airport Transfer, Additional Hours for others */}
@@ -537,7 +585,7 @@ export default function JourneyForm({
         {/* Vehicle Selection for Hire by Hour */}
         {type === "hourlyHire" && vehicles && setFormData.setVehicle && (
           <div className="space-y-3">
-            <Label>Select Vehicle</Label>
+            <Label>Select Vehicle <span className="text-red-500">*</span></Label>
             <Select
               value={formData.vehicle}
               onValueChange={setFormData.setVehicle}
@@ -554,6 +602,7 @@ export default function JourneyForm({
                 ))}
               </SelectContent>
             </Select>
+            {errors.vehicle && <p className="text-xs text-red-500 mt-1">{errors.vehicle}</p>}
           </div>
         )}
 

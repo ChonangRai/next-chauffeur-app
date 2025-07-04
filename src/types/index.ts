@@ -57,6 +57,7 @@ export type Booking = {
   is_hire_by_hour?: boolean | null;
   duration?: number | null;
   duration_unit?: string | null;
+  base_duration?: number | null;
   staff_id?: string | null;
   staff_assigned?: boolean;
   terminal?: string | null;

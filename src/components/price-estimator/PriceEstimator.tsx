@@ -36,7 +36,17 @@ export interface BookingData {
   estimatedPrice: number;
 }
 
-export function PriceEstimator() {
+export function PriceEstimator({
+  initialServiceType,
+  initialValues,
+  disableServiceTypeSwitch = false,
+  onSubmit
+}: {
+  initialServiceType?: "meetAndGreet" | "airportTransfer" | "hourlyHire",
+  initialValues?: any,
+  disableServiceTypeSwitch?: boolean,
+  onSubmit?: (values: any) => void
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
@@ -44,18 +54,27 @@ export function PriceEstimator() {
   const [isVehiclesLoading, setIsVehiclesLoading] = useState(true);
   const [serviceType, setServiceType] = useState<
     "meetAndGreet" | "airportTransfer" | "hourlyHire"
-  >("hourlyHire");
-  const [date, setDate] = useState<Date | undefined>(addDays(new Date(), 1));
-  const [hour, setHour] = useState("14"); // 24-hour format
-  const [minute, setMinute] = useState("00");
-  const [passengers, setPassengers] = useState(1);
-  const [wantBuggy, setWantBuggy] = useState(false);
-  const [wantPorter, setWantPorter] = useState(false);
-  const [bags, setBags] = useState(0);
-  const [additionalHours, setAdditionalHours] = useState(0);
+  >(initialServiceType || "hourlyHire");
+  const [date, setDate] = useState<Date | undefined>(() => {
+    if (initialValues?.date instanceof Date && !isNaN(initialValues.date.getTime())) {
+      return initialValues.date;
+    }
+    if (typeof initialValues?.date === 'string') {
+      const d = new Date(initialValues.date);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return addDays(new Date(), 1);
+  });
+  const [hour, setHour] = useState(initialValues?.hour || "14");
+  const [minute, setMinute] = useState(initialValues?.minute || "00");
+  const [passengers, setPassengers] = useState(initialValues?.passengers || 1);
+  const [wantBuggy, setWantBuggy] = useState(initialValues?.wantBuggy || false);
+  const [wantPorter, setWantPorter] = useState(initialValues?.wantPorter || false);
+  const [bags, setBags] = useState(initialValues?.bags || 0);
+  const [additionalHours, setAdditionalHours] = useState(initialValues?.additionalHours || 0);
   const [serviceSubType, setServiceSubType] = useState<
     "arrival" | "departure" | "connection"
-  >("arrival");
+  >(initialValues?.service_subtype || "arrival");
   const [locations, setLocations] = useState<Location[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -64,15 +83,15 @@ export function PriceEstimator() {
     { description: string; amount: number }[]
   >([]);
   const [error, setError] = useState<string | null>(null);
-  const [flightNumberArrival, setFlightNumberArrival] = useState("");
-  const [flightNumberDeparture, setFlightNumberDeparture] = useState("");
-  const [vehicle, setVehicle] = useState<string>("");
-  const [pickupLocationId, setPickupLocationId] = useState<string>("");
-  const [dropoffLocationId, setDropoffLocationId] = useState<string>("");
+  const [flightNumberArrival, setFlightNumberArrival] = useState(initialValues?.flightNumberArrival || "");
+  const [flightNumberDeparture, setFlightNumberDeparture] = useState(initialValues?.flightNumberDeparture || "");
+  const [vehicle, setVehicle] = useState<string>(initialValues?.vehicle || "");
+  const [pickupLocationId, setPickupLocationId] = useState<string>(initialValues?.pickupLocationId || "");
+  const [dropoffLocationId, setDropoffLocationId] = useState<string>(initialValues?.dropoffLocationId || "");
   const [extraCharges, setExtraCharges] = useState<Record<string, any>>({});
   const [serviceRates, setServiceRates] = useState<Record<string, any>>({});
-  const [customPickupAddress, setCustomPickupAddress] = useState("");
-  const [customDropoffAddress, setCustomDropoffAddress] = useState("");
+  const [customPickupAddress, setCustomPickupAddress] = useState(initialValues?.customPickupAddress || "");
+  const [customDropoffAddress, setCustomDropoffAddress] = useState(initialValues?.customDropoffAddress || "");
   const [isPriceEstimationDisabled, setIsPriceEstimationDisabled] = useState(false);
   const [priceEstimationMessage, setPriceEstimationMessage] = useState("");
   const [showVehicleSelection, setShowVehicleSelection] = useState(false);
@@ -118,6 +137,12 @@ export function PriceEstimator() {
         console.error("Error fetching data:", err);
         setError("Failed to load data. Please try again later.");
       } finally {
+        console.log("Data loading complete:", {
+          locationsCount: locations.length,
+          vehiclesCount: vehicles.length,
+          serviceRatesCount: Object.keys(serviceRates).length,
+          extraChargesCount: Object.keys(extraCharges).length
+        });
         setIsLoading(false);
         setIsLocationsLoading(false);
         setIsVehiclesLoading(false);
@@ -188,6 +213,25 @@ export function PriceEstimator() {
 
 
   const calculatePrice = (formData?: any) => {
+    console.log("calculatePrice called with formData:", formData);
+    console.log("Current state:", {
+      serviceType,
+      date,
+      hour,
+      minute,
+      passengers,
+      pickupLocationId,
+      dropoffLocationId,
+      vehicle,
+      additionalHours,
+      wantBuggy,
+      wantPorter,
+      bags,
+      serviceSubType,
+      flightNumberArrival,
+      flightNumberDeparture
+    });
+    
     let basePrice = 0;
     let surcharges = 0;
     const breakdown: { description: string; amount: number }[] = [];
@@ -397,8 +441,17 @@ export function PriceEstimator() {
 
     // Final total
     const totalPrice = totalBeforeVat + vatAmount;
+    console.log("Price calculation complete:", {
+      basePrice,
+      surcharges,
+      totalBeforeVat,
+      vatAmount,
+      totalPrice,
+      breakdown
+    });
     setEstimatedPrice(totalPrice);
     setPriceBreakdown(breakdown);
+    console.log("Opening price modal");
     setShowModal(true);
   };
 
@@ -433,18 +486,23 @@ export function PriceEstimator() {
   };
 
   const handleFindVehicles = () => {
+    console.log("handleFindVehicles called, serviceType:", serviceType);
     if (serviceType === "hourlyHire") {
+      console.log("Showing vehicle selection for hourly hire");
       setShowVehicleSelection(true);
     } else {
+      console.log("Calling calculatePrice directly for non-hourly hire");
       calculatePrice();
     }
   };
 
   const handleVehicleSelect = (selectedVehicle: Vehicle) => {
+    console.log("Vehicle selected:", selectedVehicle);
     setVehicle(selectedVehicle.id);
     setShowVehicleSelection(false);
     // Ensure we have all the necessary data before calculating price
     if (date && hour && minute && pickupLocationId) {
+      console.log("All required data present, calculating price");
       // Update form data with the selected vehicle
       const updatedFormData = {
         date,
@@ -457,6 +515,13 @@ export function PriceEstimator() {
         vehicle: selectedVehicle.id
       };
       calculatePrice(updatedFormData);
+    } else {
+      console.log("Missing required data for price calculation:", {
+        date: !!date,
+        hour: !!hour,
+        minute: !!minute,
+        pickupLocationId: !!pickupLocationId
+      });
     }
   };
 
@@ -494,53 +559,83 @@ export function PriceEstimator() {
             <span>{priceEstimationMessage}</span>
           </div>
         )}
-        <Tabs 
+        <Tabs
           value={serviceType}
-          onValueChange={(value) => setServiceType(value as "meetAndGreet" | "airportTransfer" | "hourlyHire")}
+          onValueChange={disableServiceTypeSwitch ? undefined : (value) => setServiceType(value as "meetAndGreet" | "airportTransfer" | "hourlyHire")}
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3">
-            <TabsTrigger value="hourlyHire" className="text-xs sm:text-sm">Hire by Hour</TabsTrigger>
-            <TabsTrigger value="airportTransfer" className="text-xs sm:text-sm">Airport Transfer</TabsTrigger>
-            <TabsTrigger value="meetAndGreet" className="text-xs sm:text-sm">Meet & Greet</TabsTrigger>
+            <TabsTrigger value="hourlyHire" className="text-xs sm:text-sm" disabled={disableServiceTypeSwitch && serviceType !== "hourlyHire"}>Hire by Hour</TabsTrigger>
+            <TabsTrigger value="airportTransfer" className="text-xs sm:text-sm" disabled={disableServiceTypeSwitch && serviceType !== "airportTransfer"}>Airport Transfer</TabsTrigger>
+            <TabsTrigger value="meetAndGreet" className="text-xs sm:text-sm" disabled={disableServiceTypeSwitch && serviceType !== "meetAndGreet"}>Meet & Greet</TabsTrigger>
           </TabsList>
-          <TabsContent value="hourlyHire">
-            {showVehicleSelection ? (
-              <VehicleSelection
-                vehicles={vehicles}
-                onVehicleSelect={handleVehicleSelect}
-                onBack={() => setShowVehicleSelection(false)}
-                formData={{
-                  date,
-                  hour,
-                  minute,
-                  passengers,
-                  additionalHours,
-                  wantBuggy,
-                  wantPorter,
-                  bags,
-                  pickupLocationId,
-                  customPickupAddress,
-                }}
-                setFormData={{
-                  setDate,
-                  setHour,
-                  setMinute,
-                  setPassengers,
-                  setAdditionalHours,
-                  setWantBuggy,
-                  setWantPorter,
-                  setBags,
-                  setPickupLocationId,
-                  setCustomPickupAddress,
-                }}
-                isLoading={isLocationsLoading || isVehiclesLoading}
-              />
-            ) : (
+          {serviceType === "hourlyHire" && (
+            <TabsContent value="hourlyHire">
+              {showVehicleSelection ? (
+                <VehicleSelection
+                  vehicles={vehicles}
+                  onVehicleSelect={handleVehicleSelect}
+                  onBack={() => setShowVehicleSelection(false)}
+                  formData={{
+                    date,
+                    hour,
+                    minute,
+                    passengers,
+                    additionalHours,
+                    wantBuggy,
+                    wantPorter,
+                    bags,
+                    pickupLocationId,
+                    customPickupAddress,
+                  }}
+                  setFormData={{
+                    setDate,
+                    setHour,
+                    setMinute,
+                    setPassengers,
+                    setAdditionalHours,
+                    setWantBuggy,
+                    setWantPorter,
+                    setBags,
+                    setPickupLocationId,
+                    setCustomPickupAddress,
+                  }}
+                  isLoading={isLocationsLoading || isVehiclesLoading}
+                />
+              ) : (
+                <JourneyForm
+                  type="hourlyHire"
+                  locations={locations}
+                  onCalculate={handleFindVehicles}
+                  formData={{
+                    date,
+                    hour,
+                    minute,
+                    passengers,
+                    additionalHours,
+                    pickupLocationId,
+                    customPickupAddress,
+                  }}
+                  setFormData={{
+                    setDate,
+                    setHour,
+                    setMinute,
+                    setPassengers,
+                    setAdditionalHours,
+                    setPickupLocationId,
+                    setCustomPickupAddress,
+                  }}
+                  isLoading={isLocationsLoading}
+                />
+              )}
+            </TabsContent>
+          )}
+          {serviceType === "airportTransfer" && (
+            <TabsContent value="airportTransfer">
               <JourneyForm
-                type="hourlyHire"
+                type="airportTransfer"
                 locations={locations}
-                onCalculate={handleFindVehicles}
+                onCalculate={calculatePrice}
                 formData={{
                   date,
                   hour,
@@ -548,7 +643,9 @@ export function PriceEstimator() {
                   passengers,
                   additionalHours,
                   pickupLocationId,
+                  dropoffLocationId,
                   customPickupAddress,
+                  customDropoffAddress,
                 }}
                 setFormData={{
                   setDate,
@@ -557,86 +654,78 @@ export function PriceEstimator() {
                   setPassengers,
                   setAdditionalHours,
                   setPickupLocationId,
+                  setDropoffLocationId,
                   setCustomPickupAddress,
+                  setCustomDropoffAddress,
                 }}
                 isLoading={isLocationsLoading}
               />
-            )}
-          </TabsContent>
-          <TabsContent value="airportTransfer">
-            <JourneyForm
-              type="airportTransfer"
-              locations={locations}
-              onCalculate={calculatePrice}
-              formData={{
-                date,
-                hour,
-                minute,
-                passengers,
-                additionalHours,
-                pickupLocationId,
-                dropoffLocationId,
-                customPickupAddress,
-                customDropoffAddress,
-              }}
-              setFormData={{
-                setDate,
-                setHour,
-                setMinute,
-                setPassengers,
-                setAdditionalHours,
-                setPickupLocationId,
-                setDropoffLocationId,
-                setCustomPickupAddress,
-                setCustomDropoffAddress,
-              }}
-              isLoading={isLocationsLoading}
-            />
-          </TabsContent>
-          <TabsContent value="meetAndGreet">
-            <JourneyForm
-              type="meetAndGreet"
-              locations={locations}
-              onCalculate={calculatePrice}
-              formData={{
-                date,
-                hour,
-                minute,
-                service_subtype: serviceSubType,
-                passengers,
-                wantBuggy,
-                wantPorter,
-                bags,
-                flightNumberArrival,
-                flightNumberDeparture,
-                additionalHours,
-                pickupLocationId,
-                dropoffLocationId,
-              }}
-              setFormData={{
-                setDate,
-                setHour,
-                setMinute,
-                setServiceSubType,
-                setPassengers,
-                setWantBuggy,
-                setWantPorter,
-                setBags,
-                setFlightNumberArrival,
-                setFlightNumberDeparture,
-                setAdditionalHours,
-                setPickupLocationId,
-                setDropoffLocationId,
-              }}
-              isLoading={isLocationsLoading}
-            />
-          </TabsContent>
+            </TabsContent>
+          )}
+          {serviceType === "meetAndGreet" && (
+            <TabsContent value="meetAndGreet">
+              <JourneyForm
+                type="meetAndGreet"
+                locations={locations}
+                onCalculate={calculatePrice}
+                formData={{
+                  date,
+                  hour,
+                  minute,
+                  service_subtype: serviceSubType,
+                  passengers,
+                  wantBuggy,
+                  wantPorter,
+                  bags,
+                  flightNumberArrival,
+                  flightNumberDeparture,
+                  additionalHours,
+                  pickupLocationId,
+                  dropoffLocationId,
+                }}
+                setFormData={{
+                  setDate,
+                  setHour,
+                  setMinute,
+                  setServiceSubType,
+                  setPassengers,
+                  setWantBuggy,
+                  setWantPorter,
+                  setBags,
+                  setFlightNumberArrival,
+                  setFlightNumberDeparture,
+                  setAdditionalHours,
+                  setPickupLocationId,
+                  setDropoffLocationId,
+                }}
+                isLoading={isLocationsLoading}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </CardContent>
       <PriceModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        onContinue={handleContinueToBooking}
+        onContinue={onSubmit ? () => onSubmit({
+          date,
+          hour,
+          minute,
+          passengers,
+          additionalHours,
+          pickupLocationId,
+          dropoffLocationId,
+          customPickupAddress,
+          customDropoffAddress,
+          serviceType,
+          serviceSubType,
+          wantBuggy,
+          wantPorter,
+          bags,
+          flightNumberArrival,
+          flightNumberDeparture,
+          vehicle,
+        }) : handleContinueToBooking}
         estimatedPrice={estimatedPrice}
         priceBreakdown={priceBreakdown}
       />

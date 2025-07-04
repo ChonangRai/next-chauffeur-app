@@ -190,6 +190,16 @@ export default function BookingPage() {
           parseInt(bookingDetails.minute)
         ).toISOString();
 
+        // Validate the dateTime is valid
+        if (isNaN(new Date(dateTime).getTime())) {
+          setNotification({
+            type: "error",
+            message: "Invalid date/time selected",
+          });
+          setIsProcessingPayment(false);
+          return;
+        }
+
         const response = await fetch("/api/checkout", {
           method: "POST",
           headers: {
@@ -203,7 +213,8 @@ export default function BookingPage() {
               pickupLocation: bookingDetails.pickupLocationId === "other" 
                 ? bookingDetails.customPickupAddress 
                 : pickupLocation?.name,
-              dropoffLocation: bookingDetails.service_type === "airportTransfer" 
+              dropoffLocation: (bookingDetails.service_type === "airportTransfer" || 
+                (bookingDetails.service_type === "meetAndGreet" && bookingDetails.service_subtype === "connection"))
                 ? (bookingDetails.dropoffLocationId === "other"
                   ? bookingDetails.customDropoffAddress
                   : dropoffLocation?.name)
@@ -270,8 +281,9 @@ export default function BookingPage() {
       errors.pickupLocation = "Custom pickup address is required";
     }
 
-    // Validate dropoff location for airport transfer
-    if (bookingDetails.service_type === "airportTransfer") {
+    // Validate dropoff location for airport transfer and meet & greet connection
+    if (bookingDetails.service_type === "airportTransfer" || 
+        (bookingDetails.service_type === "meetAndGreet" && bookingDetails.service_subtype === "connection")) {
       if (!bookingDetails.dropoffLocationId) {
         errors.dropoffLocation = "Dropoff location is required";
       } else if (bookingDetails.dropoffLocationId === "other" && !bookingDetails.customDropoffAddress) {
@@ -338,6 +350,16 @@ export default function BookingPage() {
           parseInt(bookingDetails.minute)
         ).toISOString();
 
+        // Validate the dateTime is valid
+        if (isNaN(new Date(dateTime).getTime())) {
+          setNotification({
+            type: "error",
+            message: "Invalid date/time selected",
+          });
+          setIsProcessingPayment(false);
+          return;
+        }
+
         const response = await fetch("/api/checkout", {
           method: "POST",
           headers: {
@@ -351,7 +373,8 @@ export default function BookingPage() {
               pickupLocation: bookingDetails.pickupLocationId === "other" 
                 ? bookingDetails.customPickupAddress 
                 : pickupLocation?.name,
-              dropoffLocation: bookingDetails.service_type === "airportTransfer" 
+              dropoffLocation: (bookingDetails.service_type === "airportTransfer" || 
+                (bookingDetails.service_type === "meetAndGreet" && bookingDetails.service_subtype === "connection"))
                 ? (bookingDetails.dropoffLocationId === "other"
                   ? bookingDetails.customDropoffAddress
                   : dropoffLocation?.name)
